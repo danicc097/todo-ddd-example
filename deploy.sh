@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+go mod tidy
+
 go generate ./...
 
 docker build -t myapp-go:latest .

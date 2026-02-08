@@ -1,7 +1,6 @@
 # Setup
 
 ```bash
-go get -tool github.com/sqlc-dev/sqlc/cmd/sqlc
 ./deploy.sh
 # ...docker swarm cluster will be listening on port 8090
 # poor man's migration:
@@ -11,7 +10,6 @@ docker compose exec -T db psql -U postgres -d postgres < sql/schema.sql
 ## Commands
 
 - psql: `docker compose exec -ti db psql -U postgres -d postgres`
-- Deploy:
 
 # Example
 
