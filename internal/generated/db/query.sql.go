@@ -43,6 +43,37 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 	return i, err
 }
 
+const CreateUser = `-- name: CreateUser :one
+INSERT INTO users(id, email, name, created_at)
+  VALUES ($1, $2, $3, $4)
+RETURNING
+  id, email, name, created_at
+`
+
+type CreateUserParams struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	Email     string    `db:"email" json:"email"`
+	Name      string    `db:"name" json:"name"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error) {
+	row := db.QueryRow(ctx, CreateUser,
+		arg.ID,
+		arg.Email,
+		arg.Name,
+		arg.CreatedAt,
+	)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const GetTodoByID = `-- name: GetTodoByID :one
 SELECT
   id, title, status, created_at
@@ -59,6 +90,27 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos
 		&i.ID,
 		&i.Title,
 		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const GetUserByID = `-- name: GetUserByID :one
+SELECT
+  id, email, name, created_at
+FROM
+  users
+WHERE
+  id = $1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, db DBTX, id uuid.UUID) (Users, error) {
+	row := db.QueryRow(ctx, GetUserByID, id)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
 		&i.CreatedAt,
 	)
 	return i, err

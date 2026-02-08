@@ -19,8 +19,6 @@ type TodoHandler struct {
 	mapper     *TodoRestMapper
 }
 
-var _ api.ServerInterface = (*TodoHandler)(nil)
-
 func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.CompleteTodoUseCase, g *application.GetAllTodosUseCase, gt *application.GetTodoUseCase, hub *ws.TodoHub) *TodoHandler {
 	return &TodoHandler{
 		createUC:   c,
@@ -30,6 +28,10 @@ func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.Complete
 		hub:        hub,
 		mapper:     &TodoRestMapper{},
 	}
+}
+
+func (h *TodoHandler) WS(c *gin.Context) {
+	h.hub.HandleWebSocket(c.Writer, c.Request)
 }
 
 func (h *TodoHandler) CreateTodo(c *gin.Context) {
@@ -71,8 +73,4 @@ func (h *TodoHandler) CompleteTodo(c *gin.Context, id uuid.UUID) {
 		return
 	}
 	c.Status(http.StatusOK)
-}
-
-func (h *TodoHandler) WS(c *gin.Context) {
-	h.hub.HandleWebSocket(c.Writer, c.Request)
 }

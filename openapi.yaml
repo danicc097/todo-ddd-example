@@ -94,45 +94,72 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '500':
           $ref: '#/components/responses/ErrorResponse'
-
+  /users:
+    post:
+      operationId: registerUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+  /users/{id}:
+    get:
+      operationId: getUserByID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
 components:
   schemas:
     Todo:
       type: object
-      required:
-        - id
-        - title
-        - status
-        - createdAt
+      required: [id, title, status, createdAt]
       properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        status:
-          $ref: '#/components/schemas/TodoStatus'
-        createdAt:
-          type: string
-          format: date-time
-
+        id: { type: string, format: uuid }
+        title: { type: string }
+        status: { $ref: '#/components/schemas/TodoStatus' }
+        createdAt: { type: string, format: date-time }
     CreateTodoRequest:
       type: object
-      required:
-        - title
+      required: [title]
       properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 100
-
+        title: { type: string }
     TodoStatus:
       type: string
-      enum:
-        - PENDING
-        - COMPLETED
-        - ARCHIVED
-
+      enum: [PENDING, COMPLETED, ARCHIVED]
+    User:
+      type: object
+      required: [id, email, name]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+    RegisterUserRequest:
+      type: object
+      required: [email, name]
+      properties:
+        email: { type: string }
+        name: { type: string }
   responses:
     ErrorResponse:
       description: General error response
@@ -142,3 +169,4 @@ components:
             properties:
               error:
                 type: string
+

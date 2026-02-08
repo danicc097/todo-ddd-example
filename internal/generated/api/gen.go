@@ -25,6 +25,12 @@ type CreateTodoRequest struct {
 	Title string `json:"title"`
 }
 
+// RegisterUserRequest defines model for RegisterUserRequest.
+type RegisterUserRequest struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
 // Todo defines model for Todo.
 type Todo struct {
 	CreatedAt time.Time          `json:"createdAt"`
@@ -36,6 +42,13 @@ type Todo struct {
 // TodoStatus defines model for TodoStatus.
 type TodoStatus string
 
+// User defines model for User.
+type User struct {
+	Email string             `json:"email"`
+	Id    openapi_types.UUID `json:"id"`
+	Name  string             `json:"name"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
@@ -43,6 +56,9 @@ type ErrorResponse struct {
 
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
+
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -58,6 +74,12 @@ type ServerInterface interface {
 	// Complete a todo
 	// (PATCH /todos/{id}/complete)
 	CompleteTodo(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /users)
+	RegisterUser(c *gin.Context)
+
+	// (GET /users/{id})
+	GetUserByID(c *gin.Context, id openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -143,6 +165,43 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 	siw.Handler.CompleteTodo(c, id)
 }
 
+// RegisterUser operation middleware
+func (siw *ServerInterfaceWrapper) RegisterUser(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RegisterUser(c)
+}
+
+// GetUserByID operation middleware
+func (siw *ServerInterfaceWrapper) GetUserByID(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetUserByID(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -174,4 +233,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/todos", wrapper.CreateTodo)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)
+	router.POST(options.BaseURL+"/users", wrapper.RegisterUser)
+	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
 }

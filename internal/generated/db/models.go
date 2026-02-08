@@ -16,3 +16,10 @@ type Todos struct {
 	Status    string    `db:"status" json:"status"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
+
+type Users struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	Email     string    `db:"email" json:"email"`
+	Name      string    `db:"name" json:"name"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}

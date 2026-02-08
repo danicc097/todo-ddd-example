@@ -6,19 +6,27 @@ import (
 	"os"
 
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
+	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
+	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	redisPub "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
+	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
+	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
+	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	rdb "github.com/redis/go-redis/v9"
 )
 
+type CompositeHandler struct {
+	*todoHttp.TodoHandler
+	*userHttp.UserHandler
+}
+
 func main() {
 	ctx := context.Background()
-
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
 		log.Fatal("DATABASE_URL is not set")
@@ -40,24 +48,28 @@ func main() {
 		log.Fatalf("Unable to connect to redis: %v", err)
 	}
 
-	repo := postgres.NewTodoRepo(pool)
-	publisher := redis.NewRedisPublisher(redisClient)
+	todoRepo := todoPg.NewTodoRepo(pool)
+	publisher := redisPub.NewRedisPublisher(redisClient)
 	hub := ws.NewTodoHub(redisClient)
+	th := todoHttp.NewTodoHandler(
+		todoApp.NewCreateTodoUseCase(todoRepo),
+		todoApp.NewCompleteTodoUseCase(todoRepo, publisher),
+		todoApp.NewGetAllTodosUseCase(todoRepo),
+		todoApp.NewGetTodoUseCase(todoRepo),
+		hub,
+	)
 
-	createUC := application.NewCreateTodoUseCase(repo)
-	completeUC := application.NewCompleteTodoUseCase(repo, publisher)
-	getAllUC := application.NewGetAllTodosUseCase(repo)
-	getTodoUC := application.NewGetTodoUseCase(repo)
+	userRepo := userPg.NewUserRepo(pool)
+	uh := userHttp.NewUserHandler(
+		userApp.NewRegisterUserUseCase(userRepo),
+		userApp.NewGetUserUseCase(userRepo),
+	)
 
-	th := http.NewTodoHandler(createUC, completeUC, getAllUC, getTodoUC, hub)
+	handler := &CompositeHandler{TodoHandler: th, UserHandler: uh}
 
 	r := gin.Default()
-
-	api.RegisterHandlers(r.Group("/api/v1"), th)
-
+	api.RegisterHandlers(r.Group("/api/v1"), handler)
 	r.GET("/ws", th.WS)
 
-	if err := r.Run(":8090"); err != nil {
-		log.Fatal(err)
-	}
+	log.Fatal(r.Run(":8090"))
 }

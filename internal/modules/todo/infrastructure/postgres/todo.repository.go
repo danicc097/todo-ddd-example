@@ -27,12 +27,7 @@ func NewTodoRepo(pool *pgxpool.Pool) *TodoRepo {
 
 func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) (uuid.UUID, error) {
 	p := r.mapper.ToPersistence(t)
-	_, err := r.q.CreateTodo(ctx, r.pool, db.CreateTodoParams{
-		ID:        p.ID,
-		Title:     p.Title,
-		Status:    p.Status,
-		CreatedAt: p.CreatedAt,
-	})
+	_, err := r.q.CreateTodo(ctx, r.pool, db.CreateTodoParams(p))
 	return p.ID, err
 }
 

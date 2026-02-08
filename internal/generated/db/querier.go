@@ -12,7 +12,9 @@ import (
 
 type Querier interface {
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error)
+	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error)
+	GetUserByID(ctx context.Context, db DBTX, id uuid.UUID) (Users, error)
 	ListTodos(ctx context.Context, db DBTX) ([]Todos, error)
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
 }
