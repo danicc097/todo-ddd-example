@@ -1,0 +1,144 @@
+openapi: 3.0.3
+info:
+  title: Todo DDD API
+  version: 1.0.0
+  description: A Todo application using Hexagonal Architecture, Redis Pub/Sub, and WebSockets.
+
+servers:
+  - url: http://localhost:8090/api/v1
+    description: Local development server
+
+paths:
+  /todos:
+    get:
+      summary: List all todos
+      operationId: getAllTodos
+      tags:
+        - todo
+      responses:
+        '200':
+          description: A list of todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+    post:
+      summary: Create a new todo
+      operationId: createTodo
+      tags:
+        - todo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodoRequest'
+      responses:
+        '201':
+          description: Todo created
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /todos/{id}:
+    get:
+      summary: Get a todo by ID
+      operationId: getTodoByID
+      tags:
+        - todo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Todo found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /todos/{id}/complete:
+    patch:
+      summary: Complete a todo
+      operationId: completeTodo
+      tags:
+        - todo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Todo completed successfully
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  schemas:
+    Todo:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/TodoStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateTodoRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    TodoStatus:
+      type: string
+      enum:
+        - PENDING
+        - COMPLETED
+        - ARCHIVED
+
+  responses:
+    ErrorResponse:
+      description: General error response
+      content:
+        application/json:
+          schema:
+            properties:
+              error:
+                type: string

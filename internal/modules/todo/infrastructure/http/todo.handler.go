@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	"github.com/gin-gonic/gin"
@@ -18,13 +19,9 @@ type TodoHandler struct {
 	mapper     *TodoRestMapper
 }
 
-func NewTodoHandler(
-	c *application.CreateTodoUseCase,
-	comp *application.CompleteTodoUseCase,
-	g *application.GetAllTodosUseCase,
-	gt *application.GetTodoUseCase,
-	hub *ws.TodoHub,
-) *TodoHandler {
+var _ api.ServerInterface = (*TodoHandler)(nil)
+
+func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.CompleteTodoUseCase, g *application.GetAllTodosUseCase, gt *application.GetTodoUseCase, hub *ws.TodoHub) *TodoHandler {
 	return &TodoHandler{
 		createUC:   c,
 		completeUC: comp,
@@ -35,12 +32,13 @@ func NewTodoHandler(
 	}
 }
 
-func (h *TodoHandler) Create(c *gin.Context) {
-	var req createTodoRequest
+func (h *TodoHandler) CreateTodo(c *gin.Context) {
+	var req api.CreateTodoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	id, err := h.createUC.Execute(c.Request.Context(), application.CreateTodoCommand{Title: req.Title})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -49,12 +47,16 @@ func (h *TodoHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
-func (h *TodoHandler) GetByID(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
+func (h *TodoHandler) GetAllTodos(c *gin.Context) {
+	todos, err := h.getAllUC.Execute(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uuid"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	c.JSON(http.StatusOK, h.mapper.ToResponseList(todos))
+}
+
+func (h *TodoHandler) GetTodoByID(c *gin.Context, id uuid.UUID) {
 	todo, err := h.getTodoUC.Execute(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -63,12 +65,7 @@ func (h *TodoHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, h.mapper.ToResponse(todo))
 }
 
-func (h *TodoHandler) Complete(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid uuid"})
-		return
-	}
+func (h *TodoHandler) CompleteTodo(c *gin.Context, id uuid.UUID) {
 	if err := h.completeUC.Execute(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,13 +75,4 @@ func (h *TodoHandler) Complete(c *gin.Context) {
 
 func (h *TodoHandler) WS(c *gin.Context) {
 	h.hub.HandleWebSocket(c.Writer, c.Request)
-}
-
-func (h *TodoHandler) GetAll(c *gin.Context) {
-	todos, err := h.getAllUC.Execute(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, h.mapper.ToResponseList(todos))
 }

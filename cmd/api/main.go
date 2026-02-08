@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
@@ -25,7 +26,7 @@ func main() {
 
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
-		redisAddr = "redis:6379" // Default to docker service name
+		redisAddr = "redis:6379"
 	}
 
 	pool, err := pgxpool.New(ctx, dbUrl)
@@ -51,14 +52,10 @@ func main() {
 	th := http.NewTodoHandler(createUC, completeUC, getAllUC, getTodoUC, hub)
 
 	r := gin.Default()
+
+	api.RegisterHandlers(r.Group("/api/v1"), th)
+
 	r.GET("/ws", th.WS)
-	v1 := r.Group("/api/v1")
-	{
-		v1.GET("/todos", th.GetAll)
-		v1.GET("/todos/:id", th.GetByID)
-		v1.POST("/todos", th.Create)
-		v1.PATCH("/todos/:id/complete", th.Complete)
-	}
 
 	if err := r.Run(":8090"); err != nil {
 		log.Fatal(err)
