@@ -1,8 +1,8 @@
 package postgres
 
 import (
+	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres/generated/db"
 )
 
 type TodoMapper struct{}

@@ -15,7 +15,8 @@ import (
 const CreateTodo = `-- name: CreateTodo :one
 INSERT INTO todos(id, title, status, created_at)
   VALUES ($1, $2, $3, $4)
-RETURNING id, title, status, created_at
+RETURNING
+  id, title, status, created_at
 `
 
 type CreateTodoParams struct {
@@ -43,7 +44,12 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 }
 
 const GetTodoByID = `-- name: GetTodoByID :one
-SELECT id, title, status, created_at FROM todos WHERE id = $1
+SELECT
+  id, title, status, created_at
+FROM
+  todos
+WHERE
+  id = $1
 `
 
 func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error) {
@@ -59,7 +65,12 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos
 }
 
 const ListTodos = `-- name: ListTodos :many
-SELECT id, title, status, created_at FROM todos ORDER BY created_at DESC
+SELECT
+  id, title, status, created_at
+FROM
+  todos
+ORDER BY
+  created_at DESC
 `
 
 func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
@@ -88,7 +99,13 @@ func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
 }
 
 const UpdateTodo = `-- name: UpdateTodo :exec
-UPDATE todos SET title = $2, status = $3 WHERE id = $1
+UPDATE
+  todos
+SET
+  title = $2,
+  status = $3
+WHERE
+  id = $1
 `
 
 type UpdateTodoParams struct {
