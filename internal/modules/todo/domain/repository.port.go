@@ -2,10 +2,10 @@ package domain
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 )
 
+//counterfeiter:generate . TodoRepository
 type TodoRepository interface {
 	Save(ctx context.Context, todo *Todo) (uuid.UUID, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*Todo, error)
