@@ -46,16 +46,18 @@ func main() {
 	createUC := application.NewCreateTodoUseCase(repo)
 	completeUC := application.NewCompleteTodoUseCase(repo, publisher)
 	getAllUC := application.NewGetAllTodosUseCase(repo)
+	getTodoUC := application.NewGetTodoUseCase(repo)
 
-	handler := http.NewTodoHandler(createUC, completeUC, getAllUC, hub)
+	th := http.NewTodoHandler(createUC, completeUC, getAllUC, getTodoUC, hub)
 
 	r := gin.Default()
-	r.GET("/ws", handler.WS)
+	r.GET("/ws", th.WS)
 	v1 := r.Group("/api/v1")
 	{
-		v1.GET("/todos", handler.GetAll)
-		v1.POST("/todos", handler.Create)
-		v1.PATCH("/todos/:id/complete", handler.Complete)
+		v1.GET("/todos", th.GetAll)
+		v1.GET("/todos/:id", th.GetByID)
+		v1.POST("/todos", th.Create)
+		v1.PATCH("/todos/:id/complete", th.Complete)
 	}
 
 	if err := r.Run(":8090"); err != nil {
