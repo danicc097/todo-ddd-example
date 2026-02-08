@@ -25,14 +25,17 @@ func NewTodo(id uuid.UUID, title TodoTitle, status TodoStatus, createdAt time.Ti
 	}
 }
 
+// CreateTodo is the domain factory.
 func CreateTodo(title TodoTitle) *Todo {
 	return NewTodo(uuid.New(), title, StatusPending, time.Now())
 }
 
-func (t *Todo) Complete() {
-	if t.status != StatusArchived {
-		t.status = StatusCompleted
+func (t *Todo) Complete() error {
+	if t.status == StatusArchived {
+		return ErrInvalidStatus
 	}
+	t.status = StatusCompleted
+	return nil
 }
 
 func (t *Todo) ID() uuid.UUID        { return t.id }

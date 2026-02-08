@@ -9,12 +9,10 @@ type TodoMapper struct{}
 
 func (m *TodoMapper) ToDomain(row db.Todos) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
-	status, _ := domain.NewTodoStatus(row.Status)
-
 	return domain.NewTodo(
 		row.ID,
 		title,
-		status,
+		domain.TodoStatus(row.Status),
 		row.CreatedAt,
 	)
 }

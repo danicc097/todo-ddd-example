@@ -27,5 +27,9 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 
 	todo := domain.CreateTodo(title)
 
-	return uc.repo.Save(ctx, todo)
+	if _, err := uc.repo.Save(ctx, todo); err != nil {
+		return uuid.UUID{}, err
+	}
+
+	return todo.ID(), nil
 }

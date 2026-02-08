@@ -2,46 +2,48 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"net"
 	"os"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
-	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
-	todoDb "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	rdb "github.com/redis/go-redis/v9"
 )
 
 func main() {
-	dbUrl := os.Getenv("DATABASE_URL")
-	if dbUrl == "" {
-		log.Fatal("DATABASE_URL is not set")
-	}
+	ctx := context.Background()
 
-	pool, err := pgxpool.New(context.Background(), dbUrl)
-	if err != nil {
-		log.Fatal("Unable to connect to database:", err)
-	}
-	defer pool.Close()
+	pool, _ := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
+	redisClient := rdb.NewClient(&rdb.Options{Addr: "localhost:6379"})
 
-	todoRepo := todoDb.NewTodoRepo(pool)
+	repo := postgres.NewTodoRepo(pool)
+	publisher := redis.NewRedisPublisher(redisClient)
+	hub := ws.NewTodoHub(redisClient)
 
-	createTodoUC := application.NewCreateTodoUseCase(todoRepo)
-	completeTodoUC := application.NewCompleteTodoUseCase(todoRepo)
-	getAllTodoUC := application.NewGetAllTodosUseCase(todoRepo)
+	createUC := application.NewCreateTodoUseCase(repo)
+	completeUC := application.NewCompleteTodoUseCase(repo, publisher)
+	getAllUC := application.NewGetAllTodosUseCase(repo)
 
-	todoHandler := todoHttp.NewTodoHandler(createTodoUC, completeTodoUC, getAllTodoUC)
+	handler := http.NewTodoHandler(createUC, completeUC, getAllUC, hub)
 
 	r := gin.Default()
-
+	r.GET("/ws", handler.WS)
 	v1 := r.Group("/api/v1")
 	{
-		v1.POST("/todos", todoHandler.Create)
-		v1.PATCH("/todos/:id/complete", todoHandler.Complete)
-		v1.GET("/todos", todoHandler.GetAll)
+		v1.POST("/todos", handler.Create)
+		v1.PATCH("/todos/:id/complete", handler.Complete)
 	}
 
-	if err := r.Run(":8082"); err != nil {
-		log.Fatal(err)
-	}
+	ln, _ := net.Listen("tcp", ":0")
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+
+	fmt.Printf("Running in port %s\n", port)
+
+	r.RunListener(ln)
 }

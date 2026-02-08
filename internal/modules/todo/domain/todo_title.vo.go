@@ -6,8 +6,8 @@ import (
 )
 
 var (
+	ErrTitleEmpty   = errors.New("title cannot be empty")
 	ErrTitleTooLong = errors.New("title is too long")
-	ErrEmptyTitle   = errors.New("title cannot be emprty")
 )
 
 type TodoTitle struct {
@@ -17,7 +17,7 @@ type TodoTitle struct {
 func NewTodoTitle(val string) (TodoTitle, error) {
 	val = strings.TrimSpace(val)
 	if val == "" {
-		return TodoTitle{}, ErrEmptyTitle
+		return TodoTitle{}, ErrTitleEmpty
 	}
 	if len(val) > 100 {
 		return TodoTitle{}, ErrTitleTooLong
