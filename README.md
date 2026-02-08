@@ -4,7 +4,7 @@
 ./deploy.sh
 # ...docker swarm cluster will be listening on port 8090
 # poor man's migration:
-docker compose exec -T db psql -U postgres -d postgres < sql/schema.sql
+docker exec -i $(docker ps -q -f name=myapp_db) psql -U postgres -d postgres < sql/schema.sql
 ```
 
 ## Commands

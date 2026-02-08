@@ -12,11 +12,12 @@ type CreateTodoCommand struct {
 }
 
 type CreateTodoUseCase struct {
-	repo domain.TodoRepository
+	repo      domain.TodoRepository
+	publisher domain.EventPublisher
 }
 
-func NewCreateTodoUseCase(repo domain.TodoRepository) *CreateTodoUseCase {
-	return &CreateTodoUseCase{repo: repo}
+func NewCreateTodoUseCase(repo domain.TodoRepository, publisher domain.EventPublisher) *CreateTodoUseCase {
+	return &CreateTodoUseCase{repo: repo, publisher: publisher}
 }
 
 func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand) (uuid.UUID, error) {
@@ -28,6 +29,10 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 	todo := domain.CreateTodo(title)
 
 	if _, err := uc.repo.Save(ctx, todo); err != nil {
+		return uuid.UUID{}, err
+	}
+
+	if err := uc.publisher.PublishTodoCreated(ctx, todo); err != nil {
 		return uuid.UUID{}, err
 	}
 

@@ -49,10 +49,12 @@ func main() {
 	}
 
 	todoRepo := todoPg.NewTodoRepo(pool)
+
 	publisher := redisPub.NewRedisPublisher(redisClient)
+
 	hub := ws.NewTodoHub(redisClient)
 	th := todoHttp.NewTodoHandler(
-		todoApp.NewCreateTodoUseCase(todoRepo),
+		todoApp.NewCreateTodoUseCase(todoRepo, publisher),
 		todoApp.NewCompleteTodoUseCase(todoRepo, publisher),
 		todoApp.NewGetAllTodosUseCase(todoRepo),
 		todoApp.NewGetTodoUseCase(todoRepo),
