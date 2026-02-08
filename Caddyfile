@@ -1,3 +1,7 @@
 :80 {
     reverse_proxy go-app:8090
 }
+
+:15672 {
+    reverse_proxy rabbitmq:15672
+}

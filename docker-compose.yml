@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+
 services:
   go-app:
     image: myapp-go:latest
@@ -36,8 +36,7 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     ports:
-      - "5672:5672"
-      - "15672:15672" # UI
+      - "5672:5672" # AMQP exposed for local tools
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 10s
@@ -47,11 +46,13 @@ services:
   caddy:
     image: caddy:latest
     ports:
-      - "8090:80"
+      - "8090:80"    # App instances
+      - "15672:15672" # RabbitMQ UI
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
       - go-app
+      - rabbitmq
     deploy:
       restart_policy:
         condition: any

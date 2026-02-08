@@ -6,6 +6,8 @@ import (
 	"os"
 
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
@@ -53,9 +55,12 @@ func main() {
 	publisher := redisPub.NewRedisPublisher(redisClient)
 
 	hub := ws.NewTodoHub(redisClient)
+
+	tm := db.NewTransactionManager(pool)
+
 	th := todoHttp.NewTodoHandler(
-		todoApp.NewCreateTodoUseCase(todoRepo, publisher),
-		todoApp.NewCompleteTodoUseCase(todoRepo, publisher),
+		todoApp.NewCreateTodoUseCase(tm),
+		todoApp.NewCompleteTodoUseCase(tm, publisher),
 		todoApp.NewGetAllTodosUseCase(todoRepo),
 		todoApp.NewGetTodoUseCase(todoRepo),
 		hub,
@@ -67,11 +72,19 @@ func main() {
 		userApp.NewGetUserUseCase(userRepo),
 	)
 
+	relay := outbox.NewRelay(pool, publisher)
+	go relay.Start(ctx)
+
 	handler := &CompositeHandler{TodoHandler: th, UserHandler: uh}
 
 	r := gin.Default()
 	api.RegisterHandlers(r.Group("/api/v1"), handler)
 	r.GET("/ws", th.WS)
 
-	log.Fatal(r.Run(":8090"))
+	port := ":8090"
+	if os.Getenv("PORT") != "" {
+		port = ":" + os.Getenv("PORT")
+	}
+
+	log.Fatal(r.Run(port))
 }

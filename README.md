@@ -10,6 +10,7 @@ docker exec -i $(docker ps -q -f name=myapp_db) psql -U postgres -d postgres < s
 ## Commands
 
 - psql: `docker compose exec -ti db psql -U postgres -d postgres`
+- test: `go test ./...`
 
 # Example
 

@@ -5,58 +5,58 @@ import (
 	"testing"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
+type FakeTransactionManager struct {
+	repo *domainfakes.FakeTodoRepository
+}
+
+func (f *FakeTransactionManager) Exec(ctx context.Context, fn func(domain.TodoRepository) error) error {
+	return fn(f.repo)
+}
+
 func TestCreateTodoUseCase_Execute(t *testing.T) {
-	setup := func() (*domainfakes.FakeTodoRepository, *domainfakes.FakeEventPublisher, *application.CreateTodoUseCase) {
-		repo := &domainfakes.FakeTodoRepository{}
-		pub := &domainfakes.FakeEventPublisher{}
-		return repo, pub, application.NewCreateTodoUseCase(repo, pub)
-	}
+	t.Run("successfully create todo with tags and outbox event", func(t *testing.T) {
+		fakeRepo := &domainfakes.FakeTodoRepository{}
+		fakeTM := &FakeTransactionManager{repo: fakeRepo}
+		uc := application.NewCreateTodoUseCase(fakeTM)
 
-	t.Run("successfully create todo and publish event", func(t *testing.T) {
-		repo, pub, uc := setup()
+		tagID := uuid.New()
+		cmd := application.CreateTodoCommand{
+			Title:  "Senior Task",
+			TagIDs: []uuid.UUID{tagID},
+		}
 
-		repo.SaveReturns(uuid.New(), nil)
-		pub.PublishTodoCreatedReturns(nil)
-
-		cmd := application.CreateTodoCommand{Title: "RabbitMQ Task"}
 		id, err := uc.Execute(context.Background(), cmd)
 
 		assert.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, id)
 
-		assert.Equal(t, 1, repo.SaveCallCount())
-		assert.Equal(t, 1, pub.PublishTodoCreatedCallCount())
+		assert.Equal(t, 1, fakeRepo.SaveCallCount())
+		assert.Equal(t, 1, fakeRepo.AddTagCallCount())
+		assert.Equal(t, 1, fakeRepo.SaveEventCallCount())
 
-		_, savedTodo := pub.PublishTodoCreatedArgsForCall(0)
-		assert.Equal(t, id, savedTodo.ID())
-		assert.Equal(t, "RabbitMQ Task", savedTodo.Title().String())
+		_, tid, tTagID := fakeRepo.AddTagArgsForCall(0)
+		assert.Equal(t, id, tid)
+		assert.Equal(t, tagID, tTagID)
+
+		_, eventType, _ := fakeRepo.SaveEventArgsForCall(0)
+		assert.Equal(t, "todo.created", eventType)
 	})
 
 	t.Run("returns error when domain validation fails", func(t *testing.T) {
-		repo, _, uc := setup()
+		fakeRepo := &domainfakes.FakeTodoRepository{}
+		fakeTM := &FakeTransactionManager{repo: fakeRepo}
+		uc := application.NewCreateTodoUseCase(fakeTM)
 
 		cmd := application.CreateTodoCommand{Title: ""}
 		_, err := uc.Execute(context.Background(), cmd)
 
 		assert.Error(t, err)
-		assert.Equal(t, 0, repo.SaveCallCount())
-	})
-
-	t.Run("fail if publisher fails", func(t *testing.T) {
-		repo, pub, uc := setup()
-
-		repo.SaveReturns(uuid.New(), nil)
-		pub.PublishTodoCreatedReturns(assert.AnError)
-
-		cmd := application.CreateTodoCommand{Title: "Task"}
-		_, err := uc.Execute(context.Background(), cmd)
-
-		assert.Error(t, err)
-		assert.Equal(t, 1, repo.SaveCallCount())
+		assert.Equal(t, 0, fakeRepo.SaveCallCount())
 	})
 }

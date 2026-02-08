@@ -12,6 +12,21 @@ import (
 	"github.com/google/uuid"
 )
 
+const AddTagToTodo = `-- name: AddTagToTodo :exec
+INSERT INTO todo_tags(todo_id, tag_id)
+  VALUES ($1, $2)
+`
+
+type AddTagToTodoParams struct {
+	TodoID uuid.UUID `db:"todo_id" json:"todo_id"`
+	TagID  uuid.UUID `db:"tag_id" json:"tag_id"`
+}
+
+func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error {
+	_, err := db.Exec(ctx, AddTagToTodo, arg.TodoID, arg.TagID)
+	return err
+}
+
 const CreateTodo = `-- name: CreateTodo :one
 INSERT INTO todos(id, title, status, created_at)
   VALUES ($1, $2, $3, $4)
@@ -95,6 +110,44 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos
 	return i, err
 }
 
+const GetUnprocessedOutboxEvents = `-- name: GetUnprocessedOutboxEvents :many
+SELECT
+  id, event_type, payload, created_at, processed_at
+FROM
+  outbox
+WHERE
+  processed_at IS NULL
+ORDER BY
+  created_at ASC
+LIMIT 100
+`
+
+func (q *Queries) GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error) {
+	rows, err := db.Query(ctx, GetUnprocessedOutboxEvents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Outbox{}
+	for rows.Next() {
+		var i Outbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventType,
+			&i.Payload,
+			&i.CreatedAt,
+			&i.ProcessedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const GetUserByID = `-- name: GetUserByID :one
 SELECT
   id, email, name, created_at
@@ -148,6 +201,36 @@ func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const MarkOutboxEventProcessed = `-- name: MarkOutboxEventProcessed :exec
+UPDATE
+  outbox
+SET
+  processed_at = NOW()
+WHERE
+  id = $1
+`
+
+func (q *Queries) MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error {
+	_, err := db.Exec(ctx, MarkOutboxEventProcessed, id)
+	return err
+}
+
+const SaveOutboxEvent = `-- name: SaveOutboxEvent :exec
+INSERT INTO outbox(id, event_type, payload)
+  VALUES ($1, $2, $3)
+`
+
+type SaveOutboxEventParams struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	EventType string    `db:"event_type" json:"event_type"`
+	Payload   []byte    `db:"payload" json:"payload"`
+}
+
+func (q *Queries) SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error {
+	_, err := db.Exec(ctx, SaveOutboxEvent, arg.ID, arg.EventType, arg.Payload)
+	return err
 }
 
 const UpdateTodo = `-- name: UpdateTodo :exec

@@ -3,21 +3,22 @@ package application
 import (
 	"context"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 )
 
 type CreateTodoCommand struct {
-	Title string
+	Title  string
+	TagIDs []uuid.UUID
 }
 
 type CreateTodoUseCase struct {
-	repo      domain.TodoRepository
-	publisher domain.EventPublisher
+	tm db.TransactionManager
 }
 
-func NewCreateTodoUseCase(repo domain.TodoRepository, publisher domain.EventPublisher) *CreateTodoUseCase {
-	return &CreateTodoUseCase{repo: repo, publisher: publisher}
+func NewCreateTodoUseCase(tm db.TransactionManager) *CreateTodoUseCase {
+	return &CreateTodoUseCase{tm: tm}
 }
 
 func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand) (uuid.UUID, error) {
@@ -28,11 +29,24 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 
 	todo := domain.CreateTodo(title)
 
-	if _, err := uc.repo.Save(ctx, todo); err != nil {
-		return uuid.UUID{}, err
-	}
+	err = uc.tm.Exec(ctx, func(repo domain.TodoRepository) error {
+		if _, err := repo.Save(ctx, todo); err != nil {
+			return err
+		}
 
-	if err := uc.publisher.PublishTodoCreated(ctx, todo); err != nil {
+		for _, tagID := range cmd.TagIDs {
+			if err := repo.AddTag(ctx, todo.ID(), tagID); err != nil {
+				return err
+			}
+		}
+
+		return repo.SaveEvent(ctx, "todo.created", map[string]any{
+			"id":    todo.ID(),
+			"title": todo.Title().String(),
+		})
+	})
+
+	if err != nil {
 		return uuid.UUID{}, err
 	}
 

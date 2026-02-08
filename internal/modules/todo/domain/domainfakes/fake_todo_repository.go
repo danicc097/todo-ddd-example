@@ -10,6 +10,31 @@ import (
 )
 
 type FakeTodoRepository struct {
+	AddTagStub        func(context.Context, uuid.UUID, uuid.UUID) error
+	addTagMutex       sync.RWMutex
+	addTagArgsForCall []struct {
+		arg1 context.Context
+		arg2 uuid.UUID
+		arg3 uuid.UUID
+	}
+	addTagReturns struct {
+		result1 error
+	}
+	addTagReturnsOnCall map[int]struct {
+		result1 error
+	}
+	ExecuteInTransactionStub        func(context.Context, func(domain.TodoRepository) error) error
+	executeInTransactionMutex       sync.RWMutex
+	executeInTransactionArgsForCall []struct {
+		arg1 context.Context
+		arg2 func(domain.TodoRepository) error
+	}
+	executeInTransactionReturns struct {
+		result1 error
+	}
+	executeInTransactionReturnsOnCall map[int]struct {
+		result1 error
+	}
 	FindAllStub        func(context.Context) ([]*domain.Todo, error)
 	findAllMutex       sync.RWMutex
 	findAllArgsForCall []struct {
@@ -51,6 +76,19 @@ type FakeTodoRepository struct {
 		result1 uuid.UUID
 		result2 error
 	}
+	SaveEventStub        func(context.Context, string, any) error
+	saveEventMutex       sync.RWMutex
+	saveEventArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 any
+	}
+	saveEventReturns struct {
+		result1 error
+	}
+	saveEventReturnsOnCall map[int]struct {
+		result1 error
+	}
 	UpdateStub        func(context.Context, *domain.Todo) error
 	updateMutex       sync.RWMutex
 	updateArgsForCall []struct {
@@ -65,6 +103,131 @@ type FakeTodoRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeTodoRepository) AddTag(arg1 context.Context, arg2 uuid.UUID, arg3 uuid.UUID) error {
+	fake.addTagMutex.Lock()
+	ret, specificReturn := fake.addTagReturnsOnCall[len(fake.addTagArgsForCall)]
+	fake.addTagArgsForCall = append(fake.addTagArgsForCall, struct {
+		arg1 context.Context
+		arg2 uuid.UUID
+		arg3 uuid.UUID
+	}{arg1, arg2, arg3})
+	stub := fake.AddTagStub
+	fakeReturns := fake.addTagReturns
+	fake.recordInvocation("AddTag", []interface{}{arg1, arg2, arg3})
+	fake.addTagMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeTodoRepository) AddTagCallCount() int {
+	fake.addTagMutex.RLock()
+	defer fake.addTagMutex.RUnlock()
+	return len(fake.addTagArgsForCall)
+}
+
+func (fake *FakeTodoRepository) AddTagCalls(stub func(context.Context, uuid.UUID, uuid.UUID) error) {
+	fake.addTagMutex.Lock()
+	defer fake.addTagMutex.Unlock()
+	fake.AddTagStub = stub
+}
+
+func (fake *FakeTodoRepository) AddTagArgsForCall(i int) (context.Context, uuid.UUID, uuid.UUID) {
+	fake.addTagMutex.RLock()
+	defer fake.addTagMutex.RUnlock()
+	argsForCall := fake.addTagArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeTodoRepository) AddTagReturns(result1 error) {
+	fake.addTagMutex.Lock()
+	defer fake.addTagMutex.Unlock()
+	fake.AddTagStub = nil
+	fake.addTagReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeTodoRepository) AddTagReturnsOnCall(i int, result1 error) {
+	fake.addTagMutex.Lock()
+	defer fake.addTagMutex.Unlock()
+	fake.AddTagStub = nil
+	if fake.addTagReturnsOnCall == nil {
+		fake.addTagReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.addTagReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransaction(arg1 context.Context, arg2 func(domain.TodoRepository) error) error {
+	fake.executeInTransactionMutex.Lock()
+	ret, specificReturn := fake.executeInTransactionReturnsOnCall[len(fake.executeInTransactionArgsForCall)]
+	fake.executeInTransactionArgsForCall = append(fake.executeInTransactionArgsForCall, struct {
+		arg1 context.Context
+		arg2 func(domain.TodoRepository) error
+	}{arg1, arg2})
+	stub := fake.ExecuteInTransactionStub
+	fakeReturns := fake.executeInTransactionReturns
+	fake.recordInvocation("ExecuteInTransaction", []interface{}{arg1, arg2})
+	fake.executeInTransactionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransactionCallCount() int {
+	fake.executeInTransactionMutex.RLock()
+	defer fake.executeInTransactionMutex.RUnlock()
+	return len(fake.executeInTransactionArgsForCall)
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransactionCalls(stub func(context.Context, func(domain.TodoRepository) error) error) {
+	fake.executeInTransactionMutex.Lock()
+	defer fake.executeInTransactionMutex.Unlock()
+	fake.ExecuteInTransactionStub = stub
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransactionArgsForCall(i int) (context.Context, func(domain.TodoRepository) error) {
+	fake.executeInTransactionMutex.RLock()
+	defer fake.executeInTransactionMutex.RUnlock()
+	argsForCall := fake.executeInTransactionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransactionReturns(result1 error) {
+	fake.executeInTransactionMutex.Lock()
+	defer fake.executeInTransactionMutex.Unlock()
+	fake.ExecuteInTransactionStub = nil
+	fake.executeInTransactionReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeTodoRepository) ExecuteInTransactionReturnsOnCall(i int, result1 error) {
+	fake.executeInTransactionMutex.Lock()
+	defer fake.executeInTransactionMutex.Unlock()
+	fake.ExecuteInTransactionStub = nil
+	if fake.executeInTransactionReturnsOnCall == nil {
+		fake.executeInTransactionReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.executeInTransactionReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeTodoRepository) FindAll(arg1 context.Context) ([]*domain.Todo, error) {
@@ -259,6 +422,69 @@ func (fake *FakeTodoRepository) SaveReturnsOnCall(i int, result1 uuid.UUID, resu
 		result1 uuid.UUID
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeTodoRepository) SaveEvent(arg1 context.Context, arg2 string, arg3 any) error {
+	fake.saveEventMutex.Lock()
+	ret, specificReturn := fake.saveEventReturnsOnCall[len(fake.saveEventArgsForCall)]
+	fake.saveEventArgsForCall = append(fake.saveEventArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 any
+	}{arg1, arg2, arg3})
+	stub := fake.SaveEventStub
+	fakeReturns := fake.saveEventReturns
+	fake.recordInvocation("SaveEvent", []interface{}{arg1, arg2, arg3})
+	fake.saveEventMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeTodoRepository) SaveEventCallCount() int {
+	fake.saveEventMutex.RLock()
+	defer fake.saveEventMutex.RUnlock()
+	return len(fake.saveEventArgsForCall)
+}
+
+func (fake *FakeTodoRepository) SaveEventCalls(stub func(context.Context, string, any) error) {
+	fake.saveEventMutex.Lock()
+	defer fake.saveEventMutex.Unlock()
+	fake.SaveEventStub = stub
+}
+
+func (fake *FakeTodoRepository) SaveEventArgsForCall(i int) (context.Context, string, any) {
+	fake.saveEventMutex.RLock()
+	defer fake.saveEventMutex.RUnlock()
+	argsForCall := fake.saveEventArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeTodoRepository) SaveEventReturns(result1 error) {
+	fake.saveEventMutex.Lock()
+	defer fake.saveEventMutex.Unlock()
+	fake.SaveEventStub = nil
+	fake.saveEventReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeTodoRepository) SaveEventReturnsOnCall(i int, result1 error) {
+	fake.saveEventMutex.Lock()
+	defer fake.saveEventMutex.Unlock()
+	fake.SaveEventStub = nil
+	if fake.saveEventReturnsOnCall == nil {
+		fake.saveEventReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.saveEventReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeTodoRepository) Update(arg1 context.Context, arg2 *domain.Todo) error {

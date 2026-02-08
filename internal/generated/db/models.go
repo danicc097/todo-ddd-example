@@ -10,6 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type Outbox struct {
+	ID          uuid.UUID  `db:"id" json:"id"`
+	EventType   string     `db:"event_type" json:"event_type"`
+	Payload     []byte     `db:"payload" json:"payload"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	ProcessedAt *time.Time `db:"processed_at" json:"processed_at"`
+}
+
+type Tags struct {
+	ID   uuid.UUID `db:"id" json:"id"`
+	Name string    `db:"name" json:"name"`
+}
+
+type TodoTags struct {
+	TodoID uuid.UUID `db:"todo_id" json:"todo_id"`
+	TagID  uuid.UUID `db:"tag_id" json:"tag_id"`
+}
+
 type Todos struct {
 	ID        uuid.UUID `db:"id" json:"id"`
 	Title     string    `db:"title" json:"title"`
