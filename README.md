@@ -3,8 +3,10 @@
 ```bash
 go get -tool github.com/sqlc-dev/sqlc/cmd/sqlc
 go generate ./...
-# assume migrated db
-DATABASE_URL=postgresql://postgres:postgres@localhost:5656/postgres go run cmd/api/main.go
+# assume migrated db. Run twice or more to mimick cluster and take note of ports
+# TODO:
+DATABASE_URL=postgresql://postgres:postgres@localhost:5656/postgres go run cmd/api/main.go &
+DATABASE_URL=postgresql://postgres:postgres@localhost:5656/postgres go run cmd/api/main.go &
 ```
 
 # Example
@@ -13,7 +15,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5656/postgres go run cmd/a
 # listen to todo updates:
 wscat -c http://localhost:PORT/ws
 >>> Connected (press CTRL+C to quit)
->>> < {"..."}
+>>> < {"..."} # (will get notified regardless of node)
 # create
 curl -X POST http://localhost:PORT/api/v1/todos -d '{"title": "New todo"}'
 >>> {"id":"c9e34c82-5b43-4e7e-a650-bca484057943"}
