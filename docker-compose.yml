@@ -1,0 +1,52 @@
+services:
+  go-app:
+    image: myapp-go:latest
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - REDIS_ADDR=redis:6379
+    deploy:
+      replicas: 3
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+      - PGDATA"/var/lib/postgresql/data
+    ports:
+      - "5732:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data/
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+
+  caddy:
+    image: caddy:latest
+    ports:
+      - "8090:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - go-app
+    deploy:
+      restart_policy:
+        condition: any
+
+volumes:
+  pg_data: {}

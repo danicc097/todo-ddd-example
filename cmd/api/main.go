@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"net"
+	"log"
 	"os"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
@@ -19,8 +18,26 @@ import (
 func main() {
 	ctx := context.Background()
 
-	pool, _ := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
-	redisClient := rdb.NewClient(&rdb.Options{Addr: "localhost:6379"})
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		log.Fatal("DATABASE_URL is not set")
+	}
+
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "redis:6379" // Default to docker service name
+	}
+
+	pool, err := pgxpool.New(ctx, dbUrl)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	redisClient := rdb.NewClient(&rdb.Options{Addr: redisAddr})
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Unable to connect to redis: %v", err)
+	}
 
 	repo := postgres.NewTodoRepo(pool)
 	publisher := redis.NewRedisPublisher(redisClient)
@@ -36,14 +53,12 @@ func main() {
 	r.GET("/ws", handler.WS)
 	v1 := r.Group("/api/v1")
 	{
+		v1.GET("/todos", handler.GetAll)
 		v1.POST("/todos", handler.Create)
 		v1.PATCH("/todos/:id/complete", handler.Complete)
 	}
 
-	ln, _ := net.Listen("tcp", ":0")
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-
-	fmt.Printf("Running in port %s\n", port)
-
-	r.RunListener(ln)
+	if err := r.Run(":8090"); err != nil {
+		log.Fatal(err)
+	}
 }

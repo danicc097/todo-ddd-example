@@ -12,10 +12,6 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
-	Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
-		fmt.Printf("Error upgrading WebSocket: %s\n", reason)
-		http.Error(w, reason.Error(), status)
-	},
 }
 
 type TodoHub struct {
@@ -36,6 +32,7 @@ func NewTodoHub(r *redis.Client) *TodoHub {
 func (h *TodoHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		fmt.Printf("Upgrade error: %v\n", err)
 		return
 	}
 	h.mutex.Lock()
@@ -45,6 +42,7 @@ func (h *TodoHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func (h *TodoHub) listenRedis() {
 	pubsub := h.redis.Subscribe(context.Background(), "todo_updates")
+	defer pubsub.Close()
 	ch := pubsub.Channel()
 
 	for msg := range ch {
