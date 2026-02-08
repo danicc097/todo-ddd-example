@@ -12,6 +12,14 @@ FROM
 WHERE
   id = $1;
 
+-- name: ListTodos :many
+SELECT
+  *
+FROM
+  todos
+ORDER BY
+  created_at DESC;
+
 -- name: UpdateTodo :exec
 UPDATE
   todos
@@ -20,4 +28,3 @@ SET
   completed = $3
 WHERE
   id = $1;
-

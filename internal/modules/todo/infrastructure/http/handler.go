@@ -12,10 +12,19 @@ import (
 type TodoHandler struct {
 	createUC   *application.CreateTodoUseCase
 	completeUC *application.CompleteTodoUseCase
+	getAllUC   *application.GetAllTodosUseCase
 }
 
-func NewTodoHandler(create *application.CreateTodoUseCase, complete *application.CompleteTodoUseCase) *TodoHandler {
-	return &TodoHandler{createUC: create, completeUC: complete}
+func NewTodoHandler(
+	create *application.CreateTodoUseCase,
+	complete *application.CompleteTodoUseCase,
+	getAll *application.GetAllTodosUseCase,
+) *TodoHandler {
+	return &TodoHandler{
+		createUC:   create,
+		completeUC: complete,
+		getAllUC:   getAll,
+	}
 }
 
 type createRequest struct {
@@ -62,4 +71,14 @@ func (h *TodoHandler) Complete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (h *TodoHandler) GetAll(c *gin.Context) {
+	todos, err := h.getAllUC.Execute(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, todos)
 }

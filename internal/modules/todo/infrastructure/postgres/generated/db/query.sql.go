@@ -64,6 +64,40 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos
 	return i, err
 }
 
+const ListTodos = `-- name: ListTodos :many
+SELECT
+  id, title, completed, created_at
+FROM
+  todos
+ORDER BY
+  created_at DESC
+`
+
+func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
+	rows, err := db.Query(ctx, ListTodos)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Todos{}
+	for rows.Next() {
+		var i Todos
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Completed,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpdateTodo = `-- name: UpdateTodo :exec
 UPDATE
   todos

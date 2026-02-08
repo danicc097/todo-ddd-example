@@ -28,8 +28,9 @@ func main() {
 
 	createTodoUC := application.NewCreateTodoUseCase(todoRepo)
 	completeTodoUC := application.NewCompleteTodoUseCase(todoRepo)
+	getAllTodoUC := application.NewGetAllTodosUseCase(todoRepo)
 
-	todoHandler := todoHttp.NewTodoHandler(createTodoUC, completeTodoUC)
+	todoHandler := todoHttp.NewTodoHandler(createTodoUC, completeTodoUC, getAllTodoUC)
 
 	r := gin.Default()
 
@@ -37,6 +38,7 @@ func main() {
 	{
 		v1.POST("/todos", todoHandler.Create)
 		v1.PATCH("/todos/:id/complete", todoHandler.Complete)
+		v1.GET("/todos", todoHandler.GetAll)
 	}
 
 	if err := r.Run(":8082"); err != nil {

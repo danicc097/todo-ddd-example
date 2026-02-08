@@ -50,6 +50,24 @@ func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, er
 	}, nil
 }
 
+func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
+	rows, err := r.q.ListTodos(ctx, r.pool)
+	if err != nil {
+		return nil, err
+	}
+
+	todos := make([]*domain.Todo, len(rows))
+	for i, row := range rows {
+		todos[i] = &domain.Todo{
+			ID:        row.ID,
+			Title:     row.Title,
+			Completed: row.Completed,
+			CreatedAt: row.CreatedAt,
+		}
+	}
+	return todos, nil
+}
+
 func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 	return r.q.UpdateTodo(ctx, r.pool, db.UpdateTodoParams{
 		ID:        t.ID,

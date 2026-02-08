@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error)
 	GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error)
+	ListTodos(ctx context.Context, db DBTX) ([]Todos, error)
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
 }
 
