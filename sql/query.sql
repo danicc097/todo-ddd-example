@@ -1,5 +1,5 @@
 -- name: CreateTodo :one
-INSERT INTO todos(id, title, completed, created_at)
+INSERT INTO todos(id, title, status, created_at)
   VALUES ($1, $2, $3, $4)
 RETURNING
   *;
@@ -25,6 +25,7 @@ UPDATE
   todos
 SET
   title = $2,
-  completed = $3
+  status = $3
 WHERE
   id = $1;
+

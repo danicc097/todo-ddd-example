@@ -15,20 +15,19 @@ type TodoHandler struct {
 	getAllUC   *application.GetAllTodosUseCase
 }
 
-func NewTodoHandler(
-	create *application.CreateTodoUseCase,
-	complete *application.CompleteTodoUseCase,
-	getAll *application.GetAllTodosUseCase,
-) *TodoHandler {
-	return &TodoHandler{
-		createUC:   create,
-		completeUC: complete,
-		getAllUC:   getAll,
-	}
+func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.CompleteTodoUseCase, g *application.GetAllTodosUseCase) *TodoHandler {
+	return &TodoHandler{createUC: c, completeUC: comp, getAllUC: g}
 }
 
 type createRequest struct {
 	Title string `json:"title" binding:"required"`
+}
+
+type todoResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Title     string    `json:"title"`
+	Status    string    `json:"status"`
+	CreatedAt string    `json:"createdAt"`
 }
 
 func (h *TodoHandler) Create(c *gin.Context) {
@@ -37,19 +36,11 @@ func (h *TodoHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	cmd := application.CreateTodoCommand{Title: req.Title}
-
-	id, err := h.createUC.Execute(c.Request.Context(), cmd)
+	id, err := h.createUC.Execute(c.Request.Context(), application.CreateTodoCommand{Title: req.Title})
 	if err != nil {
-		if err == domain.ErrEmptyTitle {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 
@@ -80,5 +71,14 @@ func (h *TodoHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, todos)
+	res := make([]todoResponse, len(todos))
+	for i, t := range todos {
+		res[i] = todoResponse{
+			ID:        t.ID(),
+			Title:     t.Title().String(),
+			Status:    t.Status().String(),
+			CreatedAt: t.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+	c.JSON(http.StatusOK, res)
 }

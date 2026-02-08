@@ -13,16 +13,15 @@ import (
 )
 
 const CreateTodo = `-- name: CreateTodo :one
-INSERT INTO todos(id, title, completed, created_at)
+INSERT INTO todos(id, title, status, created_at)
   VALUES ($1, $2, $3, $4)
-RETURNING
-  id, title, completed, created_at
+RETURNING id, title, status, created_at
 `
 
 type CreateTodoParams struct {
 	ID        uuid.UUID `db:"id" json:"id"`
 	Title     string    `db:"title" json:"title"`
-	Completed bool      `db:"completed" json:"completed"`
+	Status    string    `db:"status" json:"status"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
@@ -30,26 +29,21 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 	row := db.QueryRow(ctx, CreateTodo,
 		arg.ID,
 		arg.Title,
-		arg.Completed,
+		arg.Status,
 		arg.CreatedAt,
 	)
 	var i Todos
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
-		&i.Completed,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const GetTodoByID = `-- name: GetTodoByID :one
-SELECT
-  id, title, completed, created_at
-FROM
-  todos
-WHERE
-  id = $1
+SELECT id, title, status, created_at FROM todos WHERE id = $1
 `
 
 func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error) {
@@ -58,19 +52,14 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
-		&i.Completed,
+		&i.Status,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const ListTodos = `-- name: ListTodos :many
-SELECT
-  id, title, completed, created_at
-FROM
-  todos
-ORDER BY
-  created_at DESC
+SELECT id, title, status, created_at FROM todos ORDER BY created_at DESC
 `
 
 func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
@@ -85,7 +74,7 @@ func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
-			&i.Completed,
+			&i.Status,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -99,22 +88,16 @@ func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
 }
 
 const UpdateTodo = `-- name: UpdateTodo :exec
-UPDATE
-  todos
-SET
-  title = $2,
-  completed = $3
-WHERE
-  id = $1
+UPDATE todos SET title = $2, status = $3 WHERE id = $1
 `
 
 type UpdateTodoParams struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Title     string    `db:"title" json:"title"`
-	Completed bool      `db:"completed" json:"completed"`
+	ID     uuid.UUID `db:"id" json:"id"`
+	Title  string    `db:"title" json:"title"`
+	Status string    `db:"status" json:"status"`
 }
 
 func (q *Queries) UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error {
-	_, err := db.Exec(ctx, UpdateTodo, arg.ID, arg.Title, arg.Completed)
+	_, err := db.Exec(ctx, UpdateTodo, arg.ID, arg.Title, arg.Status)
 	return err
 }

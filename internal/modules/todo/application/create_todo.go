@@ -20,10 +20,12 @@ func NewCreateTodoUseCase(repo domain.TodoRepository) *CreateTodoUseCase {
 }
 
 func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand) (uuid.UUID, error) {
-	todo, err := domain.NewTodo(cmd.Title)
+	title, err := domain.NewTodoTitle(cmd.Title)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
+
+	todo := domain.CreateTodo(title)
 
 	return uc.repo.Save(ctx, todo)
 }
