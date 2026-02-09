@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/refs/heads/main/schema/compose-spec.json
+services:
+  go-app:
+    image: myapp-go:latest
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+    networks:
+      - myapp-net
+
+networks:
+  myapp-net:
+    driver: overlay
+    external: true
+    attachable: true

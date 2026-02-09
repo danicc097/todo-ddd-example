@@ -15,7 +15,7 @@ processors:
 
 exporters:
   otlp/jaeger:
-    endpoint: jaeger:4317
+    endpoint: myapp-jaeger:4317
     tls:
       insecure: true
   prometheus:

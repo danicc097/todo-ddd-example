@@ -5,10 +5,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 FROM base AS dev
-RUN go install github.com/air-verse/air@latest
-ENV PATH="/go/bin:${PATH}"
 COPY . .
-CMD ["air", "-c", ".air.toml"]
+CMD ["go", "run", "./cmd/api/main.go"]
 
 FROM base AS builder
 COPY . .

@@ -7,6 +7,7 @@ endif
 
 SQLC   := go tool sqlc
 PGROLL := go tool pgroll
+AIR    := go tool air
 
 DB_USER ?= postgres
 DB_PASS ?= postgres
@@ -15,6 +16,7 @@ DB_PORT ?= 5732
 DB_NAME ?= postgres
 SERVICE ?= myapp
 
+# URLs
 PG_URL     := postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 GEN_DB     := $(SERVICE)_gen
 GEN_PG_URL := postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(GEN_DB)?sslmode=disable
@@ -22,8 +24,8 @@ GEN_PG_URL := postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(GEN_DB)
 MIGRATIONS_DIR := ./migrations
 SCHEMA_OUT     := ./sql/schema.sql
 
-DB_CONTAINER_ID = $(shell docker ps -q -f name=$(SERVICE)_db)
-DOCKER_PSQL = docker exec -i $(DB_CONTAINER_ID) psql -U $(DB_USER)
+DB_CONTAINER_NAME = myapp-db
+DOCKER_PSQL = docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER)
 
 .PHONY: all test clean deps
 all: test build
@@ -33,6 +35,9 @@ deps:
 	$(SQLC) version
 	$(PGROLL) --version
 
+dev:
+	$(AIR) -c .air.toml
+
 test:
 	go test -v ./...
 
@@ -41,22 +46,24 @@ clean:
 
 .PHONY: gen-sqlc
 gen-sqlc:
-	@if [ -z "$(DB_CONTAINER_ID)" ]; then echo "DB container not found. Is the stack running?"; exit 1; fi
+	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \
+		echo "Error: Container $(DB_CONTAINER_NAME) not found. Run 'make deploy' first."; exit 1; \
+	fi
 
-	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" &>/dev/null
-	$(DOCKER_PSQL) -d postgres -c "CREATE DATABASE $(GEN_DB);" &>/dev/null
+	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
+	$(DOCKER_PSQL) -d postgres -c "CREATE DATABASE $(GEN_DB);" >/dev/null
 
 	$(PGROLL) --postgres-url "$(GEN_PG_URL)" init
 
 	find $(MIGRATIONS_DIR) -name "*.json" | sort | xargs -I % $(PGROLL) --postgres-url "$(GEN_PG_URL)" start --complete %
 
-	docker exec -i $(DB_CONTAINER_ID) pg_dump -s -x -n public -U $(DB_USER) -d $(GEN_DB) \
+	docker exec -i $(DB_CONTAINER_NAME) pg_dump -s -x -n public -U $(DB_USER) -d $(GEN_DB) \
 		| grep -v '^\\' \
 		| grep -v '^--' \
 		| sed '/^$$/d' \
 		> $(SCHEMA_OUT)
 
-	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" &>/dev/null
+	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
 
 	$(SQLC) generate -f internal/sqlc.yaml
 
@@ -64,12 +71,20 @@ gen-sqlc:
 db-init:
 	$(PGROLL) --postgres-url "$(PG_URL)" init
 
+# Idempotent migration target
 migrate-up:
 	echo "Running migrations against $(PG_URL)..."
-	$(PGROLL) --postgres-url "$(PG_URL)" init || true
+	$(PGROLL) --postgres-url "$(PG_URL)" init 2>/dev/null || true
+
 	for file in $$(find $(MIGRATIONS_DIR) -name "*.json" | sort); do \
-		echo "Applying $$file..."; \
-		$(PGROLL) --postgres-url "$(PG_URL)" start --complete $$file; \
+		NAME=$$(basename $$file .json); \
+		EXISTS=$$(docker exec $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d $(DB_NAME) -tAc "SELECT EXISTS(SELECT 1 FROM pgroll.migrations WHERE name = '$$NAME')"); \
+		if [ "$$EXISTS" = "t" ]; then \
+			echo "Skipping $$NAME (already applied)"; \
+		else \
+			echo "Applying $$file..."; \
+			$(PGROLL) --postgres-url "$(PG_URL)" start --complete $$file || exit 1; \
+		fi \
 	done
 
 .PHONY: deploy psql logs debug-swarm
@@ -77,7 +92,7 @@ deploy:
 	./deploy.sh
 
 psql:
-	docker exec -it $(DB_CONTAINER_ID) psql -U $(DB_USER) -d $(DB_NAME)
+	docker exec -it $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d $(DB_NAME)
 
 logs:
 	docker service logs -f $(SERVICE)_go-app
@@ -85,7 +100,7 @@ logs:
 debug-swarm:
 	docker service ps --no-trunc $(SERVICE)_go-app
 
-API_URL := http://127.0.0.1:8090
+API_URL ?= http://127.0.0.1:8090
 
 .PHONY: req-create req-list req-complete ws-listen
 
