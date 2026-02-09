@@ -1,5 +1,5 @@
 :80 {
-    reverse_proxy go-app:8090
+    reverse_proxy go-app:8080
 }
 
 :15672 {

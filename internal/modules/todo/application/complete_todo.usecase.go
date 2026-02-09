@@ -9,20 +9,16 @@ import (
 )
 
 type CompleteTodoUseCase struct {
-	tm        db.TransactionManager
-	publisher domain.EventPublisher
+	tm db.TransactionManager
 }
 
-func NewCompleteTodoUseCase(tm db.TransactionManager, publisher domain.EventPublisher) *CompleteTodoUseCase {
-	return &CompleteTodoUseCase{tm: tm, publisher: publisher}
+func NewCompleteTodoUseCase(tm db.TransactionManager) *CompleteTodoUseCase {
+	return &CompleteTodoUseCase{tm: tm}
 }
 
 func (uc *CompleteTodoUseCase) Execute(ctx context.Context, id uuid.UUID) error {
-	var todo *domain.Todo
-
-	err := uc.tm.Exec(ctx, func(repo domain.TodoRepository) error {
-		var err error
-		todo, err = repo.FindByID(ctx, id)
+	return uc.tm.Exec(ctx, func(repo domain.TodoRepository) error {
+		todo, err := repo.FindByID(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -35,12 +31,6 @@ func (uc *CompleteTodoUseCase) Execute(ctx context.Context, id uuid.UUID) error 
 			return err
 		}
 
-		return repo.SaveEvent(ctx, "todo.completed", map[string]any{"id": id})
+		return repo.SaveEvent(ctx, "todo.completed", todo)
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return uc.publisher.PublishTodoUpdated(ctx, todo)
 }

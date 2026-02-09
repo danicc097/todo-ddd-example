@@ -2,27 +2,32 @@ package outbox
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type Handler func(ctx context.Context, payload []byte) error
+
 type Relay struct {
-	pool      *pgxpool.Pool
-	q         *db.Queries
-	publisher domain.EventPublisher
+	pool     *pgxpool.Pool
+	q        *db.Queries
+	handlers map[string]Handler
 }
 
-func NewRelay(pool *pgxpool.Pool, publisher domain.EventPublisher) *Relay {
+func NewRelay(pool *pgxpool.Pool) *Relay {
 	return &Relay{
-		pool:      pool,
-		q:         db.New(),
-		publisher: publisher,
+		pool:     pool,
+		q:        db.New(),
+		handlers: make(map[string]Handler),
 	}
+}
+
+func (r *Relay) Register(eventType string, h Handler) {
+	r.handlers[eventType] = h
 }
 
 func (r *Relay) Start(ctx context.Context) {
@@ -42,38 +47,29 @@ func (r *Relay) Start(ctx context.Context) {
 func (r *Relay) processEvents(ctx context.Context) {
 	events, err := r.q.GetUnprocessedOutboxEvents(ctx, r.pool)
 	if err != nil {
-		log.Printf("failed to fetch outbox events: %v", err)
+		log.Printf("relay: failed to fetch events: %v", err)
 		return
 	}
 
 	for _, event := range events {
-		var payload map[string]any
-		if err := json.Unmarshal(event.Payload, &payload); err != nil {
-			log.Printf("failed to unmarshal outbox payload %s: %v", event.ID, err)
-			continue // retry later
+		handler, ok := r.handlers[event.EventType]
+		if !ok {
+			log.Printf("relay: no handler for event type: %s", event.EventType)
+			r.markProcessed(ctx, event.ID)
+			continue
 		}
 
-		err = r.publish(ctx, event.EventType, payload)
-		if err != nil {
-			log.Printf("failed to relay event %s: %v", event.ID, err)
-			continue // retry later
+		if err := handler(ctx, event.Payload); err != nil {
+			log.Printf("relay: handler failed for event %s: %v", event.ID, err)
+			continue
 		}
 
-		if err := r.q.MarkOutboxEventProcessed(ctx, r.pool, event.ID); err != nil {
-			log.Printf("failed to mark event %s as processed: %v", event.ID, err)
-		}
+		r.markProcessed(ctx, event.ID)
 	}
 }
 
-func (r *Relay) publish(ctx context.Context, eventType string, data map[string]any) error {
-	log.Printf("Relaying event: %s", eventType)
-
-	switch eventType {
-	case "todo.created", "todo.completed":
-		// TODO: reconstruct
-		return nil
-	default:
-		log.Printf("Warning: unknown event type ignored: %s", eventType)
-		return nil
+func (r *Relay) markProcessed(ctx context.Context, id uuid.UUID) {
+	if err := r.q.MarkOutboxEventProcessed(ctx, r.pool, id); err != nil {
+		log.Printf("relay: failed to mark event %s processed: %v", id, err)
 	}
 }

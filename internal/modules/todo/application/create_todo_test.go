@@ -20,10 +20,14 @@ func (f *FakeTransactionManager) Exec(ctx context.Context, fn func(domain.TodoRe
 }
 
 func TestCreateTodoUseCase_Execute(t *testing.T) {
+	setup := func() (*domainfakes.FakeTodoRepository, *application.CreateTodoUseCase) {
+		repo := &domainfakes.FakeTodoRepository{}
+		tm := &FakeTransactionManager{repo: repo}
+		return repo, application.NewCreateTodoUseCase(tm)
+	}
+
 	t.Run("successfully create todo with tags and outbox event", func(t *testing.T) {
-		fakeRepo := &domainfakes.FakeTodoRepository{}
-		fakeTM := &FakeTransactionManager{repo: fakeRepo}
-		uc := application.NewCreateTodoUseCase(fakeTM)
+		repo, uc := setup()
 
 		tagID := uuid.New()
 		cmd := application.CreateTodoCommand{
@@ -36,27 +40,27 @@ func TestCreateTodoUseCase_Execute(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, id)
 
-		assert.Equal(t, 1, fakeRepo.SaveCallCount())
-		assert.Equal(t, 1, fakeRepo.AddTagCallCount())
-		assert.Equal(t, 1, fakeRepo.SaveEventCallCount())
+		assert.Equal(t, 1, repo.SaveCallCount())
+		assert.Equal(t, 1, repo.AddTagCallCount())
+		assert.Equal(t, 1, repo.SaveEventCallCount())
 
-		_, tid, tTagID := fakeRepo.AddTagArgsForCall(0)
+		_, tid, tTagID := repo.AddTagArgsForCall(0)
 		assert.Equal(t, id, tid)
 		assert.Equal(t, tagID, tTagID)
 
-		_, eventType, _ := fakeRepo.SaveEventArgsForCall(0)
+		_, eventType, payload := repo.SaveEventArgsForCall(0)
 		assert.Equal(t, "todo.created", eventType)
+		assert.IsType(t, &domain.Todo{}, payload)
 	})
 
 	t.Run("returns error when domain validation fails", func(t *testing.T) {
-		fakeRepo := &domainfakes.FakeTodoRepository{}
-		fakeTM := &FakeTransactionManager{repo: fakeRepo}
-		uc := application.NewCreateTodoUseCase(fakeTM)
+		repo, uc := setup()
 
 		cmd := application.CreateTodoCommand{Title: ""}
 		_, err := uc.Execute(context.Background(), cmd)
 
 		assert.Error(t, err)
-		assert.Equal(t, 0, fakeRepo.SaveCallCount())
+		assert.Equal(t, 0, repo.SaveCallCount())
+		assert.Equal(t, 0, repo.SaveEventCallCount())
 	})
 }

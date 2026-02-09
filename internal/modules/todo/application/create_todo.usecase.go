@@ -40,10 +40,7 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 			}
 		}
 
-		return repo.SaveEvent(ctx, "todo.created", map[string]any{
-			"id":    todo.ID(),
-			"title": todo.Title().String(),
-		})
+		return repo.SaveEvent(ctx, "todo.created", todo)
 	})
 
 	if err != nil {

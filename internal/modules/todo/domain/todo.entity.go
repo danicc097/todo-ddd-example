@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -25,7 +26,6 @@ func NewTodo(id uuid.UUID, title TodoTitle, status TodoStatus, createdAt time.Ti
 	}
 }
 
-// CreateTodo is the domain factory.
 func CreateTodo(title TodoTitle) *Todo {
 	return NewTodo(uuid.New(), title, StatusPending, time.Now())
 }
@@ -42,3 +42,17 @@ func (t *Todo) ID() uuid.UUID        { return t.id }
 func (t *Todo) Title() TodoTitle     { return t.title }
 func (t *Todo) Status() TodoStatus   { return t.status }
 func (t *Todo) CreatedAt() time.Time { return t.createdAt }
+
+func (t *Todo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID        uuid.UUID  `json:"id"`
+		Title     string     `json:"title"`
+		Status    TodoStatus `json:"status"`
+		CreatedAt time.Time  `json:"created_at"`
+	}{
+		ID:        t.id,
+		Title:     t.title.String(),
+		Status:    t.status,
+		CreatedAt: t.createdAt,
+	})
+}

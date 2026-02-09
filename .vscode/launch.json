@@ -11,9 +11,9 @@
       "mode": "debug",
       "env": {
         "PORT": "8099",
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5732/postgres",
-        "REDIS_ADDR": "localhost:6379",
-        "RABBITMQ_URL": "amqp://guest:guest@localhost:5672/"
+        "DATABASE_URL": "postgresql://postgres:postgres@127.0.0.1:5732/postgres",
+        "REDIS_ADDR": "127.0.0.1:6379",
+        "RABBITMQ_URL": "amqp://guest:guest@127.0.0.1:5672/"
       },
       "program": "${workspaceFolder}/cmd/api/main.go"
     }
