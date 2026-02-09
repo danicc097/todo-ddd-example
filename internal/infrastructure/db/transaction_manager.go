@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+//counterfeiter:generate . RepositoryProvider
 type RepositoryProvider interface {
 	Todo() todoDomain.TodoRepository
 	User() userDomain.UserRepository

@@ -63,10 +63,17 @@ func (fake *FakeEventPublisher) PublishTodoCreatedCallCount() int {
 	return len(fake.publishTodoCreatedArgsForCall)
 }
 
+func (fake *FakeEventPublisher) PublishTodoCreatedCalls(stub func(context.Context, *domain.Todo) error) {
+	fake.publishTodoCreatedMutex.Lock()
+	defer fake.publishTodoCreatedMutex.Unlock()
+	fake.PublishTodoCreatedStub = stub
+}
+
 func (fake *FakeEventPublisher) PublishTodoCreatedArgsForCall(i int) (context.Context, *domain.Todo) {
 	fake.publishTodoCreatedMutex.RLock()
 	defer fake.publishTodoCreatedMutex.RUnlock()
-	return fake.publishTodoCreatedArgsForCall[i].arg1, fake.publishTodoCreatedArgsForCall[i].arg2
+	argsForCall := fake.publishTodoCreatedArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeEventPublisher) PublishTodoCreatedReturns(result1 error) {
@@ -74,6 +81,20 @@ func (fake *FakeEventPublisher) PublishTodoCreatedReturns(result1 error) {
 	defer fake.publishTodoCreatedMutex.Unlock()
 	fake.PublishTodoCreatedStub = nil
 	fake.publishTodoCreatedReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeEventPublisher) PublishTodoCreatedReturnsOnCall(i int, result1 error) {
+	fake.publishTodoCreatedMutex.Lock()
+	defer fake.publishTodoCreatedMutex.Unlock()
+	fake.PublishTodoCreatedStub = nil
+	if fake.publishTodoCreatedReturnsOnCall == nil {
+		fake.publishTodoCreatedReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.publishTodoCreatedReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -104,10 +125,17 @@ func (fake *FakeEventPublisher) PublishTodoUpdatedCallCount() int {
 	return len(fake.publishTodoUpdatedArgsForCall)
 }
 
+func (fake *FakeEventPublisher) PublishTodoUpdatedCalls(stub func(context.Context, *domain.Todo) error) {
+	fake.publishTodoUpdatedMutex.Lock()
+	defer fake.publishTodoUpdatedMutex.Unlock()
+	fake.PublishTodoUpdatedStub = stub
+}
+
 func (fake *FakeEventPublisher) PublishTodoUpdatedArgsForCall(i int) (context.Context, *domain.Todo) {
 	fake.publishTodoUpdatedMutex.RLock()
 	defer fake.publishTodoUpdatedMutex.RUnlock()
-	return fake.publishTodoUpdatedArgsForCall[i].arg1, fake.publishTodoUpdatedArgsForCall[i].arg2
+	argsForCall := fake.publishTodoUpdatedArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeEventPublisher) PublishTodoUpdatedReturns(result1 error) {
@@ -115,6 +143,20 @@ func (fake *FakeEventPublisher) PublishTodoUpdatedReturns(result1 error) {
 	defer fake.publishTodoUpdatedMutex.Unlock()
 	fake.PublishTodoUpdatedStub = nil
 	fake.publishTodoUpdatedReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeEventPublisher) PublishTodoUpdatedReturnsOnCall(i int, result1 error) {
+	fake.publishTodoUpdatedMutex.Lock()
+	defer fake.publishTodoUpdatedMutex.Unlock()
+	fake.PublishTodoUpdatedStub = nil
+	if fake.publishTodoUpdatedReturnsOnCall == nil {
+		fake.publishTodoUpdatedReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.publishTodoUpdatedReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

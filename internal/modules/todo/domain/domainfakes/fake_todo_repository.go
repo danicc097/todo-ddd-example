@@ -23,18 +23,6 @@ type FakeTodoRepository struct {
 	addTagReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ExecuteInTransactionStub        func(context.Context, func(domain.TodoRepository) error) error
-	executeInTransactionMutex       sync.RWMutex
-	executeInTransactionArgsForCall []struct {
-		arg1 context.Context
-		arg2 func(domain.TodoRepository) error
-	}
-	executeInTransactionReturns struct {
-		result1 error
-	}
-	executeInTransactionReturnsOnCall map[int]struct {
-		result1 error
-	}
 	FindAllStub        func(context.Context) ([]*domain.Todo, error)
 	findAllMutex       sync.RWMutex
 	findAllArgsForCall []struct {
@@ -164,68 +152,6 @@ func (fake *FakeTodoRepository) AddTagReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.addTagReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransaction(arg1 context.Context, arg2 func(domain.TodoRepository) error) error {
-	fake.executeInTransactionMutex.Lock()
-	ret, specificReturn := fake.executeInTransactionReturnsOnCall[len(fake.executeInTransactionArgsForCall)]
-	fake.executeInTransactionArgsForCall = append(fake.executeInTransactionArgsForCall, struct {
-		arg1 context.Context
-		arg2 func(domain.TodoRepository) error
-	}{arg1, arg2})
-	stub := fake.ExecuteInTransactionStub
-	fakeReturns := fake.executeInTransactionReturns
-	fake.recordInvocation("ExecuteInTransaction", []interface{}{arg1, arg2})
-	fake.executeInTransactionMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransactionCallCount() int {
-	fake.executeInTransactionMutex.RLock()
-	defer fake.executeInTransactionMutex.RUnlock()
-	return len(fake.executeInTransactionArgsForCall)
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransactionCalls(stub func(context.Context, func(domain.TodoRepository) error) error) {
-	fake.executeInTransactionMutex.Lock()
-	defer fake.executeInTransactionMutex.Unlock()
-	fake.ExecuteInTransactionStub = stub
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransactionArgsForCall(i int) (context.Context, func(domain.TodoRepository) error) {
-	fake.executeInTransactionMutex.RLock()
-	defer fake.executeInTransactionMutex.RUnlock()
-	argsForCall := fake.executeInTransactionArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransactionReturns(result1 error) {
-	fake.executeInTransactionMutex.Lock()
-	defer fake.executeInTransactionMutex.Unlock()
-	fake.ExecuteInTransactionStub = nil
-	fake.executeInTransactionReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeTodoRepository) ExecuteInTransactionReturnsOnCall(i int, result1 error) {
-	fake.executeInTransactionMutex.Lock()
-	defer fake.executeInTransactionMutex.Unlock()
-	fake.ExecuteInTransactionStub = nil
-	if fake.executeInTransactionReturnsOnCall == nil {
-		fake.executeInTransactionReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.executeInTransactionReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
