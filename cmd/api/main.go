@@ -16,13 +16,15 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
-	redisPub "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -92,7 +94,22 @@ func main() {
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
 	todoRepo := todoPg.NewTodoRepo(pool)
 	userRepo := userPg.NewUserRepo(pool)
-	publisher := redisPub.NewRedisPublisher(redisClient)
+
+	mqConn, err := amqp.Dial(internal.Config.RabbitMQ.URL)
+	if err != nil {
+		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	rabbitPub, err := messaging.NewRabbitMQPublisher(mqConn)
+	if err != nil {
+		slog.Error("failed to create rabbitmq publisher", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	redisPub := redis.NewRedisPublisher(redisClient)
+
+	publisher := messaging.NewMultiPublisher(rabbitPub, redisPub)
+
 	hub := ws.NewTodoHub(redisClient)
 	tm := db.NewTransactionManager(pool)
 
