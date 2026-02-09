@@ -3,13 +3,33 @@ package db
 import (
 	"context"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type RepositoryProvider interface {
+	Todo() todoDomain.TodoRepository
+	User() userDomain.UserRepository
+}
+
+type pgxRepositoryProvider struct {
+	tx pgx.Tx
+}
+
+func (p *pgxRepositoryProvider) Todo() todoDomain.TodoRepository {
+	return todoPg.NewTodoRepoFromTx(p.tx)
+}
+
+func (p *pgxRepositoryProvider) User() userDomain.UserRepository {
+	return userPg.NewUserRepoFromTx(p.tx)
+}
+
 type TransactionManager interface {
-	Exec(ctx context.Context, fn func(todoRepo domain.TodoRepository) error) error
+	Exec(ctx context.Context, fn func(p RepositoryProvider) error) error
 }
 
 type pgxTransactionManager struct {
@@ -20,16 +40,16 @@ func NewTransactionManager(pool *pgxpool.Pool) TransactionManager {
 	return &pgxTransactionManager{pool: pool}
 }
 
-func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(todoRepo domain.TodoRepository) error) error {
+func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryProvider) error) error {
 	tx, err := tm.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	repo := todoPg.NewTodoRepoFromTx(tx)
+	provider := &pgxRepositoryProvider{tx: tx}
 
-	if err := fn(repo); err != nil {
+	if err := fn(provider); err != nil {
 		return err
 	}
 

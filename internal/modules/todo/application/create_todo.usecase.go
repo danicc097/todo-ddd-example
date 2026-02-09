@@ -29,7 +29,9 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 
 	todo := domain.CreateTodo(title)
 
-	err = uc.tm.Exec(ctx, func(repo domain.TodoRepository) error {
+	err = uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
+		repo := p.Todo()
+
 		if _, err := repo.Save(ctx, todo); err != nil {
 			return err
 		}

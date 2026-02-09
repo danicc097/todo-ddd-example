@@ -1,7 +1,7 @@
 version: "2"
 sql:
   - schema: "../sql/schema.sql"
-    queries: "../sql/query.sql"
+    queries: "../queries/"
     engine: "postgresql"
     gen:
       go:
@@ -28,10 +28,10 @@ sql:
               type: UUID
               pointer: true
             nullable: true
-          - db_type: timestamptz
+          - db_type: pg_catalog.timestamptz
             go_type:
               type: time.Time
-          - db_type: timestamptz
+          - db_type: pg_catalog.timestamptz
             nullable: true
             go_type:
               type: "*time.Time"

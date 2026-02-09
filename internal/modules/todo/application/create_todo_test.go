@@ -4,19 +4,28 @@ import (
 	"context"
 	"testing"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
+
+type FakeRepositoryProvider struct {
+	todoRepo *domainfakes.FakeTodoRepository
+}
+
+func (p *FakeRepositoryProvider) Todo() domain.TodoRepository { return p.todoRepo }
+func (p *FakeRepositoryProvider) User() userDomain.UserRepository { return nil }
 
 type FakeTransactionManager struct {
 	repo *domainfakes.FakeTodoRepository
 }
 
-func (f *FakeTransactionManager) Exec(ctx context.Context, fn func(domain.TodoRepository) error) error {
-	return fn(f.repo)
+func (f *FakeTransactionManager) Exec(ctx context.Context, fn func(db.RepositoryProvider) error) error {
+	return fn(&FakeRepositoryProvider{todoRepo: f.repo})
 }
 
 func TestCreateTodoUseCase_Execute(t *testing.T) {

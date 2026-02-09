@@ -11,6 +11,7 @@ docker exec -i $(docker ps -q -f name=myapp_db) psql -U postgres -d postgres < s
 
 - psql: `docker exec -it $(docker ps -q -f name=myapp_db) psql -U postgres -d postgres`
 - test: `go test ./...`
+- debug swarm: `docker service ps --no-trunc myapp_go-app`
 
 # Example
 

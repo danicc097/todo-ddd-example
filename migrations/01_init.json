@@ -1,0 +1,81 @@
+{
+  "operations": [
+    {
+      "create_table": {
+        "name": "todos",
+        "columns": [
+          { "name": "id", "type": "uuid", "pk": true },
+          { "name": "title", "type": "text", "nullable": false },
+          { "name": "status", "type": "text", "nullable": false },
+          { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "users",
+        "columns": [
+          { "name": "id", "type": "uuid", "pk": true },
+          { "name": "email", "type": "text", "nullable": false, "unique": true },
+          { "name": "name", "type": "text", "nullable": false },
+          { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "tags",
+        "columns": [
+          { "name": "id", "type": "uuid", "pk": true },
+          { "name": "name", "type": "text", "nullable": false, "unique": true }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "todo_tags",
+        "columns": [
+          {
+            "name": "todo_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_tags_todo_id",
+              "table": "todos",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "tag_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_tags_tag_id",
+              "table": "tags",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          }
+        ],
+        "constraints": [
+          {
+            "name": "todo_tags_pkey",
+            "type": "primary_key",
+            "columns": ["todo_id", "tag_id"]
+          }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "outbox",
+        "columns": [
+          { "name": "id", "type": "uuid", "pk": true },
+          { "name": "event_type", "type": "text", "nullable": false },
+          { "name": "payload", "type": "jsonb", "nullable": false },
+          { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+          { "name": "processed_at", "type": "timestamptz", "nullable": true }
+        ]
+      }
+    }
+  ]
+}

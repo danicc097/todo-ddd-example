@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO: parallel and dynamic db as in https://github.com/danicc097/openapi-go-gin-postgres-sqlc/blob/main/internal/testutil/postgresql.go
 func setupRepo(t *testing.T) (*TodoRepo, *pgxpool.Pool) {
 	t.Helper()
 	dbURL := "postgresql://postgres:postgres@localhost:5656/postgres"

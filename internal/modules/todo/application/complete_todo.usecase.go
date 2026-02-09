@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +16,9 @@ func NewCompleteTodoUseCase(tm db.TransactionManager) *CompleteTodoUseCase {
 }
 
 func (uc *CompleteTodoUseCase) Execute(ctx context.Context, id uuid.UUID) error {
-	return uc.tm.Exec(ctx, func(repo domain.TodoRepository) error {
+	return uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
+		repo := p.Todo()
+
 		todo, err := repo.FindByID(ctx, id)
 		if err != nil {
 			return err

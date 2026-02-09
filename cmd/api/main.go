@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
@@ -22,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	rdb "github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
@@ -32,44 +37,61 @@ type CompositeHandler struct {
 }
 
 func main() {
+	var envPath string
+	flag.StringVar(&envPath, "env", ".env", "Environment Variables filename")
+	flag.Parse()
+
+	if _, err := os.Stat(envPath); err == nil {
+		if err := godotenv.Load(envPath); err != nil {
+			slog.Warn("failed to load env file", slog.String("path", envPath), slog.String("error", err.Error()))
+		}
+	}
+
+	if err := internal.NewAppConfig(); err != nil {
+		slog.Error("failed to load config", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	ctx := context.Background()
 
-	isProd := os.Getenv("ENV") == "production"
-	shutdown, err := logger.Init(os.Getenv("LOG_LEVEL"), isProd)
+	isProd := internal.Config.Env == "production"
+	shutdown, err := logger.Init(internal.Config.LogLevel, isProd)
 	if err != nil {
 		os.Stderr.WriteString("logger init failed: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 	defer shutdown(ctx)
 
-	dbUrl := os.Getenv("DATABASE_URL")
-	if dbUrl == "" {
-		slog.ErrorContext(ctx, "DATABASE_URL is not set")
-		os.Exit(1)
+	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		internal.Config.Postgres.User,
+		internal.Config.Postgres.Password,
+		internal.Config.Postgres.Host,
+		internal.Config.Postgres.Port,
+		internal.Config.Postgres.DBName,
+	)
+
+	var pool *pgxpool.Pool
+	for i := range 15 {
+		pool, err = pgxpool.New(ctx, pgUrl)
+		if err == nil {
+			err = pool.Ping(ctx)
+		}
+		if err == nil {
+			break
+		}
+		slog.Warn("Database not ready, retrying...", slog.Int("attempt", i+1))
+		time.Sleep(2 * time.Second)
 	}
 
-	pool, err := pgxpool.New(ctx, dbUrl)
 	if err != nil {
-		slog.ErrorContext(ctx, "Unable to connect to database", slog.String("error", err.Error()))
+		slog.ErrorContext(ctx, "Unable to connect to database after retries", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
-		slog.ErrorContext(ctx, "Database unreachable", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" { redisAddr = "redis:6379" }
-
-	redisClient := rdb.NewClient(&rdb.Options{Addr: redisAddr})
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		slog.ErrorContext(ctx, "Unable to connect to redis", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
+	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
 	todoRepo := todoPg.NewTodoRepo(pool)
+	userRepo := userPg.NewUserRepo(pool)
 	publisher := redisPub.NewRedisPublisher(redisClient)
 	hub := ws.NewTodoHub(redisClient)
 	tm := db.NewTransactionManager(pool)
@@ -83,8 +105,8 @@ func main() {
 	)
 
 	uh := userHttp.NewUserHandler(
-		userApp.NewRegisterUserUseCase(userPg.NewUserRepo(pool)),
-		userApp.NewGetUserUseCase(userPg.NewUserRepo(pool)),
+		userApp.NewRegisterUserUseCase(userRepo),
+		userApp.NewGetUserUseCase(userRepo),
 	)
 
 	relay := outbox.NewRelay(pool)
@@ -101,11 +123,8 @@ func main() {
 	api.RegisterHandlers(r.Group("/api/v1"), handler)
 	r.GET("/ws", th.WS)
 
-	port := os.Getenv("PORT")
-	if port == "" { port = "8090" }
-
-	slog.InfoContext(ctx, "Application server starting", slog.String("port", port))
-	if err := r.Run(":" + port); err != nil {
-		slog.ErrorContext(ctx, "Server exit", slog.String("error", err.Error()))
+	slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
+	if err := r.Run(":" + internal.Config.Port); err != nil {
+		slog.Error("Server exit", slog.String("error", err.Error()))
 	}
 }

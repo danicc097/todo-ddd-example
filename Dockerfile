@@ -1,23 +1,22 @@
-FROM golang:1.24-alpine AS builder
-
+FROM golang:1.25-alpine AS base
 RUN apk add --no-cache git
-
 WORKDIR /app
-
 COPY go.mod go.sum ./
 RUN go mod download
 
+FROM base AS dev
+RUN go install github.com/air-verse/air@latest
+ENV PATH="/go/bin:${PATH}"
 COPY . .
+CMD ["air", "-c", ".air.toml"]
 
+FROM base AS builder
+COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/api ./cmd/api/main.go
 
-FROM alpine:latest
+FROM alpine:latest AS prod
 RUN apk add --no-cache ca-certificates
-
 WORKDIR /root/
-
 COPY --from=builder /app/api .
-
 EXPOSE 8080
-
 CMD ["./api"]
