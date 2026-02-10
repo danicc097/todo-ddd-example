@@ -11,13 +11,36 @@ import (
 	"github.com/google/uuid"
 )
 
-const GetUnprocessedOutboxEvents = `-- name: GetUnprocessedOutboxEvents :many
+const GetOutboxLag = `-- name: GetOutboxLag :one
 SELECT
-  id, event_type, payload, created_at, processed_at
+  COUNT(*) AS total_lag,
+  COALESCE(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))), 0)::float AS max_age_seconds
 FROM
   outbox
 WHERE
   processed_at IS NULL
+`
+
+type GetOutboxLagRow struct {
+	TotalLag      int64   `db:"total_lag" json:"total_lag"`
+	MaxAgeSeconds float64 `db:"max_age_seconds" json:"max_age_seconds"`
+}
+
+func (q *Queries) GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error) {
+	row := db.QueryRow(ctx, GetOutboxLag)
+	var i GetOutboxLagRow
+	err := row.Scan(&i.TotalLag, &i.MaxAgeSeconds)
+	return i, err
+}
+
+const GetUnprocessedOutboxEvents = `-- name: GetUnprocessedOutboxEvents :many
+SELECT
+  id, event_type, payload, created_at, processed_at, last_error, retries
+FROM
+  outbox
+WHERE
+  processed_at IS NULL
+  AND retries < 5
 ORDER BY
   created_at ASC
 LIMIT 100
@@ -41,6 +64,8 @@ func (q *Queries) GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Ou
 			&i.Payload,
 			&i.CreatedAt,
 			&i.ProcessedAt,
+			&i.LastError,
+			&i.Retries,
 		); err != nil {
 			return nil, err
 		}
@@ -79,5 +104,25 @@ type SaveOutboxEventParams struct {
 
 func (q *Queries) SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error {
 	_, err := db.Exec(ctx, SaveOutboxEvent, arg.ID, arg.EventType, arg.Payload)
+	return err
+}
+
+const UpdateOutboxRetries = `-- name: UpdateOutboxRetries :exec
+UPDATE
+  outbox
+SET
+  retries = retries + 1,
+  last_error = $2
+WHERE
+  id = $1
+`
+
+type UpdateOutboxRetriesParams struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	LastError *string   `db:"last_error" json:"last_error"`
+}
+
+func (q *Queries) UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error {
+	_, err := db.Exec(ctx, UpdateOutboxRetries, arg.ID, arg.LastError)
 	return err
 }

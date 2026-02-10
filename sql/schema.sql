@@ -18,7 +18,9 @@ CREATE TABLE public.outbox (
     event_type text NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    processed_at timestamp with time zone
+    processed_at timestamp with time zone,
+    last_error text,
+    retries integer DEFAULT 0 NOT NULL
 );
 ALTER TABLE public.outbox OWNER TO postgres;
 CREATE TABLE public.tags (

@@ -16,6 +16,8 @@ type Outbox struct {
 	Payload     []byte     `db:"payload" json:"payload"`
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
 	ProcessedAt *time.Time `db:"processed_at" json:"processed_at"`
+	LastError   *string    `db:"last_error" json:"last_error"`
+	Retries     int32      `db:"retries" json:"retries"`
 }
 
 type Tags struct {

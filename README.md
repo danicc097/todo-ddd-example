@@ -10,9 +10,12 @@ make deploy
 make test
 ```
 
-## API docs
+## Web UIs
 
-Visit `http://127.0.0.1:8090/api/v1/docs`
+- API docs: http://127.0.0.1:8090/api/v1/docs
+- RabbitMQ: http://127.0.0.1:15672/
+- Prometheus: http://127.0.0.1:9090/
+- Jaeger: http://127.0.0.1:16686/search
 
 # Example API usage
 

@@ -9,6 +9,7 @@ FROM
   outbox
 WHERE
   processed_at IS NULL
+  AND retries < 5
 ORDER BY
   created_at ASC
 LIMIT 100
@@ -23,4 +24,22 @@ SET
   processed_at = NOW()
 WHERE
   id = $1;
+
+-- name: UpdateOutboxRetries :exec
+UPDATE
+  outbox
+SET
+  retries = retries + 1,
+  last_error = $2
+WHERE
+  id = $1;
+
+-- name: GetOutboxLag :one
+SELECT
+  COUNT(*) AS total_lag,
+  COALESCE(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))), 0)::float AS max_age_seconds
+FROM
+  outbox
+WHERE
+  processed_at IS NULL;
 

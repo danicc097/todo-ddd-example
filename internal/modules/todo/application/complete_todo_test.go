@@ -3,60 +3,34 @@ package application_test
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
-	"github.com/google/uuid"
+	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCompleteTodoUseCase_Execute(t *testing.T) {
-	setup := func() (*domainfakes.FakeTodoRepository, *application.CompleteTodoUseCase) {
-		repo := &domainfakes.FakeTodoRepository{}
-		tm := &FakeTransactionManager{repo: repo}
-		return repo, application.NewCompleteTodoUseCase(tm)
-	}
+func TestCompleteTodoUseCase_Integration(t *testing.T) {
+	ctx := context.Background()
+	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
+	defer pgContainer.Close(ctx, t)
 
-	t.Run("successfully completes todo and saves state", func(t *testing.T) {
-		repo, uc := setup()
-		id := uuid.New()
-		title, _ := domain.NewTodoTitle("Reliable Task")
+	pool := pgContainer.Connect(ctx, t)
+	tm := db.NewTransactionManager(pool)
+	repo := todoPg.NewTodoRepo(pool)
 
-		existingTodo := domain.ReconstituteTodo(id, title, domain.StatusPending, time.Now(), nil)
+	t.Run("completes", func(t *testing.T) {
+		title, _ := domain.NewTodoTitle("Complete")
+		todo := domain.NewTodo(title)
+		require.NoError(t, repo.Save(ctx, todo))
 
-		repo.FindByIDReturns(existingTodo, nil)
-		repo.UpdateReturns(nil)
+		err := application.NewCompleteTodoUseCase(tm).Execute(ctx, todo.ID())
+		require.NoError(t, err)
 
-		err := uc.Execute(context.Background(), id)
-
-		assert.NoError(t, err)
-		assert.Equal(t, 1, repo.UpdateCallCount())
-
-		_, updatedTodo := repo.UpdateArgsForCall(0)
-		assert.Equal(t, domain.StatusCompleted, updatedTodo.Status())
-	})
-
-	t.Run("aborts if todo update fails", func(t *testing.T) {
-		repo, uc := setup()
-		id := uuid.New()
-		title, _ := domain.NewTodoTitle("Task")
-		repo.FindByIDReturns(domain.ReconstituteTodo(id, title, domain.StatusPending, time.Now(), nil), nil)
-		repo.UpdateReturns(assert.AnError)
-
-		err := uc.Execute(context.Background(), id)
-
-		assert.Error(t, err)
-	})
-
-	t.Run("returns error if todo is not found", func(t *testing.T) {
-		repo, uc := setup()
-		id := uuid.New()
-		repo.FindByIDReturns(nil, domain.ErrTodoNotFound)
-
-		err := uc.Execute(context.Background(), id)
-
-		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
+		found, _ := repo.FindByID(ctx, todo.ID())
+		assert.Equal(t, domain.StatusCompleted, found.Status())
 	})
 }

@@ -5,58 +5,43 @@ import (
 	"testing"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/dbfakes"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type FakeTransactionManager struct {
-	repo *domainfakes.FakeTodoRepository
-}
+func TestCreateTodoUseCase_Integration(t *testing.T) {
+	ctx := context.Background()
+	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
+	defer pgContainer.Close(ctx, t)
 
-func (f *FakeTransactionManager) Exec(ctx context.Context, fn func(db.RepositoryProvider) error) error {
-	fakeProvider := &dbfakes.FakeRepositoryProvider{}
-	fakeProvider.TodoReturns(f.repo)
-	return fn(fakeProvider)
-}
+	pool := pgContainer.Connect(ctx, t)
+	tm := db.NewTransactionManager(pool)
+	repo := todoPg.NewTodoRepo(pool)
+	tagRepo := todoPg.NewTagRepo(pool)
+	uc := application.NewCreateTodoUseCase(tm)
 
-func TestCreateTodoUseCase_Execute(t *testing.T) {
-	setup := func() (*domainfakes.FakeTodoRepository, *application.CreateTodoUseCase) {
-		repo := &domainfakes.FakeTodoRepository{}
-		tm := &FakeTransactionManager{repo: repo}
-		return repo, application.NewCreateTodoUseCase(tm)
-	}
+	t.Run("creates", func(t *testing.T) {
+		tn, _ := domain.NewTagName("urgent")
+		tag := domain.NewTag(tn)
+		require.NoError(t, tagRepo.Save(ctx, tag))
 
-	t.Run("successfully create todo with tags", func(t *testing.T) {
-		repo, uc := setup()
-
-		tagID := uuid.New()
+		const title = "Integration"
 		cmd := application.CreateTodoCommand{
-			Title:  "Senior Task",
-			TagIDs: []uuid.UUID{tagID},
+			Title:  title,
+			TagIDs: []uuid.UUID{tag.ID()},
 		}
 
-		id, err := uc.Execute(context.Background(), cmd)
+		id, err := uc.Execute(ctx, cmd)
+		require.NoError(t, err)
 
-		assert.NoError(t, err)
-		assert.NotEqual(t, uuid.Nil, id)
-
-		assert.Equal(t, 1, repo.SaveCallCount())
-
-		// Verify tags were added to the entity passed to Save
-		_, savedTodo := repo.SaveArgsForCall(0)
-		assert.Contains(t, savedTodo.Tags(), tagID)
-	})
-
-	t.Run("returns error when domain validation fails", func(t *testing.T) {
-		repo, uc := setup()
-
-		cmd := application.CreateTodoCommand{Title: ""}
-		_, err := uc.Execute(context.Background(), cmd)
-
-		assert.Error(t, err)
-		assert.Equal(t, 0, repo.SaveCallCount())
+		found, err := repo.FindByID(ctx, id)
+		require.NoError(t, err)
+		assert.Equal(t, title, found.Title().String())
+		assert.Contains(t, found.Tags(), tag.ID())
 	})
 }

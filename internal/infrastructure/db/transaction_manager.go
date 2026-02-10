@@ -2,16 +2,19 @@ package db
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//counterfeiter:generate . RepositoryProvider
 type RepositoryProvider interface {
 	Todo() todoDomain.TodoRepository
 	Tag() todoDomain.TagRepository
@@ -47,17 +50,34 @@ func NewTransactionManager(pool *pgxpool.Pool) TransactionManager {
 }
 
 func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryProvider) error) error {
+	maxRetries := 3
+	var err error
+
+	for i := range maxRetries {
+		err = tm.execOnce(ctx, fn)
+		if err == nil {
+			return nil
+		}
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.SerializationFailure {
+			time.Sleep((time.Duration(i + 1)) * 10 * time.Millisecond)
+			continue
+		}
+		break
+	}
+	return err
+}
+
+func (tm *pgxTransactionManager) execOnce(ctx context.Context, fn func(p RepositoryProvider) error) error {
 	tx, err := tm.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	provider := &pgxRepositoryProvider{tx: tx}
-
-	if err := fn(provider); err != nil {
+	if err := fn(&pgxRepositoryProvider{tx: tx}); err != nil {
 		return err
 	}
-
 	return tx.Commit(ctx)
 }

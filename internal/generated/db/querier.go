@@ -15,6 +15,7 @@ type Querier interface {
 	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
+	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id uuid.UUID) (Tags, error)
 	GetTagByName(ctx context.Context, db DBTX, name string) (Tags, error)
 	GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (GetTodoByIDRow, error)
@@ -24,6 +25,7 @@ type Querier interface {
 	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
+	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -23,12 +24,13 @@ type PostgreSQLContainer struct {
 }
 
 // generated via make gen-schema
-const schemaSQLFile = "../../../../../sql/schema.sql"
+const schemaSQLFile = "../../sql/schema.sql"
 
 func NewPostgreSQLContainer(ctx context.Context, t *testing.T) *PostgreSQLContainer {
 	t.Helper()
 
-	absSchemaPath, err := filepath.Abs(schemaSQLFile)
+	_, thisFile, _, _ := runtime.Caller(0)
+	absSchemaPath, err := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
 	if err != nil {
 		t.Fatalf("failed to get absolute path for schema file: %v", err)
 	}

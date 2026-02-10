@@ -86,7 +86,7 @@ func main() {
 	ctx := context.Background()
 
 	isProd := internal.Config.Env == "production"
-	shutdown, err := logger.Init(internal.Config.LogLevel, isProd)
+	shutdown, err := logger.Init(ctx, internal.Config.LogLevel, isProd)
 	if err != nil {
 		os.Stderr.WriteString("logger init failed: " + err.Error() + "\n")
 		os.Exit(1)

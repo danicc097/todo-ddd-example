@@ -1,0 +1,25 @@
+{
+  "operations": [
+    {
+      "add_column": {
+        "table": "outbox",
+        "column": {
+          "name": "last_error",
+          "type": "text",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "outbox",
+        "column": {
+          "name": "retries",
+          "type": "integer",
+          "nullable": false,
+          "default": "0"
+        }
+      }
+    }
+  ]
+}

@@ -7,8 +7,10 @@ endif
 
 KNOWN_TARGETS := test clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues
 
-ifneq ($(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)),)
-  $(error Unknown target(s): $(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)). Valid targets: $(KNOWN_TARGETS))
+ifeq ($(findstring p,$(MAKEFLAGS)),)
+  ifneq ($(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)),)
+    $(error Unknown target(s): $(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)). Valid targets: $(KNOWN_TARGETS))
+  endif
 endif
 
 SQLC   := go tool sqlc
