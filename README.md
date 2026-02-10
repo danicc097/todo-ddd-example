@@ -1,4 +1,16 @@
-# Setup
+# todo-ddd-example
+
+## Stack
+
+- **Architecture**: Follows/Inspired by **Clean Architecture**.
+- **Database:** **PostgreSQL** with **pgroll** allows for zero-downtime schema
+  migrations. **sqlc** for compile-time checked queries.
+- **API:** Contract-first with **OpenAPI 3.0** with **oapi-codegen**.
+- **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
+- **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
+- **Infra:** **Docker swarm** for multinode deployment with Caddy.
+
+## Setup
 
 ```bash
 make deploy
@@ -20,17 +32,17 @@ make test
 # Example API usage
 
 ```bash
-# listen to todo_updated:
-wscat -c ws://127.0.0.1:8090/ws
+$ make ws-listen
 >>> Connected (press CTRL+C to quit)
->>> < {"..."} # (will get notified regardless of node)
-# create:
-curl -X POST http://127.0.0.1:8090/api/v1/todos -d '{"title": "New todo"}'
->>> {"id":"c9e34c82-5b43-4e7e-a650-bca484057943"}
-# complete:
-curl -X PATCH http://127.0.0.1:8090/api/v1/todos/c9e34c82-5b43-4e7e-a650-bca484057943/complete
-# ...will notify all todo_updated listeners
-# list:
-curl -X GET http://127.0.0.1:8090/api/v1/todos
->>> [{"ID":"c9e34c82-5b43-4e7e-a650-bca484057943","Title":"New todo","Completed":true,"CreatedAt":"2026-02-08T16:07:47.573757+01:00"}]
+# < {"event":"todo.created","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"PENDING","title":"New todo 1770748039"}
+# < {"event":"todo.updated","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"COMPLETED","title":"New todo 1770748039"}
+$ make req-create
+{
+  "id": "ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8"
+}
+...
+$ make req-complete ID=ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8
+...
+$ make req-list
+>>> [{"ID":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8",...}]
 ```
