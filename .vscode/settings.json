@@ -5,4 +5,8 @@
     "--issues-exit-code=0",
     "--fix",
   ],
+  "yaml.schemas": {
+    // https://spec.openapis.org/oas/3.0/schema/2024-10-18.html
+    ".vscode/openapi-schema.json": "openapi.yaml"
+  },
 }
