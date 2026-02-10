@@ -1,5 +1,8 @@
 # todo-ddd-example
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/danicc097/todo-ddd-example)](https://goreportcard.com/report/github.com/danicc097/todo-ddd-example)
+[![tests](https://github.com/danicc097/todo-ddd-example/actions/workflows/tests.yaml/badge.svg)](https://github.com/danicc097/todo-ddd-example/actions/workflows/tests.yaml)
+
 ## Stack
 
 - **Architecture**: Follows/Inspired by **Clean Architecture**.
@@ -9,6 +12,7 @@
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
 - **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
 - **Infra:** **Docker swarm** for multinode deployment with Caddy.
+- **CI:** See `.github/workflows/tests.yaml`.
 
 ## Setup
 

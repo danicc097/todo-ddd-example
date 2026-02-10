@@ -119,16 +119,16 @@ debug-swarm:
 API_URL ?= http://127.0.0.1:8090
 
 req-create:
-	curl -s -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq .
+	curl -sSf -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq -e .
 
 req-list:
-	curl -s -X GET $(API_URL)/api/v1/todos | jq .
+	curl -sSf -X GET $(API_URL)/api/v1/todos | jq -e .
 
 req-complete:
 ifndef ID
 	$(error ID is undefined. Usage: make req-complete ID=...)
 endif
-	curl -s -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete
+	curl -sSf -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete
 
 ws-listen:
 	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \

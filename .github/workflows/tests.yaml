@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Generate and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Start Postgres
+        run: |
+          docker swarm init
+          docker network create --driver overlay --attachable myapp-net
+          docker compose -f docker-compose.infra.yml up -d db
+
+          until docker exec myapp-db pg_isready -U postgres; do
+            sleep 2
+          done
+
+      - name: Generate
+        run: make gen
+
+      - name: Diff check
+        run: |
+          git diff --exit-code
+
+      - name: Test
+        run: |
+          go test ./... -race -shuffle=on -count=5 -v -timeout 15m
+
+  deploy-smoke-test:
+    name: Deploy and verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Full deployment
+        run: |
+          make deploy
+
+      - name: Smoke test
+        run: |
+          timeout 80s bash -c 'until make req-create; do echo "Waiting for API..."; sleep 3; done'
+
+          RESPONSE=$(make req-create)
+          echo "Response received: $RESPONSE"
+          echo "$RESPONSE" | jq -e '.id' > /dev/null || (echo "Failed to find ID in response" && exit 1)
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          docker stack ps myapp --no-trunc
+          docker container ls
+          docker service logs myapp_go-app --no-trunc --raw
