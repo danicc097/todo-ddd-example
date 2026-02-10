@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type TodoRepo struct {
@@ -35,6 +36,7 @@ func NewTodoRepoFromTx(tx pgx.Tx) *TodoRepo {
 
 func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 	p := r.mapper.ToPersistence(t)
+
 	_, err := r.q.CreateTodo(ctx, r.db, db.CreateTodoParams(p))
 	if err != nil {
 		return err
@@ -55,6 +57,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 
 func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 	p := r.mapper.ToPersistence(t)
+
 	err := r.q.UpdateTodo(ctx, r.db, db.UpdateTodoParams{
 		ID:     p.ID,
 		Title:  p.Title,
@@ -73,6 +76,7 @@ func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
 		if err != nil {
 			return err
 		}
+
 		if payload == nil {
 			continue
 		}
@@ -85,7 +89,9 @@ func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
 			return err
 		}
 	}
+
 	t.ClearEvents()
+
 	return nil
 }
 
@@ -95,8 +101,10 @@ func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, er
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTodoNotFound
 		}
+
 		return nil, err
 	}
+
 	return r.mapper.ToDomain(row), nil
 }
 
@@ -105,9 +113,11 @@ func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	todos := make([]*domain.Todo, len(rows))
 	for i, row := range rows {
 		todos[i] = r.mapper.ListRowToDomain(row)
 	}
+
 	return todos, nil
 }

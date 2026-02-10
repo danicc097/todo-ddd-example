@@ -5,12 +5,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
 
 type Handler func(ctx context.Context, payload []byte) error
@@ -46,8 +47,10 @@ func (r *Relay) Register(eventType string, h Handler) {
 
 func (r *Relay) Start(ctx context.Context) {
 	slog.InfoContext(ctx, "Outbox relay worker started")
+
 	ticker := time.NewTicker(1 * time.Second)
 	metricsTicker := time.NewTicker(5 * time.Second)
+
 	defer ticker.Stop()
 	defer metricsTicker.Stop()
 
@@ -95,9 +98,12 @@ func (r *Relay) processEvents(ctx context.Context) {
 				ID:        event.ID,
 				LastError: pointers.New(err.Error()),
 			})
+
 			continue
 		}
+
 		r.q.MarkOutboxEventProcessed(ctx, tx, event.ID)
 	}
+
 	tx.Commit(ctx)
 }

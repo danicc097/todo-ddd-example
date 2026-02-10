@@ -16,6 +16,7 @@ func NewUserEmail(val string) (UserEmail, error) {
 	if !strings.Contains(val, "@") {
 		return UserEmail{}, ErrInvalidEmail
 	}
+
 	return UserEmail{value: val}, nil
 }
 

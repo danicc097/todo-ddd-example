@@ -35,8 +35,10 @@ func NewRedisContainer(ctx context.Context, t *testing.T) *RedisContainer {
 func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) *redis.Client {
 	t.Helper()
 
-	var client *redis.Client
-	var err error
+	var (
+		client *redis.Client
+		err    error
+	)
 
 	for range 10 {
 		uri, err := r.container.ConnectionString(ctx)
@@ -59,6 +61,7 @@ func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) *redis.Clien
 	}
 
 	t.Fatalf("failed to connect to redis after retries: %v", err)
+
 	return nil
 }
 

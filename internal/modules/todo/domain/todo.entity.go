@@ -12,6 +12,7 @@ var ErrTodoNotFound = errors.New("todo not found")
 
 type Todo struct {
 	AggregateRoot
+
 	id        uuid.UUID
 	title     TodoTitle
 	status    TodoStatus
@@ -36,6 +37,7 @@ func NewTodo(title TodoTitle) *Todo {
 		CreatedAt: now,
 		Occurred:  now,
 	})
+
 	return t
 }
 
@@ -53,6 +55,7 @@ func (t *Todo) Complete() error {
 	if t.status == StatusArchived {
 		return ErrInvalidStatus
 	}
+
 	t.status = StatusCompleted
 	t.RecordEvent(TodoCompletedEvent{
 		ID:        t.id,
@@ -61,6 +64,7 @@ func (t *Todo) Complete() error {
 		CreatedAt: t.createdAt,
 		Occurred:  time.Now(),
 	})
+
 	return nil
 }
 

@@ -4,15 +4,17 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 )
 
 type TodoMapper struct{}
 
 func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
+
 	return domain.ReconstituteTodo(
 		row.ID,
 		title,
@@ -24,6 +26,7 @@ func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
 
 func (m *TodoMapper) ListRowToDomain(row db.ListTodosRow) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
+
 	return domain.ReconstituteTodo(
 		row.ID,
 		title,
@@ -82,5 +85,6 @@ func (m *TodoMapper) MapEvent(e domain.DomainEvent) (string, []byte, error) {
 	}
 
 	b, err := json.Marshal(payload)
+
 	return e.EventName(), b, err
 }

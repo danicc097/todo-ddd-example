@@ -4,17 +4,19 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	ctx := context.Background()
+
 	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
 	defer pgContainer.Close(ctx, t)
 

@@ -30,6 +30,7 @@ func setupRedisContainer(t *testing.T) *redis.Client {
 	require.NoError(t, err)
 	opt, err := redis.ParseURL(uri)
 	require.NoError(t, err)
+
 	client := redis.NewClient(opt)
 	require.NoError(t, client.Ping(ctx).Err())
 
@@ -38,6 +39,7 @@ func setupRedisContainer(t *testing.T) *redis.Client {
 
 func TestIdempotencyMiddleware(t *testing.T) {
 	rdb := setupRedisContainer(t)
+
 	gin.SetMode(gin.TestMode)
 
 	t.Run("First request processes normally and caches response", func(t *testing.T) {
@@ -50,7 +52,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/test", nil)
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		req.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w, req)
 
@@ -74,12 +76,12 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		})
 
 		w1 := httptest.NewRecorder()
-		req1, _ := http.NewRequest("POST", "/test", nil)
+		req1, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		req1.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w1, req1)
 
 		w2 := httptest.NewRecorder()
-		req2, _ := http.NewRequest("POST", "/test", nil)
+		req2, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		req2.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w2, req2)
 
@@ -100,7 +102,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/test", nil)
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		req.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w, req)
 
@@ -116,7 +118,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/test", nil)
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
 
 		r.ServeHTTP(w, req)
 
@@ -133,7 +135,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		})
 
 		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/test", nil)
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		req.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w, req)
 

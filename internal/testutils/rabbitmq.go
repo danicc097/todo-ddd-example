@@ -35,8 +35,10 @@ func NewRabbitMQContainer(ctx context.Context, t *testing.T) *RabbitMQContainer 
 func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *amqp.Connection {
 	t.Helper()
 
-	var conn *amqp.Connection
-	var err error
+	var (
+		conn *amqp.Connection
+		err  error
+	)
 
 	for range 15 {
 		connStr, err := r.container.AmqpURL(ctx)
@@ -54,6 +56,7 @@ func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *amqp.Con
 	}
 
 	t.Fatalf("failed to connect to rabbitmq after retries: %v", err)
+
 	return nil
 }
 
@@ -78,5 +81,6 @@ func (r *RabbitMQContainer) AmqpURL(ctx context.Context) string {
 	if err != nil {
 		panic(err)
 	}
+
 	return url
 }

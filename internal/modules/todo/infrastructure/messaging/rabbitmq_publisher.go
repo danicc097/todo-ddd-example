@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type RabbitMQPublisher struct {
@@ -31,6 +32,7 @@ func NewRabbitMQPublisher(conn *amqp.Connection) (*RabbitMQPublisher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
+
 	_ = q
 
 	return &RabbitMQPublisher{ch: ch}, nil
@@ -49,6 +51,7 @@ func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUI
 		TodoID: todoID,
 		TagID:  tagID,
 	}
+
 	return p.publish(ctx, "todo.tagadded", payload)
 }
 

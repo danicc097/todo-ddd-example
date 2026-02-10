@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type TodoEventPayload struct {
@@ -19,6 +20,7 @@ type TodoEventPayload struct {
 func (p TodoEventPayload) ToEntity() *domain.Todo {
 	title, _ := domain.NewTodoTitle(p.Title)
 	status := domain.TodoStatus(p.Status)
+
 	return domain.ReconstituteTodo(p.ID, title, status, p.CreatedAt, nil)
 }
 
@@ -33,6 +35,7 @@ func MakeCreatedHandler(pub domain.EventPublisher) func(context.Context, []byte)
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return err
 		}
+
 		return pub.PublishTodoCreated(ctx, p.ToEntity())
 	}
 }
@@ -43,6 +46,7 @@ func MakeUpdatedHandler(pub domain.EventPublisher) func(context.Context, []byte)
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return err
 		}
+
 		return pub.PublishTodoUpdated(ctx, p.ToEntity())
 	}
 }
@@ -53,6 +57,7 @@ func MakeTagAddedHandler(pub domain.EventPublisher) func(context.Context, []byte
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return err
 		}
+
 		return pub.PublishTagAdded(ctx, p.TodoID, p.TagID)
 	}
 }

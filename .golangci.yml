@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/golangci/golangci-lint/refs/tags/v2.8.0/jsonschema/golangci.jsonschema.json
+
+version: "2"
+linters:
+  default: all
+  disable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - dupword
+    - noinlineerr
+    - err113
+    - forbidigo
+    - funlen
+    - godox
+    - ireturn
+    - lll
+    - mnd
+    - nilerr
+    - nlreturn
+    - noctx
+    - nonamedreturns
+    - sqlclosecheck
+    - tagalign
+    - testpackage
+    - thelper
+    - unparam
+    - wastedassign
+    - wsl
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - io/ioutil.ReadFile
+        - io.Copy(*bytes.Buffer)
+        - io.Copy(os.Stdout)
+    exhaustruct:
+      include:
+        - github.com/danicc097/todo-ddd-example/*Event
+    ireturn:
+      allow:
+        - error
+        - stdlib
+        - go.opentelemetry.io/otel/trace.Span
+    lll:
+      line-length: 130
+    staticcheck:
+      checks:
+        - all
+    tagliatelle:
+      case:
+        rules:
+          json: goCamel
+          yaml: goCamel
+        use-field-name: true
+    varnamelen:
+      max-distance: 20
+      ignore-names:
+        - id
+        - tx
+        - ctx
+      ignore-type-assert-ok: true
+      ignore-map-index-ok: true
+      ignore-chan-recv-ok: true
+      ignore-decls:
+        - d db.DBTX
+        - c *gin.Context
+        - b bytes.Buffer
+        - h http.Handler
+        - id string
+        - ok bool
+        - r *http.Request
+        - w http.ResponseWriter
+    wrapcheck:
+      ignore-sigs:
+        - internaldomain.WrapErrorf(
+        - internaldomain.NewErrorf(
+        - internal.NewErrorf(
+        - internal.WrapErrorf(
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+      ignore-package-globs:
+        - github.com/danicc097/todo-ddd-example/*
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gosec
+        path: internal/testutil/*
+      - linters:
+          - nolintlint
+        path: .
+      - linters:
+          - godot
+          - lll
+          - wsl
+        path: internal/gen/
+      - linters:
+          - cyclop
+          - err113
+          - errcheck
+          - errchkjson
+          - exhaustruct
+          - funlen
+          - lll
+          - nonamedreturns
+          - nosnakecase
+          - varnamelen
+          - wrapcheck
+        path: _test\.go
+      - linters:
+          - lll
+          - revive
+          - staticcheck
+        path: internal/doc/doc.go
+      - linters:
+          - cyclop
+          - funlen
+          - gocognit
+          - unparam
+        path: cmd/
+      - linters:
+          - revive
+        path: cmd/internal/repos/postgresql.go
+      - linters:
+          - lll
+        path: internal/memcached/task.go
+      - linters:
+          - paralleltest
+          - thelper
+          - tparallel
+        path: internal/envvar/envvar_test.go
+    paths:
+      - .*\.xo\.go$
+      - .*\.gen\.go$
+      - .*\.pb\.go$
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/danicc097/todo-ddd-example)
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.xo\.go$
+      - .*\.gen\.go$
+      - .*\.pb\.go$
+      - third_party$
+      - builtin$
+      - examples$
+      - .

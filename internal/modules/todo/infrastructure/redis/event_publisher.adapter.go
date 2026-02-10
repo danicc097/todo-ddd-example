@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type RedisPublisher struct {
@@ -32,6 +33,7 @@ func (p *RedisPublisher) PublishTodoCreated(ctx context.Context, todo *domain.To
 		"title":  todo.Title().String(),
 		"event":  "todo.created",
 	}
+
 	return p.publish(ctx, "todo.created", payload, attribute.String("todo.id", todo.ID().String()))
 }
 
@@ -42,6 +44,7 @@ func (p *RedisPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.To
 		"title":  todo.Title().String(),
 		"event":  "todo.updated",
 	}
+
 	return p.publish(ctx, "todo.updated", payload, attribute.String("todo.id", todo.ID().String()))
 }
 
@@ -51,6 +54,7 @@ func (p *RedisPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, 
 		"tag_id":  tagID,
 		"event":   "todo.tagadded",
 	}
+
 	return p.publish(ctx, "todo.tagadded", payload, attribute.String("todo.id", todoID.String()))
 }
 
@@ -76,5 +80,6 @@ func (p *RedisPublisher) publish(ctx context.Context, eventType string, payload 
 	}
 
 	slog.InfoContext(ctx, "published to redis", slog.String("channel", "todo_updates"), slog.String("event", eventType))
+
 	return nil
 }

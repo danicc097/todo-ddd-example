@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danicc097/todo-ddd-example/internal"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -17,6 +16,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/danicc097/todo-ddd-example/internal"
 )
 
 func Init(ctx context.Context, level string, isProduction bool) (func(context.Context) error, error) {
@@ -29,6 +30,7 @@ func Init(ctx context.Context, level string, isProduction bool) (func(context.Co
 	)
 
 	endpoint := internal.Config.OTEL.Endpoint
+
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
 		return nil, err
@@ -54,17 +56,20 @@ func Init(ctx context.Context, level string, isProduction bool) (func(context.Co
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	var handler slog.Handler
+
 	opts := &slog.HandlerOptions{Level: parseLevel(level)}
 	if isProduction {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
+
 	slog.SetDefault(slog.New(&traceHandler{handler}))
 
 	return func(ctx context.Context) error {
 		_ = tp.Shutdown(ctx)
 		_ = mp.Shutdown(ctx)
+
 		return nil
 	}, nil
 }
@@ -93,5 +98,6 @@ func (h *traceHandler) Handle(ctx context.Context, r slog.Record) error {
 			slog.String("span_id", span.SpanID().String()),
 		)
 	}
+
 	return h.Handler.Handle(ctx, r)
 }

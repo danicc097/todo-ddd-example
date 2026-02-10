@@ -5,14 +5,15 @@ import (
 	"errors"
 	"time"
 
-	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
-	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 )
 
 type RepositoryProvider interface {
@@ -51,6 +52,7 @@ func NewTransactionManager(pool *pgxpool.Pool) TransactionManager {
 
 func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryProvider) error) error {
 	maxRetries := 3
+
 	var err error
 
 	for i := range maxRetries {
@@ -64,8 +66,10 @@ func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryP
 			time.Sleep((time.Duration(i + 1)) * 10 * time.Millisecond)
 			continue
 		}
+
 		break
 	}
+
 	return err
 }
 
@@ -79,5 +83,6 @@ func (tm *pgxTransactionManager) execOnce(ctx context.Context, fn func(p Reposit
 	if err := fn(&pgxRepositoryProvider{tx: tx}); err != nil {
 		return err
 	}
+
 	return tx.Commit(ctx)
 }

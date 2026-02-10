@@ -21,5 +21,6 @@ func (m *TodoRestMapper) ToResponseList(todos []*domain.Todo) []api.Todo {
 	for i, t := range todos {
 		res[i] = m.ToResponse(t)
 	}
+
 	return res
 }

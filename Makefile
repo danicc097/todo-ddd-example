@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues
+KNOWN_TARGETS := test lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues
 
 ifeq ($(findstring p,$(MAKEFLAGS)),)
   ifneq ($(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)),)
@@ -16,6 +16,7 @@ endif
 SQLC   := go tool sqlc
 PGROLL := go tool pgroll
 AIR    := go tool air
+GOLINT    := go tool golangci-lint
 
 DB_USER ?= postgres
 DB_PASS ?= postgres
@@ -51,6 +52,9 @@ test:
 
 clean:
 	rm -f $(SERVICE)
+
+lint:
+	$(GOLINT) run --allow-parallel-runners --fix
 
 gen:
 	make gen-sqlc

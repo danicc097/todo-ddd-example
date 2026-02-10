@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tcRabbitMQ "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 )
 
 var _ domain.EventPublisher = (*domainfakes.FakeEventPublisher)(nil)
@@ -33,6 +34,7 @@ func TestRabbitMQPublisher_PublishTodoCreated(t *testing.T) {
 
 	conn, err := amqp.Dial(connStr)
 	require.NoError(t, err)
+
 	defer conn.Close()
 
 	publisher, err := messaging.NewRabbitMQPublisher(conn)
@@ -65,6 +67,7 @@ func TestRabbitMQPublisher_PublishTodoUpdated(t *testing.T) {
 
 	conn, err := amqp.Dial(connStr)
 	require.NoError(t, err)
+
 	defer conn.Close()
 
 	publisher, err := messaging.NewRabbitMQPublisher(conn)

@@ -3,7 +3,6 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -19,6 +18,7 @@ const (
 
 type responseWrapper struct {
 	gin.ResponseWriter
+
 	body *bytes.Buffer
 }
 
@@ -41,6 +41,7 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 			c.Next()
 			return
 		}
+
 		key := c.GetHeader(idempotencyHeaderKey)
 		if key == "" {
 			c.Next()
@@ -66,6 +67,7 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 			if string(val) == idempotencyStatusProcessing { // concurrent
 				c.JSON(http.StatusConflict, gin.H{"error": "Request is currently being processed"})
 				c.Abort()
+
 				return
 			}
 
@@ -74,8 +76,10 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 				for k, v := range resp.Headers {
 					c.Writer.Header().Set(k, v)
 				}
+
 				c.Data(resp.Status, c.Writer.Header().Get("Content-Type"), resp.Body)
 				c.Abort()
+
 				return
 			}
 		}
@@ -109,5 +113,5 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 }
 
 func newIdempotencyRedisKey(key string) string {
-	return fmt.Sprintf("idempotency:%s", key)
+	return "idempotency:" + key
 }

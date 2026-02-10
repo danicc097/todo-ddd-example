@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	"github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 )
 
 type UserRepo struct {
@@ -36,6 +37,7 @@ func NewUserRepoFromTx(tx pgx.Tx) *UserRepo {
 func (r *UserRepo) Save(ctx context.Context, u *domain.User) error {
 	p := r.mapper.ToPersistence(u)
 	_, err := r.q.CreateUser(ctx, r.db, db.CreateUserParams(p))
+
 	return err
 }
 
@@ -45,7 +47,9 @@ func (r *UserRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, er
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
+
 		return nil, err
 	}
+
 	return r.mapper.ToDomain(row), nil
 }

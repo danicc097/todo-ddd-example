@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
 
 func TestNewAppConfig(t *testing.T) {
 	type nestedCfg struct {
 		Name string `env:"TEST_CFG_NAME"`
 	}
+
 	type cfg struct {
 		NestedCfg       nestedCfg
 		Length          int     `env:"TEST_CFG_LEN"`
@@ -53,11 +55,13 @@ func TestNewAppConfig(t *testing.T) {
 			}
 
 			c := &cfg{}
+
 			err := loadEnvToConfig(c)
 			if tc.errContains != "" {
 				require.ErrorContains(t, err, tc.errContains)
 				return
 			}
+
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, c)
 		})
@@ -80,6 +84,7 @@ func (e *MyEnum) Decode(value string) error {
 	default:
 		return fmt.Errorf("invalid value for MyEnum: %v", value)
 	}
+
 	return nil
 }
 
@@ -92,6 +97,7 @@ func TestEnumDecoderConfig(t *testing.T) {
 	t.Run("correct decoding", func(t *testing.T) {
 		t.Setenv("TEST_CFG_ENUM", "1")
 		t.Setenv("TEST_CFG_ENUM_OPT", "2")
+
 		c := &cfg{}
 		err := loadEnvToConfig(c)
 		require.NoError(t, err)

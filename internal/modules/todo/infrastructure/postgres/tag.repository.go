@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type TagRepo struct {
@@ -29,6 +30,7 @@ func (r *TagRepo) Save(ctx context.Context, t *domain.Tag) error {
 		ID:   t.ID(),
 		Name: t.Name().String(),
 	})
+
 	return err
 }
 
@@ -38,9 +40,12 @@ func (r *TagRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tag, erro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTagNotFound
 		}
+
 		return nil, err
 	}
+
 	tn, _ := domain.NewTagName(row.Name)
+
 	return domain.ReconstituteTag(row.ID, tn), nil
 }
 
@@ -50,8 +55,11 @@ func (r *TagRepo) FindByName(ctx context.Context, name string) (*domain.Tag, err
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTagNotFound
 		}
+
 		return nil, err
 	}
+
 	tn, _ := domain.NewTagName(row.Name)
+
 	return domain.ReconstituteTag(row.ID, tn), nil
 }

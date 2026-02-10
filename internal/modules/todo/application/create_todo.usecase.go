@@ -3,9 +3,10 @@ package application
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 )
 
 type CreateTodoCommand struct {
@@ -35,7 +36,6 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 	err = uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
 		return p.Todo().Save(ctx, todo)
 	})
-
 	if err != nil {
 		return uuid.UUID{}, err
 	}

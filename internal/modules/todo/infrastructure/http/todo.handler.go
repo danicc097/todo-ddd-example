@@ -3,22 +3,23 @@ package http
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type TodoHandler struct {
-	createUC   *application.CreateTodoUseCase
-	completeUC *application.CompleteTodoUseCase
-	getAllUC   *application.GetAllTodosUseCase
-	getTodoUC  *application.GetTodoUseCase
+	createUC    *application.CreateTodoUseCase
+	completeUC  *application.CompleteTodoUseCase
+	getAllUC    *application.GetAllTodosUseCase
+	getTodoUC   *application.GetTodoUseCase
 	createTagUC *application.CreateTagUseCase
-	hub        *ws.TodoHub
-	mapper     *TodoRestMapper
+	hub         *ws.TodoHub
+	mapper      *TodoRestMapper
 }
 
 func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.CompleteTodoUseCase, g *application.GetAllTodosUseCase, gt *application.GetTodoUseCase, ct *application.CreateTagUseCase, hub *ws.TodoHub) *TodoHandler {
@@ -49,6 +50,7 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, params api.CreateTodoParams) {
 		c.Error(err)
 		return
 	}
+
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
@@ -58,6 +60,7 @@ func (h *TodoHandler) GetAllTodos(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+
 	c.JSON(http.StatusOK, h.mapper.ToResponseList(todos))
 }
 
@@ -67,6 +70,7 @@ func (h *TodoHandler) GetTodoByID(c *gin.Context, id uuid.UUID) {
 		c.Error(err)
 		return
 	}
+
 	c.JSON(http.StatusOK, h.mapper.ToResponse(todo))
 }
 
@@ -75,6 +79,7 @@ func (h *TodoHandler) CompleteTodo(c *gin.Context, id uuid.UUID, params api.Comp
 		c.Error(err)
 		return
 	}
+
 	c.Status(http.StatusOK)
 }
 
@@ -90,5 +95,6 @@ func (h *TodoHandler) CreateTag(c *gin.Context, params api.CreateTagParams) {
 		c.Error(err)
 		return
 	}
+
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }

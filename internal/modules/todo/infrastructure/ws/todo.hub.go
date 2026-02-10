@@ -26,6 +26,7 @@ func NewTodoHub(r *redis.Client) *TodoHub {
 		redis:   r,
 	}
 	go hub.listenRedis()
+
 	return hub
 }
 
@@ -35,6 +36,7 @@ func (h *TodoHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Upgrade error: %v\n", err)
 		return
 	}
+
 	h.mutex.Lock()
 	h.clients[conn] = true
 	h.mutex.Unlock()
@@ -43,10 +45,12 @@ func (h *TodoHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 func (h *TodoHub) listenRedis() {
 	pubsub := h.redis.Subscribe(context.Background(), "todo_updates")
 	defer pubsub.Close()
+
 	ch := pubsub.Channel()
 
 	for msg := range ch {
 		h.mutex.Lock()
+
 		for client := range h.clients {
 			err := client.WriteMessage(websocket.TextMessage, []byte(msg.Payload))
 			if err != nil {
@@ -54,6 +58,7 @@ func (h *TodoHub) listenRedis() {
 				delete(h.clients, client)
 			}
 		}
+
 		h.mutex.Unlock()
 	}
 }

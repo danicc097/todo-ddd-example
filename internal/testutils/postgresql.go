@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgreSQLContainer struct {
@@ -23,13 +22,14 @@ type PostgreSQLContainer struct {
 	pool      *pgxpool.Pool
 }
 
-// generated via make gen-schema
+// generated via make gen-schema.
 const schemaSQLFile = "../../sql/schema.sql"
 
 func NewPostgreSQLContainer(ctx context.Context, t *testing.T) *PostgreSQLContainer {
 	t.Helper()
 
 	_, thisFile, _, _ := runtime.Caller(0)
+
 	absSchemaPath, err := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
 	if err != nil {
 		t.Fatalf("failed to get absolute path for schema file: %v", err)
@@ -76,18 +76,22 @@ func (p *PostgreSQLContainer) applySchema(ctx context.Context, t *testing.T, sch
 		if err == nil {
 			err = db.PingContext(ctx)
 		}
+
 		if err == nil {
 			break
 		}
+
 		if db != nil {
 			db.Close()
 		}
+
 		time.Sleep(500 * time.Millisecond)
 	}
 
 	if err != nil {
 		t.Fatalf("failed to connect to database for schema apply after retries: %v", err)
 	}
+
 	defer db.Close()
 
 	if _, err := db.ExecContext(ctx, "DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
@@ -102,8 +106,10 @@ func (p *PostgreSQLContainer) applySchema(ctx context.Context, t *testing.T, sch
 func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
-	var pool *pgxpool.Pool
-	var err error
+	var (
+		pool *pgxpool.Pool
+		err  error
+	)
 
 	for range 10 {
 		connStr, err := p.container.ConnectionString(ctx, "sslmode=disable")
@@ -117,6 +123,7 @@ func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpoo
 				p.pool = pool
 				return pool
 			}
+
 			pool.Close()
 		}
 
@@ -124,6 +131,7 @@ func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpoo
 	}
 
 	t.Fatalf("failed to connect to postgres after retries: %v", err)
+
 	return nil
 }
 
@@ -144,6 +152,7 @@ func (p *PostgreSQLContainer) ConnectionString(ctx context.Context, opts ...stri
 	if err != nil {
 		panic(fmt.Sprintf("failed to get connection string: %v", err))
 	}
+
 	return connStr
 }
 

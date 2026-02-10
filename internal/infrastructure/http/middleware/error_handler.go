@@ -4,11 +4,12 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func ErrorHandler() gin.HandlerFunc {
@@ -20,6 +21,7 @@ func ErrorHandler() gin.HandlerFunc {
 		}
 
 		err := c.Errors.Last().Err
+
 		var appErr *apperrors.AppError
 
 		switch {
@@ -30,7 +32,8 @@ func ErrorHandler() gin.HandlerFunc {
 		case errors.Is(err, domain.ErrTitleEmpty), errors.Is(err, domain.ErrTitleTooLong), errors.Is(err, userDomain.ErrInvalidEmail):
 			appErr = apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest)
 		default:
-			if asAppErr, ok := err.(*apperrors.AppError); ok {
+			asAppErr := &apperrors.AppError{}
+			if errors.As(err, &asAppErr) {
 				appErr = asAppErr
 			} else {
 				appErr = apperrors.New(apperrors.ErrCodeInternal, "Internal Server Error", http.StatusInternalServerError)

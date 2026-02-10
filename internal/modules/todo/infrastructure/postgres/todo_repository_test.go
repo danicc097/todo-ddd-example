@@ -4,17 +4,20 @@ import (
 	"context"
 	"testing"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/testutils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
 func mustCreateTodo(t *testing.T, title string) *domain.Todo {
 	t.Helper()
+
 	tt, err := domain.NewTodoTitle(title)
 	require.NoError(t, err)
+
 	return domain.NewTodo(tt)
 }
 
@@ -56,12 +59,14 @@ func TestTodoRepo_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		var found bool
+
 		for _, td := range todos {
 			if td.ID() == todo.ID() {
 				found = true
 				break
 			}
 		}
+
 		assert.True(t, found)
 	})
 

@@ -19,9 +19,11 @@ func NewTagName(val string) (TagName, error) {
 	if val == "" {
 		return TagName{}, ErrTagNameEmpty
 	}
+
 	if len(val) > 20 {
 		return TagName{}, ErrTagNameTooLong
 	}
+
 	return TagName{value: val}, nil
 }
 

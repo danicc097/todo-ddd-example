@@ -3,8 +3,9 @@ package messaging
 import (
 	"context"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/google/uuid"
+
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 // MultiPublisher implements domain.EventPublisher.
@@ -24,6 +25,7 @@ func (m *MultiPublisher) PublishTodoCreated(ctx context.Context, todo *domain.To
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -33,6 +35,7 @@ func (m *MultiPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.To
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -42,5 +45,6 @@ func (m *MultiPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, 
 			return err
 		}
 	}
+
 	return nil
 }

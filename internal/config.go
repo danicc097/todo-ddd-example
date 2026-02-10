@@ -59,7 +59,7 @@ func NewAppConfig() error {
 	return nil
 }
 
-var decoderType = reflect.TypeOf((*Decoder)(nil)).Elem()
+var decoderType = reflect.TypeFor[Decoder]()
 
 type Decoder interface {
 	Decode(value string) error
@@ -80,6 +80,7 @@ func loadEnvToConfig(config any) error {
 			if !fld.CanInterface() {
 				continue
 			}
+
 			if err := loadEnvToConfig(fld.Addr().Interface()); err != nil {
 				return fmt.Errorf("nested struct %q env loading: %w", fType.Name, err)
 			}
@@ -91,6 +92,7 @@ func loadEnvToConfig(config any) error {
 
 		if envtag, ok := fType.Tag.Lookup("env"); ok && len(envtag) > 0 {
 			isPtr := fld.Kind() == reflect.Ptr
+
 			var ptr reflect.Type
 			if isPtr {
 				ptr = fld.Type()
@@ -100,18 +102,23 @@ func loadEnvToConfig(config any) error {
 
 			if ptr.Implements(decoderType) {
 				envvar, _ := splitEnvTag(envtag)
+
 				val, _ := os.LookupEnv(envvar)
 				if val == "" && isPtr {
 					continue
 				}
 
-				var decoder Decoder
-				var ok bool
+				var (
+					decoder Decoder
+					ok      bool
+				)
+
 				if isPtr {
 					decoder, ok = reflect.New(ptr.Elem()).Interface().(Decoder)
 				} else {
 					decoder, ok = fld.Addr().Interface().(Decoder)
 				}
+
 				if !ok {
 					return fmt.Errorf("%q: could not find Decoder method", ptr.Elem())
 				}
@@ -146,10 +153,12 @@ func setDecoderValue(decoder Decoder, envTag string, field reflect.Value) error 
 		if defaultVal == "" {
 			return fmt.Errorf("%s is not set but required", envvar)
 		}
+
 		val = defaultVal
 	}
 
 	var isPtr bool
+
 	kind := field.Kind()
 
 	if kind == reflect.Ptr {
@@ -169,6 +178,7 @@ func splitEnvTag(s string) (string, string) {
 	if len(x) == 1 {
 		return x[0], ""
 	}
+
 	return x[0], x[1]
 }
 
@@ -180,6 +190,7 @@ func setEnvToField(envTag string, field reflect.Value) error {
 		if defaultVal == "" {
 			return fmt.Errorf("%s is not set but required", envvar)
 		}
+
 		val = defaultVal
 	}
 
@@ -201,18 +212,21 @@ func setEnvToField(envTag string, field reflect.Value) error {
 			setVal[*string](false, field, nil)
 			return nil
 		}
+
 		setVal(isPtr, field, val)
 	case reflect.Int:
 		v, err := strconv.Atoi(val)
 		if err != nil {
 			return fmt.Errorf("could not convert %s to int: %w", envvar, err)
 		}
+
 		setVal(isPtr, field, v)
 	case reflect.Bool:
 		v, err := strconv.ParseBool(val)
 		if err != nil {
 			return fmt.Errorf("could not convert %s to bool: %w", envvar, err)
 		}
+
 		setVal(isPtr, field, v)
 	default:
 		return fmt.Errorf("unsupported type for env tag %q: %T", envvar, field.Interface())

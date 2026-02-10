@@ -19,9 +19,11 @@ func NewTodoTitle(val string) (TodoTitle, error) {
 	if val == "" {
 		return TodoTitle{}, ErrTitleEmpty
 	}
+
 	if len(val) > 100 {
 		return TodoTitle{}, ErrTitleTooLong
 	}
+
 	return TodoTitle{value: val}, nil
 }
 

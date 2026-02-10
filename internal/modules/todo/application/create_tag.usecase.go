@@ -3,9 +3,10 @@ package application
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 )
 
 type CreateTagUseCase struct {
@@ -27,7 +28,6 @@ func (uc *CreateTagUseCase) Execute(ctx context.Context, name string) (uuid.UUID
 	err = uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
 		return p.Tag().Save(ctx, tag)
 	})
-
 	if err != nil {
 		return uuid.UUID{}, err
 	}

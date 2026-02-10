@@ -9,6 +9,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
+	amqp "github.com/rabbitmq/amqp091-go"
+	rdb "github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+
 	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
@@ -24,13 +31,6 @@ import (
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
-	amqp "github.com/rabbitmq/amqp091-go"
-
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
-	rdb "github.com/redis/go-redis/v9"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 type CompositeHandler struct {
@@ -62,6 +62,7 @@ func swaggerUIHandler(url string) gin.HandlerFunc {
 </script>
 </body>
 </html>`, url)
+
 		c.Header("Content-Type", "text/html")
 		c.String(http.StatusOK, html)
 	}
@@ -86,6 +87,7 @@ func main() {
 	ctx := context.Background()
 
 	isProd := internal.Config.Env == "production"
+
 	shutdown, err := logger.Init(ctx, internal.Config.LogLevel, isProd)
 	if err != nil {
 		os.Stderr.WriteString("logger init failed: " + err.Error() + "\n")
@@ -107,9 +109,11 @@ func main() {
 		if err == nil {
 			err = pool.Ping(ctx)
 		}
+
 		if err == nil {
 			break
 		}
+
 		slog.Warn("Database not ready, retrying...", slog.Int("attempt", i+1))
 		time.Sleep(2 * time.Second)
 	}
@@ -118,6 +122,7 @@ func main() {
 		slog.ErrorContext(ctx, "Unable to connect to database after retries", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
 	defer pool.Close()
 
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
@@ -132,6 +137,7 @@ func main() {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
 	todoRabbitPub, err := todoMsg.NewRabbitMQPublisher(mqConn)
 	if err != nil {
 		slog.Error("failed to create Todo rabbitmq publisher", slog.String("error", err.Error()))
@@ -162,6 +168,7 @@ func main() {
 	relay.Register("todo.created", todoMsg.MakeCreatedHandler(todoPublisher))
 	relay.Register("todo.completed", todoMsg.MakeUpdatedHandler(todoPublisher))
 	relay.Register("todo.tagadded", todoMsg.MakeUpdatedHandler(todoPublisher))
+
 	go relay.Start(ctx)
 
 	r := gin.New()
@@ -180,6 +187,7 @@ func main() {
 	r.GET("/ws", th.WS)
 
 	slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
+
 	if err := r.Run(":" + internal.Config.Port); err != nil {
 		slog.Error("Server exit", slog.String("error", err.Error()))
 	}
