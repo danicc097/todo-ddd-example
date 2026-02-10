@@ -8,38 +8,35 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-)
-
-var (
-	metricOutboxLag = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "outbox_unprocessed_events_count",
-		Help: "Number of events waiting in the outbox",
-	})
-	metricOutboxMaxAge = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "outbox_max_age_seconds",
-		Help: "Age of the oldest unprocessed event",
-	})
 )
 
 type Handler func(ctx context.Context, payload []byte) error
 
 type Relay struct {
-	pool     *pgxpool.Pool
-	q        *db.Queries
-	handlers map[string]Handler
-	tracer   trace.Tracer
+	pool         *pgxpool.Pool
+	q            *db.Queries
+	handlers     map[string]Handler
+	tracer       trace.Tracer
+	metricLag    metric.Int64Gauge
+	metricMaxAge metric.Float64Gauge
 }
 
 func NewRelay(pool *pgxpool.Pool) *Relay {
+	meter := otel.Meter("outbox-relay")
+
+	lag, _ := meter.Int64Gauge("outbox.lag_count", metric.WithDescription("Number of unprocessed events"))
+	age, _ := meter.Float64Gauge("outbox.max_age_seconds", metric.WithDescription("Age of oldest unprocessed event"))
+
 	return &Relay{
-		pool:     pool,
-		q:        db.New(),
-		handlers: make(map[string]Handler),
-		tracer:   otel.Tracer("outbox-relay"),
+		pool:         pool,
+		q:            db.New(),
+		handlers:     make(map[string]Handler),
+		tracer:       otel.Tracer("outbox-relay"),
+		metricLag:    lag,
+		metricMaxAge: age,
 	}
 }
 
@@ -69,8 +66,8 @@ func (r *Relay) Start(ctx context.Context) {
 func (r *Relay) updateMetrics(ctx context.Context) {
 	stats, err := r.q.GetOutboxLag(ctx, r.pool)
 	if err == nil {
-		metricOutboxLag.Set(float64(stats.TotalLag))
-		metricOutboxMaxAge.Set(stats.MaxAgeSeconds)
+		r.metricLag.Record(ctx, stats.TotalLag)
+		r.metricMaxAge.Record(ctx, stats.MaxAgeSeconds)
 	}
 }
 
