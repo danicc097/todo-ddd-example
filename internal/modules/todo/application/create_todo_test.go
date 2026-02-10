@@ -16,6 +16,8 @@ import (
 )
 
 func TestCreateTodoUseCase_Integration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
@@ -46,5 +48,11 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, title, found.Title().String())
 		assert.Contains(t, found.Tags(), tag.ID())
+
+		var count int
+
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.created'").Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
 	})
 }

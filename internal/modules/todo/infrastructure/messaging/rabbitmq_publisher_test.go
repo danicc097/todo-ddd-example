@@ -2,82 +2,50 @@ package messaging_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	tcRabbitMQ "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain/domainfakes"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
-var _ domain.EventPublisher = (*domainfakes.FakeEventPublisher)(nil)
+func TestRabbitMQPublisher_Integration(t *testing.T) {
+	t.Parallel()
 
-func TestRabbitMQPublisher_PublishTodoCreated(t *testing.T) {
 	ctx := context.Background()
 
-	rabbitmqContainer, err := tcRabbitMQ.Run(ctx,
-		"rabbitmq:3-management-alpine",
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := rabbitmqContainer.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate rabbitmq container: %s", err)
-		}
-	})
+	mq := testutils.NewRabbitMQContainer(ctx, t)
+	defer mq.Close(ctx, t)
 
-	connStr, err := rabbitmqContainer.AmqpURL(ctx)
-	require.NoError(t, err)
-
-	conn, err := amqp.Dial(connStr)
-	require.NoError(t, err)
-
-	defer conn.Close()
-
+	conn := mq.Connect(ctx, t)
 	publisher, err := messaging.NewRabbitMQPublisher(conn)
 	require.NoError(t, err)
 
-	title, err := domain.NewTodoTitle("Test Todo")
-	require.NoError(t, err)
+	t.Run("verifies actual message content", func(t *testing.T) {
+		title, _ := domain.NewTodoTitle("Test Todo")
+		todo := domain.NewTodo(title)
 
-	todo := domain.NewTodo(title)
+		ch, _ := conn.Channel()
+		msgs, _ := ch.Consume("todo_events", "", true, false, false, false, nil)
 
-	err = publisher.PublishTodoCreated(ctx, todo)
-	assert.NoError(t, err)
-}
+		err = publisher.PublishTodoCreated(ctx, todo)
+		require.NoError(t, err)
 
-func TestRabbitMQPublisher_PublishTodoUpdated(t *testing.T) {
-	ctx := context.Background()
+		select {
+		case msg := <-msgs:
+			var body map[string]any
 
-	rabbitmqContainer, err := tcRabbitMQ.Run(ctx,
-		"rabbitmq:3-management-alpine",
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := rabbitmqContainer.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate rabbitmq container: %s", err)
+			err := json.Unmarshal(msg.Body, &body)
+			require.NoError(t, err)
+			assert.Equal(t, "Test Todo", body["title"])
+			assert.Equal(t, "todo.created", msg.Type)
+		case <-time.After(5 * time.Second):
+			t.Fatal("Timeout waiting for message")
 		}
 	})
-
-	connStr, err := rabbitmqContainer.AmqpURL(ctx)
-	require.NoError(t, err)
-
-	conn, err := amqp.Dial(connStr)
-	require.NoError(t, err)
-
-	defer conn.Close()
-
-	publisher, err := messaging.NewRabbitMQPublisher(conn)
-	require.NoError(t, err)
-
-	title, err := domain.NewTodoTitle("Test Todo")
-	require.NoError(t, err)
-
-	todo := domain.NewTodo(title)
-
-	err = publisher.PublishTodoUpdated(ctx, todo)
-	assert.NoError(t, err)
 }

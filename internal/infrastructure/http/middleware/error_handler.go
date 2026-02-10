@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 )
 
@@ -25,11 +25,11 @@ func ErrorHandler() gin.HandlerFunc {
 		var appErr *apperrors.AppError
 
 		switch {
-		case errors.Is(err, domain.ErrTodoNotFound), errors.Is(err, domain.ErrTagNotFound), errors.Is(err, userDomain.ErrUserNotFound):
+		case errors.Is(err, todoDomain.ErrTodoNotFound), errors.Is(err, todoDomain.ErrTagNotFound), errors.Is(err, userDomain.ErrUserNotFound):
 			appErr = apperrors.New(apperrors.ErrCodeNotFound, "Resource not found", http.StatusNotFound)
-		case errors.Is(err, domain.ErrInvalidStatus):
+		case errors.Is(err, todoDomain.ErrInvalidStatus):
 			appErr = apperrors.New(apperrors.ErrCodeUnprocessable, err.Error(), http.StatusUnprocessableEntity)
-		case errors.Is(err, domain.ErrTitleEmpty), errors.Is(err, domain.ErrTitleTooLong), errors.Is(err, userDomain.ErrInvalidEmail):
+		case errors.Is(err, todoDomain.ErrTitleEmpty), errors.Is(err, todoDomain.ErrTitleTooLong), errors.Is(err, userDomain.ErrInvalidEmail):
 			appErr = apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest)
 		default:
 			asAppErr := &apperrors.AppError{}

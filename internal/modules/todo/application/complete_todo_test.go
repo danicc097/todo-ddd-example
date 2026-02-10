@@ -15,6 +15,8 @@ import (
 )
 
 func TestCompleteTodoUseCase_Integration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
@@ -34,5 +36,11 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 
 		found, _ := repo.FindByID(ctx, todo.ID())
 		assert.Equal(t, domain.StatusCompleted, found.Status())
+
+		var count int
+
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.completed'").Scan(&count)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
 	})
 }
