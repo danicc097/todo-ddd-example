@@ -12,12 +12,16 @@ import (
 
 type Querier interface {
 	AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error
+	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
-	GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error)
+	GetTagByID(ctx context.Context, db DBTX, id uuid.UUID) (Tags, error)
+	GetTagByName(ctx context.Context, db DBTX, name string) (Tags, error)
+	GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (GetTodoByIDRow, error)
+	// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 	GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error)
 	GetUserByID(ctx context.Context, db DBTX, id uuid.UUID) (Users, error)
-	ListTodos(ctx context.Context, db DBTX) ([]Todos, error)
+	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error

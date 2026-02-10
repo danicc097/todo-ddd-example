@@ -2,10 +2,6 @@
     reverse_proxy go-app:8080
 }
 
-:15672 {
-    reverse_proxy myapp-rabbitmq:15672
-}
-
 :4317 {
     reverse_proxy myapp-otel-collector:4317
 }

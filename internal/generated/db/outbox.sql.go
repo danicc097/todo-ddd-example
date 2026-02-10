@@ -21,8 +21,11 @@ WHERE
 ORDER BY
   created_at ASC
 LIMIT 100
+FOR UPDATE
+  SKIP LOCKED
 `
 
+// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 func (q *Queries) GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error) {
 	rows, err := db.Query(ctx, GetUnprocessedOutboxEvents)
 	if err != nil {

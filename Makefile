@@ -5,6 +5,12 @@ endif
 
 .SILENT:
 
+KNOWN_TARGETS := test clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues
+
+ifneq ($(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)),)
+  $(error Unknown target(s): $(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)). Valid targets: $(KNOWN_TARGETS))
+endif
+
 SQLC   := go tool sqlc
 PGROLL := go tool pgroll
 AIR    := go tool air
@@ -27,8 +33,7 @@ SCHEMA_OUT     := ./sql/schema.sql
 DB_CONTAINER_NAME = myapp-db
 DOCKER_PSQL = docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER)
 
-.PHONY: all test clean deps
-all: test build
+.PHONY: $(KNOWN_TARGETS)
 
 deps:
 	go mod download
@@ -39,13 +44,22 @@ dev:
 	$(AIR) -c .air.toml
 
 test:
-	go test -v ./...
+	make gen-schema
+	go test ./...
 
 clean:
 	rm -f $(SERVICE)
 
-.PHONY: gen-sqlc
+gen:
+	make gen-sqlc
+	go generate ./...
+
 gen-sqlc:
+	make gen-schema
+
+	$(SQLC) generate -f internal/sqlc.yaml
+
+gen-schema:
 	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \
 		echo "Error: Container $(DB_CONTAINER_NAME) not found. Run 'make deploy' first."; exit 1; \
 	fi
@@ -65,9 +79,6 @@ gen-sqlc:
 
 	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
 
-	$(SQLC) generate -f internal/sqlc.yaml
-
-.PHONY: db-init migrate-up
 db-init:
 	$(PGROLL) --postgres-url "$(PG_URL)" init
 
@@ -87,7 +98,6 @@ migrate-up:
 		fi \
 	done
 
-.PHONY: deploy psql logs debug-swarm
 deploy:
 	./deploy.sh
 
@@ -102,8 +112,6 @@ debug-swarm:
 
 API_URL ?= http://127.0.0.1:8090
 
-.PHONY: req-create req-list req-complete ws-listen
-
 req-create:
 	curl -s -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq .
 
@@ -117,4 +125,14 @@ endif
 	curl -s -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete
 
 ws-listen:
-	wscat -c ws://127.0.0.1:8090/ws
+	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \
+	wscat -c "$${WS_URL}/ws"
+
+N ?= 5
+QUEUE ?= todo_events
+
+rabbitmq-messages:
+	docker exec myapp-rabbitmq rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json
+
+rabbitmq-queues:
+	docker exec myapp-rabbitmq rabbitmqadmin -V / list queues name messages messages_ready consumers -f table

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
@@ -34,29 +33,60 @@ func NewTodoRepoFromTx(tx pgx.Tx) *TodoRepo {
 	}
 }
 
-func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) (uuid.UUID, error) {
+func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 	p := r.mapper.ToPersistence(t)
 	_, err := r.q.CreateTodo(ctx, r.db, db.CreateTodoParams(p))
-	return p.ID, err
-}
-
-func (r *TodoRepo) AddTag(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
-	return r.q.AddTagToTodo(ctx, r.db, db.AddTagToTodoParams{
-		TodoID: todoID,
-		TagID:  tagID,
-	})
-}
-
-func (r *TodoRepo) SaveEvent(ctx context.Context, eventType string, payload any) error {
-	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	return r.q.SaveOutboxEvent(ctx, r.db, db.SaveOutboxEventParams{
-		ID:        uuid.New(),
-		EventType: eventType,
-		Payload:   bytes,
+
+	for _, tagID := range t.Tags() {
+		err := r.q.AddTagToTodo(ctx, r.db, db.AddTagToTodoParams{
+			TodoID: t.ID(),
+			TagID:  tagID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return r.saveDomainEvents(ctx, t)
+}
+
+func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
+	p := r.mapper.ToPersistence(t)
+	err := r.q.UpdateTodo(ctx, r.db, db.UpdateTodoParams{
+		ID:     p.ID,
+		Title:  p.Title,
+		Status: p.Status,
 	})
+	if err != nil {
+		return err
+	}
+
+	return r.saveDomainEvents(ctx, t)
+}
+
+func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
+	for _, e := range t.Events() {
+		eventName, payload, err := r.mapper.MapEvent(e)
+		if err != nil {
+			return err
+		}
+		if payload == nil {
+			continue
+		}
+
+		if err := r.q.SaveOutboxEvent(ctx, r.db, db.SaveOutboxEventParams{
+			ID:        uuid.New(),
+			EventType: eventName,
+			Payload:   payload,
+		}); err != nil {
+			return err
+		}
+	}
+	t.ClearEvents()
+	return nil
 }
 
 func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, error) {
@@ -77,16 +107,7 @@ func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
 	}
 	todos := make([]*domain.Todo, len(rows))
 	for i, row := range rows {
-		todos[i] = r.mapper.ToDomain(row)
+		todos[i] = r.mapper.ListRowToDomain(row)
 	}
 	return todos, nil
-}
-
-func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
-	p := r.mapper.ToPersistence(t)
-	return r.q.UpdateTodo(ctx, r.db, db.UpdateTodoParams{
-		ID:     p.ID,
-		Title:  p.Title,
-		Status: p.Status,
-	})
 }

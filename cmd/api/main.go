@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
@@ -36,6 +36,35 @@ import (
 type CompositeHandler struct {
 	*todoHttp.TodoHandler
 	*userHttp.UserHandler
+}
+
+func swaggerUIHandler(url string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="SwaggerJS" />
+  <title>Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.31.0/swagger-ui.css" />
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5.31.0/swagger-ui-bundle.js" crossorigin></script>
+<script>
+  window.onload = () => {
+    window.ui = SwaggerUIBundle({
+      url: '%s',
+      dom_id: '#swagger-ui',
+    });
+  };
+</script>
+</body>
+</html>`, url)
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, html)
+	}
 }
 
 func main() {
@@ -92,32 +121,35 @@ func main() {
 	defer pool.Close()
 
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
-	todoRepo := todoPg.NewTodoRepo(pool)
-	userRepo := userPg.NewUserRepo(pool)
+	tm := db.NewTransactionManager(pool)
+
+	todoRepo := todoPg.NewTodoRepositoryWithTracing(todoPg.NewTodoRepo(pool), "todo-ddd-api")
+	tagRepo := todoPg.NewTagRepositoryWithTracing(todoPg.NewTagRepo(pool), "todo-ddd-api")
+	userRepo := userPg.NewUserRepositoryWithTracing(userPg.NewUserRepo(pool), "todo-ddd-api")
 
 	mqConn, err := amqp.Dial(internal.Config.RabbitMQ.URL)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	rabbitPub, err := messaging.NewRabbitMQPublisher(mqConn)
+	todoRabbitPub, err := todoMsg.NewRabbitMQPublisher(mqConn)
 	if err != nil {
-		slog.Error("failed to create rabbitmq publisher", slog.String("error", err.Error()))
+		slog.Error("failed to create Todo rabbitmq publisher", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	redisPub := redis.NewRedisPublisher(redisClient)
-
-	publisher := messaging.NewMultiPublisher(rabbitPub, redisPub)
+	todoPublisher := todoMsg.NewMultiPublisher(todoRabbitPub, redisPub)
 
 	hub := ws.NewTodoHub(redisClient)
-	tm := db.NewTransactionManager(pool)
 
+	_ = tagRepo
 	th := todoHttp.NewTodoHandler(
 		todoApp.NewCreateTodoUseCase(tm),
 		todoApp.NewCompleteTodoUseCase(tm),
 		todoApp.NewGetAllTodosUseCase(todoRepo),
 		todoApp.NewGetTodoUseCase(todoRepo),
+		todoApp.NewCreateTagUseCase(tm),
 		hub,
 	)
 
@@ -127,17 +159,24 @@ func main() {
 	)
 
 	relay := outbox.NewRelay(pool)
-	relay.Register("todo.created", todoMsg.MakeCreatedHandler(publisher))
-	relay.Register("todo.completed", todoMsg.MakeUpdatedHandler(publisher))
+	relay.Register("todo.created", todoMsg.MakeCreatedHandler(todoPublisher))
+	relay.Register("todo.completed", todoMsg.MakeUpdatedHandler(todoPublisher))
+	relay.Register("todo.tagadded", todoMsg.MakeUpdatedHandler(todoPublisher))
 	go relay.Start(ctx)
 
 	r := gin.New()
 	r.Use(otelgin.Middleware("todo-ddd-api"))
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
+	r.Use(middleware.Idempotency(redisClient)) // let it cache <500 errors from ErrorHandler
+	r.Use(middleware.ErrorHandler())
+
+	r.StaticFile("/openapi.yaml", "./openapi.yaml")
+	r.GET("/api/v1/docs", swaggerUIHandler("/openapi.yaml"))
 
 	handler := &CompositeHandler{TodoHandler: th, UserHandler: uh}
 	api.RegisterHandlers(r.Group("/api/v1"), handler)
+
 	r.GET("/ws", th.WS)
 
 	slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))

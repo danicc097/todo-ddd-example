@@ -55,18 +55,36 @@ func (r *Relay) processEvents(ctx context.Context) {
 	ctx, span := r.tracer.Start(ctx, "relay.poll_events")
 	defer span.End()
 
-	events, err := r.q.GetUnprocessedOutboxEvents(ctx, r.pool)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		slog.ErrorContext(ctx, "Relay fetch failed", slog.String("error", err.Error()))
+		slog.ErrorContext(ctx, "Relay transaction begin failed", "error", err.Error())
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	events, err := r.q.GetUnprocessedOutboxEvents(ctx, tx)
+	if err != nil {
+		slog.ErrorContext(ctx, "Relay fetch failed", "error", err.Error())
 		return
 	}
 
 	for _, event := range events {
-		r.handleEvent(ctx, event)
+		if err := r.handleEvent(ctx, event); err != nil {
+			continue // will be picked up again
+		}
+
+		if err := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); err != nil {
+			slog.ErrorContext(ctx, "Relay mark status failed", "id", event.ID.String(), "error", err.Error())
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		slog.ErrorContext(ctx, "Relay transaction commit failed", "error", err.Error())
 	}
 }
 
-func (r *Relay) handleEvent(ctx context.Context, event db.Outbox) {
+func (r *Relay) handleEvent(ctx context.Context, event db.Outbox) error {
 	ctx, span := r.tracer.Start(ctx, "relay.handle_event", trace.WithAttributes(
 		attribute.String("event.id", event.ID.String()),
 		attribute.String("event.type", event.EventType),
@@ -75,18 +93,17 @@ func (r *Relay) handleEvent(ctx context.Context, event db.Outbox) {
 
 	handler, ok := r.handlers[event.EventType]
 	if !ok {
-		slog.WarnContext(ctx, "Relay missing handler", slog.String("type", event.EventType))
-		r.markProcessed(ctx, event.ID)
-		return
+		slog.WarnContext(ctx, "Relay missing handler", "type", event.EventType)
+		return nil // treat as handled
 	}
 
 	if err := handler(ctx, event.Payload); err != nil {
-		slog.ErrorContext(ctx, "Relay handler execution failed", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
-		return
+		slog.ErrorContext(ctx, "Relay handler execution failed", "id", event.ID.String(), "error", err.Error())
+		return err
 	}
 
-	slog.InfoContext(ctx, "Relay processed event", slog.String("id", event.ID.String()), slog.String("type", event.EventType))
-	r.markProcessed(ctx, event.ID)
+	slog.InfoContext(ctx, "Relay processed event", "id", event.ID.String(), "type", event.EventType)
+	return nil
 }
 
 func (r *Relay) markProcessed(ctx context.Context, id uuid.UUID) {

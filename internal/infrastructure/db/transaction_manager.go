@@ -14,6 +14,7 @@ import (
 //counterfeiter:generate . RepositoryProvider
 type RepositoryProvider interface {
 	Todo() todoDomain.TodoRepository
+	Tag() todoDomain.TagRepository
 	User() userDomain.UserRepository
 }
 
@@ -23,6 +24,10 @@ type pgxRepositoryProvider struct {
 
 func (p *pgxRepositoryProvider) Todo() todoDomain.TodoRepository {
 	return todoPg.NewTodoRepoFromTx(p.tx)
+}
+
+func (p *pgxRepositoryProvider) Tag() todoDomain.TagRepository {
+	return todoPg.NewTagRepoFromTx(p.tx)
 }
 
 func (p *pgxRepositoryProvider) User() userDomain.UserRepository {

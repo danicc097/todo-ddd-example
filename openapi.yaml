@@ -2,10 +2,12 @@ openapi: 3.0.3
 info:
   title: Todo DDD API
   version: 1.0.0
-  description: A Todo application using Hexagonal Architecture, Redis Pub/Sub, and WebSockets.
+  description: A Todo api with delusions of grandeur.
 
 servers:
-  - url: http://localhost:8090/api/v1
+  - url: http://127.0.0.1:8090/api/v1
+    description: Local swarm server
+  - url: http://localhost:8099/api/v1
     description: Local development server
 
 paths:
@@ -24,14 +26,14 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Todo'
-        '500':
-          $ref: '#/components/responses/ErrorResponse'
 
     post:
       summary: Create a new todo
       operationId: createTodo
       tags:
         - todo
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -48,7 +50,7 @@ paths:
                   id:
                     type: string
                     format: uuid
-        '400':
+        '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
   /todos/{id}:
@@ -71,7 +73,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Todo'
-        '404':
+        '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
   /todos/{id}/complete:
@@ -87,16 +89,45 @@ paths:
           schema:
             type: string
             format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
           description: Todo completed successfully
-        '404':
+        '4XX':
           $ref: '#/components/responses/ErrorResponse'
-        '500':
+
+  /tags:
+    post:
+      summary: Create a new tag
+      operationId: createTag
+      tags:
+        - tag
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '201':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        '4XX':
           $ref: '#/components/responses/ErrorResponse'
+
   /users:
     post:
       operationId: registerUser
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         content:
           application/json:
@@ -112,6 +143,7 @@ paths:
                   id:
                     type: string
                     format: uuid
+
   /users/{id}:
     get:
       operationId: getUserByID
@@ -129,7 +161,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+
 components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: >
+        Unique key to allow safe retries of non-idempotent requests.
+        If a request with the same key is received, the server returns the cached response.
+      required: false
+      schema:
+        type: string
+        format: uuid
+
   schemas:
     Todo:
       type: object
@@ -144,6 +189,11 @@ components:
       required: [title]
       properties:
         title: { type: string }
+    CreateTagRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
     TodoStatus:
       type: string
       enum: [PENDING, COMPLETED, ARCHIVED]
@@ -169,4 +219,3 @@ components:
             properties:
               error:
                 type: string
-

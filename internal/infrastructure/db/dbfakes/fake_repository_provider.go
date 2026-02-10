@@ -10,6 +10,16 @@ import (
 )
 
 type FakeRepositoryProvider struct {
+	TagStub        func() domain.TagRepository
+	tagMutex       sync.RWMutex
+	tagArgsForCall []struct {
+	}
+	tagReturns struct {
+		result1 domain.TagRepository
+	}
+	tagReturnsOnCall map[int]struct {
+		result1 domain.TagRepository
+	}
 	TodoStub        func() domain.TodoRepository
 	todoMutex       sync.RWMutex
 	todoArgsForCall []struct {
@@ -32,6 +42,59 @@ type FakeRepositoryProvider struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeRepositoryProvider) Tag() domain.TagRepository {
+	fake.tagMutex.Lock()
+	ret, specificReturn := fake.tagReturnsOnCall[len(fake.tagArgsForCall)]
+	fake.tagArgsForCall = append(fake.tagArgsForCall, struct {
+	}{})
+	stub := fake.TagStub
+	fakeReturns := fake.tagReturns
+	fake.recordInvocation("Tag", []interface{}{})
+	fake.tagMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeRepositoryProvider) TagCallCount() int {
+	fake.tagMutex.RLock()
+	defer fake.tagMutex.RUnlock()
+	return len(fake.tagArgsForCall)
+}
+
+func (fake *FakeRepositoryProvider) TagCalls(stub func() domain.TagRepository) {
+	fake.tagMutex.Lock()
+	defer fake.tagMutex.Unlock()
+	fake.TagStub = stub
+}
+
+func (fake *FakeRepositoryProvider) TagReturns(result1 domain.TagRepository) {
+	fake.tagMutex.Lock()
+	defer fake.tagMutex.Unlock()
+	fake.TagStub = nil
+	fake.tagReturns = struct {
+		result1 domain.TagRepository
+	}{result1}
+}
+
+func (fake *FakeRepositoryProvider) TagReturnsOnCall(i int, result1 domain.TagRepository) {
+	fake.tagMutex.Lock()
+	defer fake.tagMutex.Unlock()
+	fake.TagStub = nil
+	if fake.tagReturnsOnCall == nil {
+		fake.tagReturnsOnCall = make(map[int]struct {
+			result1 domain.TagRepository
+		})
+	}
+	fake.tagReturnsOnCall[i] = struct {
+		result1 domain.TagRepository
+	}{result1}
 }
 
 func (fake *FakeRepositoryProvider) Todo() domain.TodoRepository {

@@ -27,22 +27,13 @@ func (uc *CreateTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 		return uuid.UUID{}, err
 	}
 
-	todo := domain.CreateTodo(title)
+	todo := domain.NewTodo(title)
+	for _, tagID := range cmd.TagIDs {
+		todo.AddTag(tagID)
+	}
 
 	err = uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
-		repo := p.Todo()
-
-		if _, err := repo.Save(ctx, todo); err != nil {
-			return err
-		}
-
-		for _, tagID := range cmd.TagIDs {
-			if err := repo.AddTag(ctx, todo.ID(), tagID); err != nil {
-				return err
-			}
-		}
-
-		return repo.SaveEvent(ctx, "todo.created", todo)
+		return p.Todo().Save(ctx, todo)
 	})
 
 	if err != nil {

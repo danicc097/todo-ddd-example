@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	"github.com/gin-gonic/gin"
@@ -19,10 +20,10 @@ func NewUserHandler(r *application.RegisterUserUseCase, g *application.GetUserUs
 	return &UserHandler{registerUC: r, getUserUC: g, mapper: &UserRestMapper{}}
 }
 
-func (h *UserHandler) RegisterUser(c *gin.Context) {
+func (h *UserHandler) RegisterUser(c *gin.Context, params api.RegisterUserParams) {
 	var req api.RegisterUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
 		return
 	}
 
@@ -31,7 +32,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 		Name:  req.Name,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -41,7 +42,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context) {
 func (h *UserHandler) GetUserByID(c *gin.Context, id uuid.UUID) {
 	user, err := h.getUserUC.Execute(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.Error(err)
 		return
 	}
 

@@ -60,48 +60,80 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 
 const GetTodoByID = `-- name: GetTodoByID :one
 SELECT
-  id, title, status, created_at
+  t.id,
+  t.title,
+  t.status,
+  t.created_at,
+  COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
-  todos
+  todos t
+  LEFT JOIN todo_tags tt ON t.id = tt.todo_id
 WHERE
-  id = $1
+  t.id = $1
+GROUP BY
+  t.id
 `
 
-func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (Todos, error) {
+type GetTodoByIDRow struct {
+	ID        uuid.UUID   `db:"id" json:"id"`
+	Title     string      `db:"title" json:"title"`
+	Status    string      `db:"status" json:"status"`
+	CreatedAt time.Time   `db:"created_at" json:"created_at"`
+	Tags      []uuid.UUID `db:"tags" json:"tags"`
+}
+
+func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (GetTodoByIDRow, error) {
 	row := db.QueryRow(ctx, GetTodoByID, id)
-	var i Todos
+	var i GetTodoByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Tags,
 	)
 	return i, err
 }
 
 const ListTodos = `-- name: ListTodos :many
 SELECT
-  id, title, status, created_at
+  t.id,
+  t.title,
+  t.status,
+  t.created_at,
+  COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
-  todos
+  todos t
+  LEFT JOIN todo_tags tt ON t.id = tt.todo_id
+GROUP BY
+  t.id
 ORDER BY
-  created_at DESC
+  t.created_at DESC
 `
 
-func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]Todos, error) {
+type ListTodosRow struct {
+	ID        uuid.UUID   `db:"id" json:"id"`
+	Title     string      `db:"title" json:"title"`
+	Status    string      `db:"status" json:"status"`
+	CreatedAt time.Time   `db:"created_at" json:"created_at"`
+	Tags      []uuid.UUID `db:"tags" json:"tags"`
+}
+
+func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error) {
 	rows, err := db.Query(ctx, ListTodos)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Todos{}
+	items := []ListTodosRow{}
 	for rows.Next() {
-		var i Todos
+		var i ListTodosRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Tags,
 		); err != nil {
 			return nil, err
 		}

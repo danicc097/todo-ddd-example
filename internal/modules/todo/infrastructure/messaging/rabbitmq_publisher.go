@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -43,13 +44,16 @@ func (p *RabbitMQPublisher) PublishTodoUpdated(ctx context.Context, todo *domain
 	return p.publish(ctx, "todo.updated", todo)
 }
 
-func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, todo *domain.Todo) error {
-	body, err := json.Marshal(map[string]any{
-		"id":         todo.ID(),
-		"title":      todo.Title().String(),
-		"status":     todo.Status(),
-		"created_at": todo.CreatedAt(),
-	})
+func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
+	payload := TagAddedPayload{
+		TodoID: todoID,
+		TagID:  tagID,
+	}
+	return p.publish(ctx, "todo.tagadded", payload)
+}
+
+func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, body any) error {
+	bytes, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
@@ -61,7 +65,7 @@ func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, todo
 		false,         // immediate
 		amqp.Publishing{
 			ContentType:  "application/json",
-			Body:         body,
+			Body:         bytes,
 			DeliveryMode: amqp.Persistent,
 			Type:         routingKey,
 		},

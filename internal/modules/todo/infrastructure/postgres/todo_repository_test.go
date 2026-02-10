@@ -5,61 +5,90 @@ import (
 	"testing"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TODO: parallel and dynamic db as in https://github.com/danicc097/openapi-go-gin-postgres-sqlc/blob/main/internal/testutil/postgresql.go
-func setupRepo(t *testing.T) (*TodoRepo, *pgxpool.Pool) {
-	t.Helper()
-	dbURL := "postgresql://postgres:postgres@localhost:5656/postgres"
-	pool, err := pgxpool.New(context.Background(), dbURL)
-	require.NoError(t, err)
-	return NewTodoRepo(pool), pool
-}
 
 func mustCreateTodo(t *testing.T, title string) *domain.Todo {
 	t.Helper()
 	tt, err := domain.NewTodoTitle(title)
 	require.NoError(t, err)
-	return domain.CreateTodo(tt)
+	return domain.NewTodo(tt)
 }
 
 func TestTodoRepo_Integration(t *testing.T) {
-	t.Skip("pending db setup")
 	ctx := context.Background()
-	repo, pool := setupRepo(t)
+
+	postgres := testutils.NewPostgreSQLContainer(ctx, t)
+	defer postgres.Close(ctx, t)
+
+	pool := postgres.Connect(ctx, t)
 	defer pool.Close()
 
-	todo := mustCreateTodo(t, "Integration")
+	repo := NewTodoRepo(pool)
+	tagRepo := NewTagRepo(pool)
 
-	t.Run("Persistence", func(t *testing.T) {
-		_, err := repo.Save(ctx, todo)
-		assert.NoError(t, err)
+	todo := mustCreateTodo(t, "Test Todo")
+
+	t.Run("save and find", func(t *testing.T) {
+		err := repo.Save(ctx, todo)
+		require.NoError(t, err)
 
 		found, err := repo.FindByID(ctx, todo.ID())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, todo.ID(), found.ID())
+	})
 
+	t.Run("update", func(t *testing.T) {
 		require.NoError(t, todo.Complete())
-		assert.NoError(t, repo.Update(ctx, todo))
+		err := repo.Update(ctx, todo)
+		require.NoError(t, err)
 
-		updated, _ := repo.FindByID(ctx, todo.ID())
+		updated, err := repo.FindByID(ctx, todo.ID())
+		require.NoError(t, err)
 		assert.Equal(t, domain.StatusCompleted, updated.Status())
 	})
 
-	t.Run("FindAll", func(t *testing.T) {
+	t.Run("find all", func(t *testing.T) {
 		todos, err := repo.FindAll(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		var found bool
-		for _, t := range todos {
-			if t.ID() == todo.ID() {
+		for _, td := range todos {
+			if td.ID() == todo.ID() {
 				found = true
 				break
 			}
 		}
-		assert.True(t, found, "saved todo should be in the list")
+		assert.True(t, found)
+	})
+
+	t.Run("by id non-existent", func(t *testing.T) {
+		_, err := repo.FindByID(ctx, uuid.New())
+		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
+	})
+
+	t.Run("tags", func(t *testing.T) {
+		taggedTodo := mustCreateTodo(t, "Todo with tags")
+
+		tn1, _ := domain.NewTagName("tag-1")
+		tag1 := domain.NewTag(tn1)
+		require.NoError(t, tagRepo.Save(ctx, tag1))
+
+		tn2, _ := domain.NewTagName("tag-2")
+		tag2 := domain.NewTag(tn2)
+		require.NoError(t, tagRepo.Save(ctx, tag2))
+
+		taggedTodo.AddTag(tag1.ID())
+		taggedTodo.AddTag(tag2.ID())
+
+		err := repo.Save(ctx, taggedTodo)
+		require.NoError(t, err)
+
+		found, err := repo.FindByID(ctx, taggedTodo.ID())
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []uuid.UUID{tag1.ID(), tag2.ID()}, found.Tags())
 	})
 }

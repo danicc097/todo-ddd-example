@@ -6,9 +6,23 @@ import (
 	"sync"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/google/uuid"
 )
 
 type FakeEventPublisher struct {
+	PublishTagAddedStub        func(context.Context, uuid.UUID, uuid.UUID) error
+	publishTagAddedMutex       sync.RWMutex
+	publishTagAddedArgsForCall []struct {
+		arg1 context.Context
+		arg2 uuid.UUID
+		arg3 uuid.UUID
+	}
+	publishTagAddedReturns struct {
+		result1 error
+	}
+	publishTagAddedReturnsOnCall map[int]struct {
+		result1 error
+	}
 	PublishTodoCreatedStub        func(context.Context, *domain.Todo) error
 	publishTodoCreatedMutex       sync.RWMutex
 	publishTodoCreatedArgsForCall []struct {
@@ -35,6 +49,69 @@ type FakeEventPublisher struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeEventPublisher) PublishTagAdded(arg1 context.Context, arg2 uuid.UUID, arg3 uuid.UUID) error {
+	fake.publishTagAddedMutex.Lock()
+	ret, specificReturn := fake.publishTagAddedReturnsOnCall[len(fake.publishTagAddedArgsForCall)]
+	fake.publishTagAddedArgsForCall = append(fake.publishTagAddedArgsForCall, struct {
+		arg1 context.Context
+		arg2 uuid.UUID
+		arg3 uuid.UUID
+	}{arg1, arg2, arg3})
+	stub := fake.PublishTagAddedStub
+	fakeReturns := fake.publishTagAddedReturns
+	fake.recordInvocation("PublishTagAdded", []interface{}{arg1, arg2, arg3})
+	fake.publishTagAddedMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeEventPublisher) PublishTagAddedCallCount() int {
+	fake.publishTagAddedMutex.RLock()
+	defer fake.publishTagAddedMutex.RUnlock()
+	return len(fake.publishTagAddedArgsForCall)
+}
+
+func (fake *FakeEventPublisher) PublishTagAddedCalls(stub func(context.Context, uuid.UUID, uuid.UUID) error) {
+	fake.publishTagAddedMutex.Lock()
+	defer fake.publishTagAddedMutex.Unlock()
+	fake.PublishTagAddedStub = stub
+}
+
+func (fake *FakeEventPublisher) PublishTagAddedArgsForCall(i int) (context.Context, uuid.UUID, uuid.UUID) {
+	fake.publishTagAddedMutex.RLock()
+	defer fake.publishTagAddedMutex.RUnlock()
+	argsForCall := fake.publishTagAddedArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeEventPublisher) PublishTagAddedReturns(result1 error) {
+	fake.publishTagAddedMutex.Lock()
+	defer fake.publishTagAddedMutex.Unlock()
+	fake.PublishTagAddedStub = nil
+	fake.publishTagAddedReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeEventPublisher) PublishTagAddedReturnsOnCall(i int, result1 error) {
+	fake.publishTagAddedMutex.Lock()
+	defer fake.publishTagAddedMutex.Unlock()
+	fake.PublishTagAddedStub = nil
+	if fake.publishTagAddedReturnsOnCall == nil {
+		fake.publishTagAddedReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.publishTagAddedReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeEventPublisher) PublishTodoCreated(arg1 context.Context, arg2 *domain.Todo) error {

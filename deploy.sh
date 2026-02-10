@@ -22,10 +22,9 @@ if [ $COUNT -eq $MAX_RETRIES ]; then
 fi
 
 go mod tidy
-make gen-sqlc
-make migrate-up
+make gen
 
-go generate ./...
+make migrate-up
 
 docker build --target dev -t myapp-go:latest .
 

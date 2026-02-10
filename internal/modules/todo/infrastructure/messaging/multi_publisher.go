@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/google/uuid"
 )
 
 // MultiPublisher implements domain.EventPublisher.
@@ -29,6 +30,15 @@ func (m *MultiPublisher) PublishTodoCreated(ctx context.Context, todo *domain.To
 func (m *MultiPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
 	for _, p := range m.publishers {
 		if err := p.PublishTodoUpdated(ctx, todo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *MultiPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
+	for _, p := range m.publishers {
+		if err := p.PublishTagAdded(ctx, todoID, tagID); err != nil {
 			return err
 		}
 	}

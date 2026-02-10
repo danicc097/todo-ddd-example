@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -25,27 +26,42 @@ func NewRedisPublisher(client *redis.Client) *RedisPublisher {
 }
 
 func (p *RedisPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, "todo.created", todo)
-}
-
-func (p *RedisPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, "todo.updated", todo)
-}
-
-func (p *RedisPublisher) publish(ctx context.Context, eventType string, todo *domain.Todo) error {
-	ctx, span := p.tracer.Start(ctx, "redis.publish", trace.WithAttributes(
-		attribute.String("event.type", eventType),
-		attribute.String("todo.id", todo.ID().String()),
-		attribute.String("redis.channel", "todo_updates"),
-	))
-	defer span.End()
-
 	payload := map[string]any{
 		"id":     todo.ID(),
 		"status": todo.Status(),
 		"title":  todo.Title().String(),
-		"event":  eventType,
+		"event":  "todo.created",
 	}
+	return p.publish(ctx, "todo.created", payload, attribute.String("todo.id", todo.ID().String()))
+}
+
+func (p *RedisPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
+	payload := map[string]any{
+		"id":     todo.ID(),
+		"status": todo.Status(),
+		"title":  todo.Title().String(),
+		"event":  "todo.updated",
+	}
+	return p.publish(ctx, "todo.updated", payload, attribute.String("todo.id", todo.ID().String()))
+}
+
+func (p *RedisPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
+	payload := map[string]any{
+		"todo_id": todoID,
+		"tag_id":  tagID,
+		"event":   "todo.tagadded",
+	}
+	return p.publish(ctx, "todo.tagadded", payload, attribute.String("todo.id", todoID.String()))
+}
+
+func (p *RedisPublisher) publish(ctx context.Context, eventType string, payload any, attrs ...attribute.KeyValue) error {
+	traceAttrs := append([]attribute.KeyValue{
+		attribute.String("event.type", eventType),
+		attribute.String("redis.channel", "todo_updates"),
+	}, attrs...)
+
+	ctx, span := p.tracer.Start(ctx, "redis.publish", trace.WithAttributes(traceAttrs...))
+	defer span.End()
 
 	msg, err := json.Marshal(payload)
 	if err != nil {

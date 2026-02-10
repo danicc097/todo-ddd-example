@@ -10,7 +10,11 @@ make deploy
 make test
 ```
 
-# Example
+## API docs
+
+Visit `http://127.0.0.1:8090/api/v1/docs`
+
+# Example API usage
 
 ```bash
 # listen to todo_updated:

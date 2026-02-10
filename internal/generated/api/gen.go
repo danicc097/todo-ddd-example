@@ -20,6 +20,11 @@ const (
 	PENDING   TodoStatus = "PENDING"
 )
 
+// CreateTagRequest defines model for CreateTagRequest.
+type CreateTagRequest struct {
+	Name string `json:"name"`
+}
+
 // CreateTodoRequest defines model for CreateTodoRequest.
 type CreateTodoRequest struct {
 	Title string `json:"title"`
@@ -49,10 +54,40 @@ type User struct {
 	Name  string             `json:"name"`
 }
 
+// IdempotencyKey defines model for IdempotencyKey.
+type IdempotencyKey = openapi_types.UUID
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
 }
+
+// CreateTagParams defines parameters for CreateTag.
+type CreateTagParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CreateTodoParams defines parameters for CreateTodo.
+type CreateTodoParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CompleteTodoParams defines parameters for CompleteTodo.
+type CompleteTodoParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RegisterUserParams defines parameters for RegisterUser.
+type RegisterUserParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
+type CreateTagJSONRequestBody = CreateTagRequest
 
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
@@ -62,21 +97,24 @@ type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Create a new tag
+	// (POST /tags)
+	CreateTag(c *gin.Context, params CreateTagParams)
 	// List all todos
 	// (GET /todos)
 	GetAllTodos(c *gin.Context)
 	// Create a new todo
 	// (POST /todos)
-	CreateTodo(c *gin.Context)
+	CreateTodo(c *gin.Context, params CreateTodoParams)
 	// Get a todo by ID
 	// (GET /todos/{id})
 	GetTodoByID(c *gin.Context, id openapi_types.UUID)
 	// Complete a todo
 	// (PATCH /todos/{id}/complete)
-	CompleteTodo(c *gin.Context, id openapi_types.UUID)
+	CompleteTodo(c *gin.Context, id openapi_types.UUID, params CompleteTodoParams)
 
 	// (POST /users)
-	RegisterUser(c *gin.Context)
+	RegisterUser(c *gin.Context, params RegisterUserParams)
 
 	// (GET /users/{id})
 	GetUserByID(c *gin.Context, id openapi_types.UUID)
@@ -90,6 +128,45 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// CreateTag operation middleware
+func (siw *ServerInterfaceWrapper) CreateTag(c *gin.Context) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTagParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateTag(c, params)
+}
 
 // GetAllTodos operation middleware
 func (siw *ServerInterfaceWrapper) GetAllTodos(c *gin.Context) {
@@ -107,6 +184,32 @@ func (siw *ServerInterfaceWrapper) GetAllTodos(c *gin.Context) {
 // CreateTodo operation middleware
 func (siw *ServerInterfaceWrapper) CreateTodo(c *gin.Context) {
 
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTodoParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -114,7 +217,7 @@ func (siw *ServerInterfaceWrapper) CreateTodo(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateTodo(c)
+	siw.Handler.CreateTodo(c, params)
 }
 
 // GetTodoByID operation middleware
@@ -155,6 +258,30 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteTodoParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -162,12 +289,38 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CompleteTodo(c, id)
+	siw.Handler.CompleteTodo(c, id, params)
 }
 
 // RegisterUser operation middleware
 func (siw *ServerInterfaceWrapper) RegisterUser(c *gin.Context) {
 
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RegisterUserParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -175,7 +328,7 @@ func (siw *ServerInterfaceWrapper) RegisterUser(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RegisterUser(c)
+	siw.Handler.RegisterUser(c, params)
 }
 
 // GetUserByID operation middleware
@@ -229,6 +382,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/tags", wrapper.CreateTag)
 	router.GET(options.BaseURL+"/todos", wrapper.GetAllTodos)
 	router.POST(options.BaseURL+"/todos", wrapper.CreateTodo)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)

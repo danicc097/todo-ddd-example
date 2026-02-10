@@ -28,10 +28,6 @@ func (uc *CompleteTodoUseCase) Execute(ctx context.Context, id uuid.UUID) error 
 			return err
 		}
 
-		if err := repo.Update(ctx, todo); err != nil {
-			return err
-		}
-
-		return repo.SaveEvent(ctx, "todo.completed", todo)
+		return repo.Update(ctx, todo)
 	})
 }

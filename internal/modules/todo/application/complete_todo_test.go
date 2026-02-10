@@ -19,41 +19,35 @@ func TestCompleteTodoUseCase_Execute(t *testing.T) {
 		return repo, application.NewCompleteTodoUseCase(tm)
 	}
 
-	t.Run("successfully completes todo and saves outbox event", func(t *testing.T) {
+	t.Run("successfully completes todo and saves state", func(t *testing.T) {
 		repo, uc := setup()
 		id := uuid.New()
 		title, _ := domain.NewTodoTitle("Reliable Task")
-		existingTodo := domain.NewTodo(id, title, domain.StatusPending, time.Now())
+
+		existingTodo := domain.ReconstituteTodo(id, title, domain.StatusPending, time.Now(), nil)
 
 		repo.FindByIDReturns(existingTodo, nil)
 		repo.UpdateReturns(nil)
-		repo.SaveEventReturns(nil)
 
 		err := uc.Execute(context.Background(), id)
 
 		assert.NoError(t, err)
 		assert.Equal(t, 1, repo.UpdateCallCount())
-		assert.Equal(t, 1, repo.SaveEventCallCount())
 
-		_, eventType, payload := repo.SaveEventArgsForCall(0)
-		assert.Equal(t, "todo.completed", eventType)
-
-		// Verify the entity itself was passed to the outbox
-		assert.IsType(t, &domain.Todo{}, payload)
-		assert.Equal(t, domain.StatusCompleted, payload.(*domain.Todo).Status())
+		_, updatedTodo := repo.UpdateArgsForCall(0)
+		assert.Equal(t, domain.StatusCompleted, updatedTodo.Status())
 	})
 
 	t.Run("aborts if todo update fails", func(t *testing.T) {
 		repo, uc := setup()
 		id := uuid.New()
 		title, _ := domain.NewTodoTitle("Task")
-		repo.FindByIDReturns(domain.NewTodo(id, title, domain.StatusPending, time.Now()), nil)
+		repo.FindByIDReturns(domain.ReconstituteTodo(id, title, domain.StatusPending, time.Now(), nil), nil)
 		repo.UpdateReturns(assert.AnError)
 
 		err := uc.Execute(context.Background(), id)
 
 		assert.Error(t, err)
-		assert.Equal(t, 0, repo.SaveEventCallCount())
 	})
 
 	t.Run("returns error if todo is not found", func(t *testing.T) {
@@ -64,6 +58,5 @@ func TestCompleteTodoUseCase_Execute(t *testing.T) {
 		err := uc.Execute(context.Background(), id)
 
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
-		assert.Equal(t, 0, repo.SaveEventCallCount())
 	})
 }
