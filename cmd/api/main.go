@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -186,8 +188,6 @@ func main() {
 	relay.Register("todo.completed", todoMsg.MakeUpdatedHandler(todoPublisher))
 	relay.Register("todo.tagadded", todoMsg.MakeUpdatedHandler(todoPublisher))
 
-	// Run relay in a goroutine with the main context
-	// When main context is cancelled, relay will shut down gracefully
 	go relay.Start(ctx)
 
 	r := gin.New()
@@ -196,6 +196,10 @@ func main() {
 	r.Use(gin.Recovery())
 	r.Use(middleware.Idempotency(redisClient))
 	r.Use(middleware.ErrorHandler())
+
+	if internal.Config.Env != "production" {
+		r.Use(createOpenAPIValidatorMw())
+	}
 
 	r.StaticFile("/openapi.yaml", "./openapi.yaml")
 	r.GET("/api/v1/docs", swaggerUIHandler("/openapi.yaml"))
@@ -210,7 +214,6 @@ func main() {
 		Handler: r,
 	}
 
-	// Run server in goroutine
 	go func() {
 		slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
 
@@ -220,16 +223,13 @@ func main() {
 		}
 	}()
 
-	// Graceful Shutdown Logic
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	slog.Info("Shutting down server...")
 
-	// 1. Cancel context to stop Relay loop and other background tasks
 	cancel()
 
-	// 2. Shutdown HTTP server with timeout
 	timeoutCtx, cancelTimeout := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelTimeout()
 
@@ -238,4 +238,28 @@ func main() {
 	}
 
 	slog.Info("Server exiting")
+}
+
+func createOpenAPIValidatorMw() gin.HandlerFunc {
+	loader := openapi3.NewLoader()
+
+	doc, err := loader.LoadFromFile("./openapi.yaml")
+	if err != nil {
+		slog.Error("failed to load openapi spec", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	oaMiddleware := middleware.NewOpenapiMiddleware(doc)
+
+	validatorOpts := &middleware.OAValidatorOptions{
+		ValidateResponse: true,
+		Options: openapi3filter.Options{
+			AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
+				return nil
+			},
+		},
+		// leaving ErrorHandler nil triggers c.Error(), which middleware.ErrorHandler handles
+	}
+
+	return oaMiddleware.RequestValidatorWithOptions(validatorOpts)
 }

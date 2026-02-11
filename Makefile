@@ -119,18 +119,32 @@ debug-swarm:
 	docker service logs myapp_go-app --no-trunc --raw -f
 
 API_URL ?= http://127.0.0.1:8090
+FAIL_FAST ?= 0
+
+ifeq ($(FAIL_FAST),1)
+    CURL_FLAGS := -f
+else
+    CURL_FLAGS :=
+endif
 
 req-create:
-	curl -sSf -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq -e .id
+	curl $(CURL_FLAGS) -sS -X POST $(API_URL)/api/v1/todos \
+		-H "Content-Type: application/json" \
+		-d '{"title": "New todo $(shell date +%s)"}' | \
+	jq -e .id
 
 req-list:
-	curl -sSf -X GET $(API_URL)/api/v1/todos | jq -e .
+	curl $(CURL_FLAGS) -sS -X GET $(API_URL)/api/v1/todos \
+		-H "Content-Type: application/json" | \
+		jq -e .
 
 req-complete:
 ifndef ID
 	$(error ID is undefined. Usage: make req-complete ID=...)
 endif
-	curl -sSf -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete
+	curl $(CURL_FLAGS) -sS -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete \
+		-H "Content-Type: application/json"
+
 
 ws-listen:
 	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \
