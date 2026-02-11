@@ -29,35 +29,32 @@ type TagAddedPayload struct {
 	TagID  uuid.UUID `json:"tag_id"`
 }
 
-func MakeCreatedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
+// NewEventHandler creates a handler that unmarshals JSON payloads into type T.
+func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Context, []byte) error {
 	return func(ctx context.Context, payload []byte) error {
-		var p TodoEventPayload
-		if err := json.Unmarshal(payload, &p); err != nil {
+		var event T
+		if err := json.Unmarshal(payload, &event); err != nil {
 			return err
 		}
 
-		return pub.PublishTodoCreated(ctx, p.ToEntity())
+		return fn(ctx, event)
 	}
+}
+
+func MakeCreatedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
+	return NewEventHandler(func(ctx context.Context, p TodoEventPayload) error {
+		return pub.PublishTodoCreated(ctx, p.ToEntity())
+	})
 }
 
 func MakeUpdatedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
-	return func(ctx context.Context, payload []byte) error {
-		var p TodoEventPayload
-		if err := json.Unmarshal(payload, &p); err != nil {
-			return err
-		}
-
+	return NewEventHandler(func(ctx context.Context, p TodoEventPayload) error {
 		return pub.PublishTodoUpdated(ctx, p.ToEntity())
-	}
+	})
 }
 
 func MakeTagAddedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
-	return func(ctx context.Context, payload []byte) error {
-		var p TagAddedPayload
-		if err := json.Unmarshal(payload, &p); err != nil {
-			return err
-		}
-
+	return NewEventHandler(func(ctx context.Context, p TagAddedPayload) error {
 		return pub.PublishTagAdded(ctx, p.TodoID, p.TagID)
-	}
+	})
 }

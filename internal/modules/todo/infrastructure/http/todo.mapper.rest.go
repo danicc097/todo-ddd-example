@@ -15,12 +15,3 @@ func (m *TodoRestMapper) ToResponse(t *domain.Todo) api.Todo {
 		CreatedAt: t.CreatedAt(),
 	}
 }
-
-func (m *TodoRestMapper) ToResponseList(todos []*domain.Todo) []api.Todo {
-	res := make([]api.Todo, len(todos))
-	for i, t := range todos {
-		res[i] = m.ToResponse(t)
-	}
-
-	return res
-}

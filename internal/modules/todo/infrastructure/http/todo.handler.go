@@ -10,6 +10,7 @@ import (
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
+	"github.com/danicc097/todo-ddd-example/internal/utils/mapper"
 )
 
 type TodoHandler struct {
@@ -68,7 +69,7 @@ func (h *TodoHandler) GetAllTodos(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, h.mapper.ToResponseList(todos))
+	c.JSON(http.StatusOK, mapper.MapList(todos, h.mapper.ToResponse))
 }
 
 func (h *TodoHandler) GetTodoByID(c *gin.Context, id uuid.UUID) {
