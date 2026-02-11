@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-client deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -52,6 +52,9 @@ test:
 	make gen-schema
 	go test ./...
 
+test-e2e:
+	go test -tags e2e -v ./tests/e2e/...
+
 clean:
 	rm -f $(SERVICE)
 
@@ -66,6 +69,9 @@ gen-sqlc:
 	make gen-schema
 
 	$(SQLC) generate -f internal/sqlc.yaml
+
+gen-client:
+	go tool oapi-codegen --config=internal/oapi-codegen-client.yaml openapi.yaml
 
 gen-schema:
 	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \

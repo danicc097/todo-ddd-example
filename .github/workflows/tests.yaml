@@ -39,7 +39,7 @@ jobs:
         run: |
           go test ./... -race -shuffle=on -count=5 -v -timeout 15m
 
-  deploy-smoke-test:
+  deploy-test:
     name: Deploy and verify
     runs-on: ubuntu-latest
     env:
@@ -64,9 +64,14 @@ jobs:
           echo "Response received: $RESPONSE"
           test -n "$RESPONSE" || (echo "Failed to find ID in response" && exit 1)
 
+      - name: E2E
+        run: |
+          go test -tags e2e -v ./tests/e2e/...
+
       - name: Debug on failure
         if: failure()
         run: |
           docker stack ps myapp --no-trunc
           docker container ls
           docker service logs myapp_go-app --no-trunc --raw
+

@@ -3,3 +3,4 @@ test.sh
 __debug*
 sql/schema.sql
 /api
+/todo-cli
