@@ -5,7 +5,9 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues
+KNOWN_TARGETS := test lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+
+
 
 ifeq ($(findstring p,$(MAKEFLAGS)),)
   ifneq ($(filter-out $(KNOWN_TARGETS),$(MAKECMDGOALS)),)
@@ -114,12 +116,12 @@ logs:
 	docker service logs -f $(SERVICE)_go-app
 
 debug-swarm:
-	docker service ps --no-trunc $(SERVICE)_go-app
+	docker service logs myapp_go-app --no-trunc --raw -f
 
 API_URL ?= http://127.0.0.1:8090
 
 req-create:
-	curl -sSf -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq -e .
+	curl -sSf -X POST $(API_URL)/api/v1/todos -d '{"title": "New todo $(shell date +%s)"}' | jq -e .id
 
 req-list:
 	curl -sSf -X GET $(API_URL)/api/v1/todos | jq -e .
@@ -138,7 +140,26 @@ N ?= 5
 QUEUE ?= todo_events
 
 rabbitmq-messages:
-	docker exec myapp-rabbitmq rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json
+	docker exec myapp-rabbitmq rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json | jq 'reverse'
+
+rabbitmq-watch:
+	docker exec myapp-rabbitmq rabbitmqadmin delete queue name=debug_tap > /dev/null 2>&1
+	docker exec myapp-rabbitmq rabbitmqadmin declare queue name=debug_tap auto_delete=true > /dev/null
+	docker exec myapp-rabbitmq rabbitmqadmin declare binding source=$(QUEUE) destination=debug_tap routing_key="#" > /dev/null
+
+	@echo ">>> Tailing live events on '$(QUEUE)'..."
+	@# ack_requeue_false: remove message after read.
+	while true; do \
+		docker exec myapp-rabbitmq rabbitmqadmin get queue=debug_tap count=10 ackmode=ack_requeue_false -f pretty_json \
+		| jq -r '.[]?'; \
+		sleep 0.5; \
+	done
 
 rabbitmq-queues:
 	docker exec myapp-rabbitmq rabbitmqadmin -V / list queues name messages messages_ready consumers -f table
+
+rabbitmq-exchanges:
+	docker exec myapp-rabbitmq rabbitmqadmin -V / list exchanges name type -f table
+
+rabbitmq-bindings:
+	docker exec myapp-rabbitmq rabbitmqadmin -V / list bindings source destination routing_key -f table

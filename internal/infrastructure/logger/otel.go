@@ -14,18 +14,21 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/danicc097/todo-ddd-example/internal"
 )
 
 func Init(ctx context.Context, level string, isProduction bool) (func(context.Context) error, error) {
+	hostname, _ := os.Hostname()
+
 	res, _ := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("todo-ddd-api"),
+			semconv.ServiceInstanceIDKey.String(hostname),
 		),
 	)
 
@@ -63,6 +66,10 @@ func Init(ctx context.Context, level string, isProduction bool) (func(context.Co
 	} else {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
+
+	handler = handler.WithAttrs([]slog.Attr{
+		slog.String("host", hostname),
+	})
 
 	slog.SetDefault(slog.New(&traceHandler{handler}))
 

@@ -23,18 +23,33 @@ func TestRabbitMQPublisher_Integration(t *testing.T) {
 	defer mq.Close(ctx, t)
 
 	conn := mq.Connect(ctx, t)
+	defer conn.Close()
+
 	publisher, err := messaging.NewRabbitMQPublisher(conn)
 	require.NoError(t, err)
 
-	t.Run("verifies actual message content", func(t *testing.T) {
+	defer publisher.Close()
+
+	t.Run("verifies message is routed by ID to the correct exchange", func(t *testing.T) {
 		title, _ := domain.NewTodoTitle("Test Todo")
 		todo := domain.NewTodo(title)
 
-		ch, _ := conn.Channel()
-		msgs, _ := ch.Consume("todo_events", "", true, false, false, false, nil)
+		msgs, consumer := mq.StartTestConsumer(t, conn, "todo_events", "topic", "#")
+		defer consumer.Close()
 
-		err = publisher.PublishTodoCreated(ctx, todo)
-		require.NoError(t, err)
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		go func() {
+			for {
+				select {
+				case <-time.After(5 * time.Second):
+					return
+				case <-ticker.C: // consumer may not be ready, so spam publish
+					_ = publisher.PublishTodoCreated(ctx, todo)
+				}
+			}
+		}()
 
 		select {
 		case msg := <-msgs:
@@ -44,6 +59,8 @@ func TestRabbitMQPublisher_Integration(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "Test Todo", body["title"])
 			assert.Equal(t, "todo.created", msg.Type)
+			assert.Equal(t, todo.ID().String(), msg.RoutingKey)
+
 		case <-time.After(5 * time.Second):
 			t.Fatal("Timeout waiting for message")
 		}

@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/testcontainers/testcontainers-go"
 	tcRabbitMQ "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 	"github.com/testcontainers/testcontainers-go/wait"
+	"github.com/wagslane/go-rabbitmq"
 )
 
 type RabbitMQContainer struct {
 	container *tcRabbitMQ.RabbitMQContainer
-	conn      *amqp.Connection
 }
 
 func NewRabbitMQContainer(ctx context.Context, t *testing.T) *RabbitMQContainer {
@@ -32,11 +31,11 @@ func NewRabbitMQContainer(ctx context.Context, t *testing.T) *RabbitMQContainer 
 	return &RabbitMQContainer{container: container}
 }
 
-func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *amqp.Connection {
+func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *rabbitmq.Conn {
 	t.Helper()
 
 	var (
-		conn *amqp.Connection
+		conn *rabbitmq.Conn
 		err  error
 	)
 
@@ -46,9 +45,11 @@ func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *amqp.Con
 			t.Fatalf("failed to get rabbitmq connection string: %v", err)
 		}
 
-		conn, err = amqp.Dial(connStr)
+		conn, err = rabbitmq.NewConn(
+			connStr,
+			rabbitmq.WithConnectionOptionsLogging,
+		)
 		if err == nil {
-			r.conn = conn
 			return conn
 		}
 
@@ -63,24 +64,41 @@ func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *amqp.Con
 func (r *RabbitMQContainer) Close(ctx context.Context, t *testing.T) {
 	t.Helper()
 
-	if r.conn != nil {
-		r.conn.Close()
-	}
-
 	if err := r.container.Terminate(ctx); err != nil {
 		t.Logf("failed to terminate rabbitmq container: %v", err)
 	}
 }
 
-func (r *RabbitMQContainer) Connection() *amqp.Connection {
-	return r.conn
-}
+// StartTestConsumer creates a consumer bound to the specified exchange with the given key.
+func (r *RabbitMQContainer) StartTestConsumer(t *testing.T, conn *rabbitmq.Conn, exchangeName, exchangeKind, bindingKey string) (<-chan rabbitmq.Delivery, *rabbitmq.Consumer) {
+	t.Helper()
 
-func (r *RabbitMQContainer) AmqpURL(ctx context.Context) string {
-	url, err := r.container.AmqpURL(ctx)
+	deliveries := make(chan rabbitmq.Delivery, 10)
+
+	consumer, err := rabbitmq.NewConsumer(
+		conn,
+		"", // random temporary queue name
+		rabbitmq.WithConsumerOptionsQueueExclusive,
+		rabbitmq.WithConsumerOptionsQueueAutoDelete,
+		rabbitmq.WithConsumerOptionsExchangeName(exchangeName),
+		rabbitmq.WithConsumerOptionsExchangeKind(exchangeKind),
+		rabbitmq.WithConsumerOptionsExchangeDurable, // must match publisher config
+		rabbitmq.WithConsumerOptionsExchangeDeclare,
+		rabbitmq.WithConsumerOptionsRoutingKey(bindingKey),
+	)
 	if err != nil {
-		panic(err)
+		t.Fatalf("failed to create test consumer: %v", err)
 	}
 
-	return url
+	go func() {
+		err := consumer.Run(func(d rabbitmq.Delivery) rabbitmq.Action {
+			deliveries <- d
+			return rabbitmq.Ack
+		})
+		if err != nil {
+			t.Logf("consumer stopped: %v", err)
+		}
+	}()
+
+	return deliveries, consumer
 }

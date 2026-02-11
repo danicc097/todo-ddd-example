@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 	"time"
 
 	"github.com/jackc/pgerrcode"
@@ -51,7 +52,12 @@ func NewTransactionManager(pool *pgxpool.Pool) TransactionManager {
 }
 
 func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryProvider) error) error {
-	maxRetries := 3
+	maxRetries := 5
+
+	const (
+		baseDelay = 10 * time.Millisecond
+		maxDelay  = 200 * time.Millisecond
+	)
 
 	var err error
 
@@ -62,12 +68,21 @@ func (tm *pgxTransactionManager) Exec(ctx context.Context, fn func(p RepositoryP
 		}
 
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.SerializationFailure {
-			time.Sleep((time.Duration(i + 1)) * 10 * time.Millisecond)
-			continue
+		if errors.As(err, &pgErr) && (pgErr.Code == pgerrcode.SerializationFailure || pgErr.Code == pgerrcode.DeadlockDetected) {
+			backoff := float64(baseDelay) * float64((int(1) << i))
+
+			jitter := (rand.Float64() * 0.2) + 0.9
+			sleepDuration := min(time.Duration(backoff*jitter), maxDelay)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(sleepDuration):
+				continue
+			}
 		}
 
-		break
+		return err
 	}
 
 	return err

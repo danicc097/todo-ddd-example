@@ -5,3 +5,7 @@
 :4317 {
     reverse_proxy myapp-otel-collector:4317
 }
+
+:15672 {
+    reverse_proxy myapp-rabbitmq:15672
+}

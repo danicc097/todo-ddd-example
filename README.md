@@ -41,12 +41,21 @@ $ make ws-listen
 # < {"event":"todo.created","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"PENDING","title":"New todo 1770748039"}
 # < {"event":"todo.updated","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"COMPLETED","title":"New todo 1770748039"}
 $ make req-create
-{
-  "id": "ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8"
-}
+"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8"
 ...
 $ make req-complete ID=ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8
 ...
 $ make req-list
 >>> [{"ID":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8",...}]
+```
+
+Rabbitmq messages:
+
+```bash
+$ make rabbitmq-watch
+>>> Tailing live events on 'todo_events'...
+...
+
+$ make req-complete ID=$(make req-create)
+# ...will show "todo.created" and "todo.updated" messages in watcher
 ```

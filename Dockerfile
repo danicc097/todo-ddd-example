@@ -4,10 +4,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-FROM base AS dev
-COPY . .
-CMD ["go", "run", "./cmd/api/main.go"]
-
 FROM base AS builder
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/api ./cmd/api/main.go

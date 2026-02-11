@@ -8,6 +8,7 @@ linters:
     - contextcheck
     - depguard
     - dupword
+    - wrapcheck
     - noinlineerr
     - err113
     - forbidigo
@@ -58,6 +59,7 @@ linters:
       max-distance: 20
       ignore-names:
         - id
+        - ch
         - tx
         - ctx
       ignore-type-assert-ok: true

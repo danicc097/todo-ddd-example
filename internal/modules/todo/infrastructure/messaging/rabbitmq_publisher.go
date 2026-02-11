@@ -6,44 +6,36 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/wagslane/go-rabbitmq"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type RabbitMQPublisher struct {
-	ch *amqp.Channel
+	publisher *rabbitmq.Publisher
 }
 
-func NewRabbitMQPublisher(conn *amqp.Connection) (*RabbitMQPublisher, error) {
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open channel: %w", err)
-	}
-
-	q, err := ch.QueueDeclare(
-		"todo_events",
-		true,  // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,
+func NewRabbitMQPublisher(conn *rabbitmq.Conn) (*RabbitMQPublisher, error) {
+	pub, err := rabbitmq.NewPublisher(
+		conn,
+		rabbitmq.WithPublisherOptionsExchangeName("todo_events"),
+		rabbitmq.WithPublisherOptionsExchangeKind("topic"),
+		rabbitmq.WithPublisherOptionsExchangeDurable,
+		rabbitmq.WithPublisherOptionsExchangeDeclare,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to declare queue: %w", err)
+		return nil, fmt.Errorf("failed to create publisher: %w", err)
 	}
 
-	_ = q
-
-	return &RabbitMQPublisher{ch: ch}, nil
+	return &RabbitMQPublisher{publisher: pub}, nil
 }
 
 func (p *RabbitMQPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, "todo.created", todo)
+	return p.publish(ctx, todo.ID().String(), "todo.created", todo)
 }
 
 func (p *RabbitMQPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, "todo.updated", todo)
+	return p.publish(ctx, todo.ID().String(), "todo.updated", todo)
 }
 
 func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
@@ -52,25 +44,26 @@ func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUI
 		TagID:  tagID,
 	}
 
-	return p.publish(ctx, "todo.tagadded", payload)
+	return p.publish(ctx, todoID.String(), "todo.tagadded", payload)
 }
 
-func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, body any) error {
+func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, eventType string, body any) error {
 	bytes, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
 
-	return p.ch.PublishWithContext(ctx,
-		"",            // exchange
-		"todo_events", // key
-		false,         // mandatory
-		false,         // immediate
-		amqp.Publishing{
-			ContentType:  "application/json",
-			Body:         bytes,
-			DeliveryMode: amqp.Persistent,
-			Type:         routingKey,
-		},
+	return p.publisher.PublishWithContext(
+		ctx,
+		bytes,
+		[]string{routingKey},
+		rabbitmq.WithPublishOptionsExchange("todo_events"),
+		rabbitmq.WithPublishOptionsContentType("application/json"),
+		rabbitmq.WithPublishOptionsType(eventType),
+		rabbitmq.WithPublishOptionsPersistentDelivery,
 	)
+}
+
+func (p *RabbitMQPublisher) Close() {
+	p.publisher.Close()
 }

@@ -2,18 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	amqp "github.com/rabbitmq/amqp091-go"
 	rdb "github.com/redis/go-redis/v9"
+	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/danicc097/todo-ddd-example/internal"
@@ -84,16 +87,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	isProd := internal.Config.Env == "production"
 
-	shutdown, err := logger.Init(ctx, internal.Config.LogLevel, isProd)
+	shutdownLogger, err := logger.Init(ctx, internal.Config.LogLevel, isProd)
 	if err != nil {
 		os.Stderr.WriteString("logger init failed: " + err.Error() + "\n")
 		os.Exit(1)
 	}
-	defer shutdown(ctx)
+
+	defer func() {
+		_ = shutdownLogger(context.Background())
+	}()
 
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		internal.Config.Postgres.User,
@@ -126,23 +133,33 @@ func main() {
 	defer pool.Close()
 
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
+	defer redisClient.Close()
+
 	tm := db.NewTransactionManager(pool)
 
 	todoRepo := todoPg.NewTodoRepositoryWithTracing(todoPg.NewTodoRepo(pool), "todo-ddd-api")
 	tagRepo := todoPg.NewTagRepositoryWithTracing(todoPg.NewTagRepo(pool), "todo-ddd-api")
 	userRepo := userPg.NewUserRepositoryWithTracing(userPg.NewUserRepo(pool), "todo-ddd-api")
 
-	mqConn, err := amqp.Dial(internal.Config.RabbitMQ.URL)
+	mqConn, err := rabbitmq.NewConn(
+		internal.Config.RabbitMQ.URL,
+		rabbitmq.WithConnectionOptionsReconnectInterval(5*time.Second),
+	)
 	if err != nil {
 		slog.Error("failed to connect to rabbitmq", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+
+	defer func() {
+		_ = mqConn.Close()
+	}()
 
 	todoRabbitPub, err := todoMsg.NewRabbitMQPublisher(mqConn)
 	if err != nil {
 		slog.Error("failed to create Todo rabbitmq publisher", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+	defer todoRabbitPub.Close()
 
 	redisPub := redis.NewRedisPublisher(redisClient)
 	todoPublisher := todoMsg.NewMultiPublisher(todoRabbitPub, redisPub)
@@ -169,13 +186,15 @@ func main() {
 	relay.Register("todo.completed", todoMsg.MakeUpdatedHandler(todoPublisher))
 	relay.Register("todo.tagadded", todoMsg.MakeUpdatedHandler(todoPublisher))
 
+	// Run relay in a goroutine with the main context
+	// When main context is cancelled, relay will shut down gracefully
 	go relay.Start(ctx)
 
 	r := gin.New()
 	r.Use(otelgin.Middleware("todo-ddd-api"))
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
-	r.Use(middleware.Idempotency(redisClient)) // let it cache <500 errors from ErrorHandler
+	r.Use(middleware.Idempotency(redisClient))
 	r.Use(middleware.ErrorHandler())
 
 	r.StaticFile("/openapi.yaml", "./openapi.yaml")
@@ -186,9 +205,37 @@ func main() {
 
 	r.GET("/ws", th.WS)
 
-	slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
-
-	if err := r.Run(":" + internal.Config.Port); err != nil {
-		slog.Error("Server exit", slog.String("error", err.Error()))
+	srv := &http.Server{
+		Addr:    ":" + internal.Config.Port,
+		Handler: r,
 	}
+
+	// Run server in goroutine
+	go func() {
+		slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
+
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("Server listen error", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	}()
+
+	// Graceful Shutdown Logic
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("Shutting down server...")
+
+	// 1. Cancel context to stop Relay loop and other background tasks
+	cancel()
+
+	// 2. Shutdown HTTP server with timeout
+	timeoutCtx, cancelTimeout := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelTimeout()
+
+	if err := srv.Shutdown(timeoutCtx); err != nil {
+		slog.Error("Server forced to shutdown", slog.String("error", err.Error()))
+	}
+
+	slog.Info("Server exiting")
 }

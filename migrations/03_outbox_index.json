@@ -1,0 +1,16 @@
+{
+  "operations": [
+    {
+      "create_index": {
+        "name": "idx_outbox_unprocessed",
+        "table": "outbox",
+        "columns": [
+          {
+            "column": "created_at"
+          }
+        ],
+        "predicate": "processed_at IS NULL"
+      }
+    }
+  ]
+}

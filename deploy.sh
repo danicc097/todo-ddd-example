@@ -22,6 +22,8 @@ if [ $COUNT -eq $MAX_RETRIES ]; then
 	exit 1
 fi
 
+set -e
+
 go mod download
 
 make gen
