@@ -23,11 +23,11 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
@@ -63,7 +63,7 @@ func swaggerUIHandler(url string) gin.HandlerFunc {
       url: '%s',
       dom_id: '#swagger-ui',
     });
-  };
+};
 </script>
 </body>
 </html>`, url)
@@ -137,11 +137,12 @@ func main() {
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
 	defer redisClient.Close()
 
-	tm := db.NewTransactionManager(pool)
-
-	todoRepo := todoPg.NewTodoRepositoryWithTracing(todoPg.NewTodoRepo(pool), "todo-ddd-api")
-	tagRepo := todoPg.NewTagRepositoryWithTracing(todoPg.NewTagRepo(pool), "todo-ddd-api")
-	userRepo := userPg.NewUserRepositoryWithTracing(userPg.NewUserRepo(pool), "todo-ddd-api")
+	baseTodoRepo := todoPg.NewTodoRepo(pool)
+	todoRepo := todoPg.NewTodoRepositoryWithTracing(baseTodoRepo, "todo-ddd-api")
+	baseTagRepo := todoPg.NewTagRepo(pool)
+	tagRepo := todoPg.NewTagRepositoryWithTracing(baseTagRepo, "todo-ddd-api")
+	baseUserRepo := userPg.NewUserRepo(pool)
+	userRepo := userPg.NewUserRepositoryWithTracing(baseUserRepo, "todo-ddd-api")
 
 	mqConn, err := rabbitmq.NewConn(
 		internal.Config.RabbitMQ.URL,
@@ -152,9 +153,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	defer func() {
-		_ = mqConn.Close()
-	}()
+	defer func() { _ = mqConn.Close() }()
 
 	todoRabbitPub, err := todoMsg.NewRabbitMQPublisher(mqConn)
 	if err != nil {
@@ -168,19 +167,33 @@ func main() {
 
 	hub := ws.NewTodoHub(redisClient)
 
-	_ = tagRepo
+	createTodoBase := todoApp.NewCreateTodoUseCase(todoRepo)
+	createTodoUC := decorator.NewCreateTodoUseCaseWithTransaction(createTodoBase, pool)
+
+	completeTodoBase := todoApp.NewCompleteTodoUseCase(todoRepo)
+	completeTodoUC := decorator.NewCompleteTodoUseCaseWithTransaction(completeTodoBase, pool)
+
+	createTagBase := todoApp.NewCreateTagUseCase(tagRepo)
+	createTagUC := decorator.NewCreateTagUseCaseWithTransaction(createTagBase, pool)
+
+	getAllTodosUC := todoApp.NewGetAllTodosUseCase(todoRepo)
+	getTodoUC := todoApp.NewGetTodoUseCase(todoRepo)
+
+	registerUserUC := userApp.NewRegisterUserUseCase(userRepo)
+	getUserUC := userApp.NewGetUserUseCase(userRepo)
+
 	th := todoHttp.NewTodoHandler(
-		todoApp.NewCreateTodoUseCase(tm),
-		todoApp.NewCompleteTodoUseCase(tm),
-		todoApp.NewGetAllTodosUseCase(todoRepo),
-		todoApp.NewGetTodoUseCase(todoRepo),
-		todoApp.NewCreateTagUseCase(tm),
+		createTodoUC,
+		completeTodoUC,
+		getAllTodosUC,
+		getTodoUC,
+		createTagUC,
 		hub,
 	)
 
 	uh := userHttp.NewUserHandler(
-		userApp.NewRegisterUserUseCase(userRepo),
-		userApp.NewGetUserUseCase(userRepo),
+		registerUserUC,
+		getUserUC,
 	)
 
 	relay := outbox.NewRelay(pool)
@@ -258,7 +271,6 @@ func createOpenAPIValidatorMw() gin.HandlerFunc {
 				return nil
 			},
 		},
-		// leaving ErrorHandler nil triggers c.Error(), which middleware.ErrorHandler handles
 	}
 
 	return oaMiddleware.RequestValidatorWithOptions(validatorOpts)

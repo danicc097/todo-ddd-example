@@ -30,12 +30,21 @@ func NewRabbitMQPublisher(conn *rabbitmq.Conn) (*RabbitMQPublisher, error) {
 	return &RabbitMQPublisher{publisher: pub}, nil
 }
 
+func (p *RabbitMQPublisher) todoToDTO(todo *domain.Todo) TodoEventPayload {
+	return TodoEventPayload{
+		ID:        todo.ID(),
+		Title:     todo.Title().String(),
+		Status:    todo.Status().String(),
+		CreatedAt: todo.CreatedAt(),
+	}
+}
+
 func (p *RabbitMQPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.created", todo)
+	return p.publish(ctx, todo.ID().String(), "todo.created", p.todoToDTO(todo))
 }
 
 func (p *RabbitMQPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.updated", todo)
+	return p.publish(ctx, todo.ID().String(), "todo.updated", p.todoToDTO(todo))
 }
 
 func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {

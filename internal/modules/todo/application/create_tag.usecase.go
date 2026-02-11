@@ -5,19 +5,23 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
-type CreateTagUseCase struct {
-	tm db.TransactionManager
+//go:generate go tool gowrap gen -g -i CreateTagUseCase -t ../../../../templates/transactional.gotmpl -o ../infrastructure/decorator/create_tag_tx.gen.go
+type CreateTagUseCase interface {
+	Execute(ctx context.Context, name string) (uuid.UUID, error)
 }
 
-func NewCreateTagUseCase(tm db.TransactionManager) *CreateTagUseCase {
-	return &CreateTagUseCase{tm: tm}
+type createTagUseCase struct {
+	repo domain.TagRepository
 }
 
-func (uc *CreateTagUseCase) Execute(ctx context.Context, name string) (uuid.UUID, error) {
+func NewCreateTagUseCase(repo domain.TagRepository) CreateTagUseCase {
+	return &createTagUseCase{repo: repo}
+}
+
+func (uc *createTagUseCase) Execute(ctx context.Context, name string) (uuid.UUID, error) {
 	tn, err := domain.NewTagName(name)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -25,10 +29,7 @@ func (uc *CreateTagUseCase) Execute(ctx context.Context, name string) (uuid.UUID
 
 	tag := domain.NewTag(tn)
 
-	err = uc.tm.Exec(ctx, func(p db.RepositoryProvider) error {
-		return p.Tag().Save(ctx, tag)
-	})
-	if err != nil {
+	if err := uc.repo.Save(ctx, tag); err != nil {
 		return uuid.UUID{}, err
 	}
 

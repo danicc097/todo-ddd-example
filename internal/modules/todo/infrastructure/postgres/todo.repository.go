@@ -9,41 +9,43 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
 type TodoRepo struct {
 	q      *db.Queries
-	db     db.DBTX
+	pool   *pgxpool.Pool
 	mapper *TodoMapper
 }
 
 func NewTodoRepo(pool *pgxpool.Pool) *TodoRepo {
 	return &TodoRepo{
 		q:      db.New(),
-		db:     pool,
+		pool:   pool,
 		mapper: &TodoMapper{},
 	}
 }
 
-func NewTodoRepoFromTx(tx pgx.Tx) *TodoRepo {
-	return &TodoRepo{
-		q:      db.New(),
-		db:     tx,
-		mapper: &TodoMapper{},
+func (r *TodoRepo) getDB(ctx context.Context) db.DBTX {
+	if tx := infraDB.ExtractTx(ctx); tx != nil {
+		return tx
 	}
+
+	return r.pool
 }
 
 func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
+	dbtx := r.getDB(ctx) // Dynamic resolution
 	p := r.mapper.ToPersistence(t)
 
-	_, err := r.q.CreateTodo(ctx, r.db, db.CreateTodoParams(p))
+	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams(p))
 	if err != nil {
 		return err
 	}
 
 	for _, tagID := range t.Tags() {
-		err := r.q.AddTagToTodo(ctx, r.db, db.AddTagToTodoParams{
+		err := r.q.AddTagToTodo(ctx, dbtx, db.AddTagToTodoParams{
 			TodoID: t.ID(),
 			TagID:  tagID,
 		})
@@ -52,13 +54,14 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 		}
 	}
 
-	return r.saveDomainEvents(ctx, t)
+	return r.saveDomainEvents(ctx, dbtx, t)
 }
 
 func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
+	dbtx := r.getDB(ctx)
 	p := r.mapper.ToPersistence(t)
 
-	err := r.q.UpdateTodo(ctx, r.db, db.UpdateTodoParams{
+	err := r.q.UpdateTodo(ctx, dbtx, db.UpdateTodoParams{
 		ID:     p.ID,
 		Title:  p.Title,
 		Status: p.Status,
@@ -67,10 +70,10 @@ func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 		return err
 	}
 
-	return r.saveDomainEvents(ctx, t)
+	return r.saveDomainEvents(ctx, dbtx, t)
 }
 
-func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
+func (r *TodoRepo) saveDomainEvents(ctx context.Context, dbtx db.DBTX, t *domain.Todo) error {
 	for _, e := range t.Events() {
 		eventName, payload, err := r.mapper.MapEvent(e)
 		if err != nil {
@@ -81,7 +84,7 @@ func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
 			continue
 		}
 
-		if err := r.q.SaveOutboxEvent(ctx, r.db, db.SaveOutboxEventParams{
+		if err := r.q.SaveOutboxEvent(ctx, dbtx, db.SaveOutboxEventParams{
 			ID:        uuid.New(),
 			EventType: eventName,
 			Payload:   payload,
@@ -96,7 +99,7 @@ func (r *TodoRepo) saveDomainEvents(ctx context.Context, t *domain.Todo) error {
 }
 
 func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, error) {
-	row, err := r.q.GetTodoByID(ctx, r.db, id)
+	row, err := r.q.GetTodoByID(ctx, r.getDB(ctx), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTodoNotFound
@@ -109,7 +112,7 @@ func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, er
 }
 
 func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
-	rows, err := r.q.ListTodos(ctx, r.db)
+	rows, err := r.q.ListTodos(ctx, r.getDB(ctx))
 	if err != nil {
 		return nil, err
 	}

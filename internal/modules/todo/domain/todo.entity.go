@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -83,18 +82,7 @@ func (t *Todo) Status() TodoStatus   { return t.status }
 func (t *Todo) CreatedAt() time.Time { return t.createdAt }
 func (t *Todo) Tags() []uuid.UUID    { return t.tags }
 
-func (t *Todo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		ID        uuid.UUID   `json:"id"`
-		Title     string      `json:"title"`
-		Status    TodoStatus  `json:"status"`
-		Tags      []uuid.UUID `json:"tags"`
-		CreatedAt time.Time   `json:"created_at"`
-	}{
-		ID:        t.id,
-		Title:     t.title.String(),
-		Status:    t.status,
-		Tags:      t.tags,
-		CreatedAt: t.createdAt,
-	})
-}
+// NOTE: entity should not know how it's serialized to the outside world (apis, messaging...)
+// func (t *Todo) MarshalJSON() ([]byte, error) {
+// 	...
+// }

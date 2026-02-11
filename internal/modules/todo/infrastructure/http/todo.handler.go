@@ -13,16 +13,23 @@ import (
 )
 
 type TodoHandler struct {
-	createUC    *application.CreateTodoUseCase
-	completeUC  *application.CompleteTodoUseCase
-	getAllUC    *application.GetAllTodosUseCase
-	getTodoUC   *application.GetTodoUseCase
-	createTagUC *application.CreateTagUseCase
+	createUC    application.CreateTodoUseCase
+	completeUC  application.CompleteTodoUseCase
+	getAllUC    application.GetAllTodosUseCase
+	getTodoUC   application.GetTodoUseCase
+	createTagUC application.CreateTagUseCase
 	hub         *ws.TodoHub
 	mapper      *TodoRestMapper
 }
 
-func NewTodoHandler(c *application.CreateTodoUseCase, comp *application.CompleteTodoUseCase, g *application.GetAllTodosUseCase, gt *application.GetTodoUseCase, ct *application.CreateTagUseCase, hub *ws.TodoHub) *TodoHandler {
+func NewTodoHandler(
+	c application.CreateTodoUseCase,
+	comp application.CompleteTodoUseCase,
+	g application.GetAllTodosUseCase,
+	gt application.GetTodoUseCase,
+	ct application.CreateTagUseCase,
+	hub *ws.TodoHub,
+) *TodoHandler {
 	return &TodoHandler{
 		createUC:    c,
 		completeUC:  comp,
