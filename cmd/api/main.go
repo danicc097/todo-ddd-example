@@ -31,8 +31,8 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
-	todoRabbit "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/rabbitmq"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	todoRabbit "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/rabbitmq"
 	todoRedis "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
@@ -239,7 +239,16 @@ func main() {
 	r.Use(middleware.ErrorHandler())
 
 	if internal.Config.Env != "production" {
-		r.Use(createOpenAPIValidatorMw())
+		validator := createOpenAPIValidatorMw()
+
+		r.Use(func(c *gin.Context) {
+			if c.Request.URL.Path == "/ws" {
+				c.Next()
+				return
+			}
+
+			validator(c)
+		})
 	}
 
 	r.StaticFile("/openapi.yaml", "./openapi.yaml")
