@@ -12,9 +12,12 @@ import (
 
 type Querier interface {
 	AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error
+	AddWorkspaceMember(ctx context.Context, db DBTX, arg AddWorkspaceMemberParams) error
 	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
+	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
+	DeleteWorkspace(ctx context.Context, db DBTX, id uuid.UUID) error
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id uuid.UUID) (Tags, error)
 	GetTagByName(ctx context.Context, db DBTX, name string) (Tags, error)
@@ -22,7 +25,10 @@ type Querier interface {
 	// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 	GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error)
 	GetUserByID(ctx context.Context, db DBTX, id uuid.UUID) (Users, error)
+	GetWorkspaceByID(ctx context.Context, db DBTX, id uuid.UUID) (Workspaces, error)
+	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID uuid.UUID) ([]WorkspaceMembers, error)
 	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
+	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error

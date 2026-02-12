@@ -1,0 +1,77 @@
+{
+  "operations": [
+    {
+      "create_table": {
+        "name": "workspaces",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "pk": true
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "nullable": false
+          },
+          {
+            "name": "description",
+            "type": "text",
+            "nullable": false,
+            "default": "''"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "workspace_members",
+        "columns": [
+          {
+            "name": "workspace_id",
+            "type": "uuid",
+            "nullable": false,
+            "references": {
+              "name": "fk_wm_workspace",
+              "table": "workspaces",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "nullable": false,
+            "references": {
+              "name": "fk_wm_user",
+              "table": "users",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "role",
+            "type": "text",
+            "nullable": false
+          }
+        ],
+        "constraints": [
+          {
+            "name": "workspace_members_pkey",
+            "type": "primary_key",
+            "columns": [
+              "workspace_id",
+              "user_id"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

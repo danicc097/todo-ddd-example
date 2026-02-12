@@ -43,3 +43,16 @@ type Users struct {
 	Name      string    `db:"name" json:"name"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
+
+type WorkspaceMembers struct {
+	WorkspaceID uuid.UUID `db:"workspace_id" json:"workspace_id"`
+	UserID      uuid.UUID `db:"user_id" json:"user_id"`
+	Role        string    `db:"role" json:"role"`
+}
+
+type Workspaces struct {
+	ID          uuid.UUID `db:"id" json:"id"`
+	Name        string    `db:"name" json:"name"`
+	Description string    `db:"description" json:"description"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+}

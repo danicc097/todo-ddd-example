@@ -30,6 +30,12 @@ type CreateTodoRequest struct {
 	Title string `json:"title"`
 }
 
+// CreateWorkspaceRequest defines model for CreateWorkspaceRequest.
+type CreateWorkspaceRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
 // RegisterUserRequest defines model for RegisterUserRequest.
 type RegisterUserRequest struct {
 	Email string `json:"email"`
@@ -52,6 +58,13 @@ type User struct {
 	Email string             `json:"email"`
 	Id    openapi_types.UUID `json:"id"`
 	Name  string             `json:"name"`
+}
+
+// Workspace defines model for Workspace.
+type Workspace struct {
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
 }
 
 // IdempotencyKey defines model for IdempotencyKey.
@@ -86,6 +99,12 @@ type RegisterUserParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// CreateWorkspaceParams defines parameters for CreateWorkspace.
+type CreateWorkspaceParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
 
@@ -94,6 +113,9 @@ type CreateTodoJSONRequestBody = CreateTodoRequest
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
+
+// CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
+type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -118,6 +140,15 @@ type ServerInterface interface {
 
 	// (GET /users/{id})
 	GetUserByID(c *gin.Context, id openapi_types.UUID)
+	// List all workspaces
+	// (GET /workspaces)
+	ListWorkspaces(c *gin.Context)
+	// Create a new workspace
+	// (POST /workspaces)
+	CreateWorkspace(c *gin.Context, params CreateWorkspaceParams)
+	// Delete a workspace
+	// (DELETE /workspaces/{id})
+	DeleteWorkspace(c *gin.Context, id openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -355,6 +386,82 @@ func (siw *ServerInterfaceWrapper) GetUserByID(c *gin.Context) {
 	siw.Handler.GetUserByID(c, id)
 }
 
+// ListWorkspaces operation middleware
+func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListWorkspaces(c)
+}
+
+// CreateWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) CreateWorkspace(c *gin.Context) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateWorkspaceParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateWorkspace(c, params)
+}
+
+// DeleteWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteWorkspace(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -389,4 +496,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)
 	router.POST(options.BaseURL+"/users", wrapper.RegisterUser)
 	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
+	router.GET(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
+	router.POST(options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
+	router.DELETE(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
 }

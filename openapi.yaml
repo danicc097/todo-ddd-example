@@ -161,6 +161,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+  /workspaces:
+    get:
+      summary: List all workspaces
+      operationId: listWorkspaces
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+    post:
+      summary: Create a new workspace
+      operationId: createWorkspace
+      tags:
+        - workspace
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /workspaces/{id}:
+    delete:
+      summary: Delete a workspace
+      operationId: deleteWorkspace
+      tags:
+        - workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Workspace deleted
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
 
 components:
   parameters:
@@ -176,6 +235,19 @@ components:
         format: uuid
 
   schemas:
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+    Workspace:
+      type: object
+      required: [id, name, description]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
     Todo:
       type: object
       required: [id, title, status, createdAt]

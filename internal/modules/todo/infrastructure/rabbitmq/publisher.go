@@ -5,20 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/wagslane/go-rabbitmq"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 type Publisher struct {
 	publisher *rabbitmq.Publisher
+	exchange  string
 }
 
-func NewPublisher(conn *rabbitmq.Conn) (*Publisher, error) {
+func NewPublisher(conn *rabbitmq.Conn, exchangeName string) (*Publisher, error) {
 	pub, err := rabbitmq.NewPublisher(
 		conn,
-		rabbitmq.WithPublisherOptionsExchangeName("todo_events"),
+		rabbitmq.WithPublisherOptionsExchangeName(exchangeName),
 		rabbitmq.WithPublisherOptionsExchangeKind("topic"),
 		rabbitmq.WithPublisherOptionsExchangeDurable,
 		rabbitmq.WithPublisherOptionsExchangeDeclare,
@@ -27,39 +27,40 @@ func NewPublisher(conn *rabbitmq.Conn) (*Publisher, error) {
 		return nil, fmt.Errorf("failed to create publisher: %w", err)
 	}
 
-	return &Publisher{publisher: pub}, nil
+	return &Publisher{
+		publisher: pub,
+		exchange:  exchangeName,
+	}, nil
 }
 
-func (p *Publisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.created", ToTodoEventDTO(todo))
-}
-
-func (p *Publisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.updated", ToTodoEventDTO(todo))
-}
-
-func (p *Publisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
-	payload := TagAddedEventDTO{
-		TodoID: todoID,
-		TagID:  tagID,
+// Publish implements shared.EventPublisher.
+func (p *Publisher) Publish(ctx context.Context, events ...domain.DomainEvent) error {
+	for _, event := range events {
+		if err := p.publishOne(ctx, event); err != nil {
+			return err
+		}
 	}
 
-	return p.publish(ctx, todoID.String(), "todo.tagadded", payload)
+	return nil
 }
 
-func (p *Publisher) publish(ctx context.Context, routingKey string, eventType string, body any) error {
-	bytes, err := json.Marshal(body)
+func (p *Publisher) publishOne(ctx context.Context, event domain.DomainEvent) error {
+	body, err := json.Marshal(event)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal event %s: %w", event.EventName(), err)
 	}
+
+	// Routing key convention: domain.event_type.id (e.g., "todo.created.123-abc")
+	// allows binding to e.g. "todo.#" or "#.created.#"
+	routingKey := fmt.Sprintf("%s.%s", event.EventName(), event.AggregateID().String())
 
 	return p.publisher.PublishWithContext(
 		ctx,
-		bytes,
+		body,
 		[]string{routingKey},
-		rabbitmq.WithPublishOptionsExchange("todo_events"),
+		rabbitmq.WithPublishOptionsExchange(p.exchange),
 		rabbitmq.WithPublishOptionsContentType("application/json"),
-		rabbitmq.WithPublishOptionsType(eventType),
+		rabbitmq.WithPublishOptionsType(event.EventName()),
 		rabbitmq.WithPublishOptionsPersistentDelivery,
 	)
 }

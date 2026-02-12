@@ -38,11 +38,18 @@ import (
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+
+	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
+	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
+	wsDecorator "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/decorator"
+	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
+	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 )
 
 type CompositeHandler struct {
 	*todoHttp.TodoHandler
 	*userHttp.UserHandler
+	*wsHttp.WorkspaceHandler
 }
 
 func swaggerUIHandler(url string) gin.HandlerFunc {
@@ -171,6 +178,13 @@ func main() {
 	baseUserRepo := userPg.NewUserRepo(pool)
 	userRepo := userPg.NewUserRepositoryWithTracing(baseUserRepo, "todo-ddd-api")
 
+	auditRepo := auditMem.NewAuditRepository()
+
+	baseWsRepo := wsPg.NewWorkspaceRepo(pool)
+	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(baseWsRepo, auditRepo)
+
+	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
+
 	mqConn, err := rabbitmq.NewConn(
 		internal.Config.RabbitMQ.URL,
 		rabbitmq.WithConnectionOptionsReconnectInterval(5*time.Second),
@@ -182,7 +196,7 @@ func main() {
 
 	defer func() { _ = mqConn.Close() }()
 
-	todoRabbitPub, err := todoRabbit.NewPublisher(mqConn)
+	todoRabbitPub, err := todoRabbit.NewPublisher(mqConn, "todo_events")
 	if err != nil {
 		slog.Error("failed to create Todo rabbitmq publisher", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -209,6 +223,15 @@ func main() {
 	registerUserUC := userApp.NewRegisterUserUseCase(userRepo)
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
+	createWsBase := wsApp.NewCreateWorkspaceUseCase(wsRepo)
+	createWsUC := createWsBase
+
+	listWsBase := wsApp.NewListWorkspacesUseCase(wsRepo)
+	listWsUC := listWsBase
+
+	deleteWsBase := wsApp.NewDeleteWorkspaceUseCase(wsRepo)
+	deleteWsUC := deleteWsBase
+
 	th := todoHttp.NewTodoHandler(
 		createTodoUC,
 		completeTodoUC,
@@ -221,6 +244,12 @@ func main() {
 	uh := userHttp.NewUserHandler(
 		registerUserUC,
 		getUserUC,
+	)
+
+	wh := wsHttp.NewWorkspaceHandler(
+		createWsUC,
+		listWsUC,
+		deleteWsUC,
 	)
 
 	relay := outbox.NewRelay(pool)
@@ -257,7 +286,11 @@ func main() {
 	r.StaticFile("/openapi.yaml", "./openapi.yaml")
 	r.GET("/api/v1/docs", swaggerUIHandler("/openapi.yaml"))
 
-	handler := &CompositeHandler{TodoHandler: th, UserHandler: uh}
+	handler := &CompositeHandler{
+		TodoHandler:      th,
+		UserHandler:      uh,
+		WorkspaceHandler: wh,
+	}
 	api.RegisterHandlers(r.Group("/api/v1"), handler)
 
 	r.GET("/ws", th.WS)

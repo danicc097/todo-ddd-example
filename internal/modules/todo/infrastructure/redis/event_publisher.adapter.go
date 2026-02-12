@@ -3,15 +3,16 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 type RedisPublisher struct {
@@ -26,39 +27,50 @@ func NewRedisPublisher(client *redis.Client) *RedisPublisher {
 	}
 }
 
-func (p *RedisPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	payload := map[string]any{
-		"id":     todo.ID(),
-		"status": todo.Status(),
-		"title":  todo.Title().String(),
-		"event":  "todo.created",
+// Publish implements shared.EventPublisher.
+func (p *RedisPublisher) Publish(ctx context.Context, events ...domain.DomainEvent) error {
+	for _, event := range events {
+		if err := p.publishOne(ctx, event); err != nil {
+			return err
+		}
 	}
 
-	return p.publish(ctx, "todo.created", payload, attribute.String("todo.id", todo.ID().String()))
+	return nil
 }
 
-func (p *RedisPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	payload := map[string]any{
-		"id":     todo.ID(),
-		"status": todo.Status(),
-		"title":  todo.Title().String(),
-		"event":  "todo.updated",
+func (p *RedisPublisher) publishOne(ctx context.Context, event domain.DomainEvent) error {
+	var payload map[string]any
+
+	switch e := event.(type) {
+	case todoDomain.TodoCreatedEvent:
+		payload = map[string]any{
+			"id":     e.ID,
+			"status": e.Status,
+			"title":  e.Title,
+			"event":  e.EventName(),
+		}
+	case todoDomain.TodoCompletedEvent:
+		payload = map[string]any{
+			"id":     e.ID,
+			"status": e.Status,
+			"title":  e.Title,
+			"event":  e.EventName(),
+		}
+	case todoDomain.TagAddedEvent:
+		payload = map[string]any{
+			"todo_id": e.TodoID,
+			"tag_id":  e.TagID,
+			"event":   e.EventName(),
+		}
+	default:
+		slog.WarnContext(ctx, "redis publisher: unknown event type", slog.String("type", fmt.Sprintf("%T", event)))
+		return nil
 	}
 
-	return p.publish(ctx, "todo.updated", payload, attribute.String("todo.id", todo.ID().String()))
+	return p.publishToRedis(ctx, event.EventName(), payload, attribute.String("aggregate.id", event.AggregateID().String()))
 }
 
-func (p *RedisPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
-	payload := map[string]any{
-		"todo_id": todoID,
-		"tag_id":  tagID,
-		"event":   "todo.tagadded",
-	}
-
-	return p.publish(ctx, "todo.tagadded", payload, attribute.String("todo.id", todoID.String()))
-}
-
-func (p *RedisPublisher) publish(ctx context.Context, eventType string, payload any, attrs ...attribute.KeyValue) error {
+func (p *RedisPublisher) publishToRedis(ctx context.Context, eventType string, payload any, attrs ...attribute.KeyValue) error {
 	traceAttrs := append([]attribute.KeyValue{
 		attribute.String("event.type", eventType),
 		attribute.String("redis.channel", "todo_updates"),

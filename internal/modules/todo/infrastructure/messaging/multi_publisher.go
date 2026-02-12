@@ -3,12 +3,10 @@ package messaging
 import (
 	"context"
 
-	"github.com/google/uuid"
-
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-// MultiPublisher implements domain.EventPublisher.
+// MultiPublisher implements shared.EventPublisher.
 type MultiPublisher struct {
 	publishers []domain.EventPublisher
 }
@@ -19,29 +17,9 @@ func NewMultiPublisher(pubs ...domain.EventPublisher) *MultiPublisher {
 	}
 }
 
-func (m *MultiPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
+func (m *MultiPublisher) Publish(ctx context.Context, events ...domain.DomainEvent) error {
 	for _, p := range m.publishers {
-		if err := p.PublishTodoCreated(ctx, todo); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *MultiPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	for _, p := range m.publishers {
-		if err := p.PublishTodoUpdated(ctx, todo); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *MultiPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
-	for _, p := range m.publishers {
-		if err := p.PublishTagAdded(ctx, todoID, tagID); err != nil {
+		if err := p.Publish(ctx, events...); err != nil {
 			return err
 		}
 	}

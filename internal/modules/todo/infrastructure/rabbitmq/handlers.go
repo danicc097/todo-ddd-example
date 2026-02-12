@@ -3,8 +3,10 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 func (d TodoEventDTO) ToEntity() *domain.Todo {
@@ -25,20 +27,42 @@ func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Cont
 	}
 }
 
-func MakeCreatedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
+func MakeCreatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
-		return pub.PublishTodoCreated(ctx, p.ToEntity())
+		evt := domain.TodoCreatedEvent{
+			ID:        p.ID,
+			Title:     p.Title,
+			Status:    p.Status,
+			CreatedAt: p.CreatedAt,
+			Occurred:  time.Now(),
+		}
+
+		return pub.Publish(ctx, evt)
 	})
 }
 
-func MakeUpdatedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
+func MakeUpdatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
-		return pub.PublishTodoUpdated(ctx, p.ToEntity())
+		evt := domain.TodoCompletedEvent{
+			ID:        p.ID,
+			Title:     p.Title,
+			Status:    p.Status,
+			CreatedAt: p.CreatedAt,
+			Occurred:  time.Now(),
+		}
+
+		return pub.Publish(ctx, evt)
 	})
 }
 
-func MakeTagAddedHandler(pub domain.EventPublisher) func(context.Context, []byte) error {
+func MakeTagAddedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TagAddedEventDTO) error {
-		return pub.PublishTagAdded(ctx, p.TodoID, p.TagID)
+		evt := domain.TagAddedEvent{
+			TodoID:   p.TodoID,
+			TagID:    p.TagID,
+			Occurred: time.Now(),
+		}
+
+		return pub.Publish(ctx, evt)
 	})
 }
