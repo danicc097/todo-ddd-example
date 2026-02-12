@@ -242,7 +242,10 @@ func main() {
 		validator := createOpenAPIValidatorMw()
 
 		r.Use(func(c *gin.Context) {
-			if c.Request.URL.Path == "/ws" {
+			p := c.Request.URL.Path
+			if p == "/ws" ||
+				p == "/api/v1/docs" ||
+				p == "/openapi.yaml" {
 				c.Next()
 				return
 			}
