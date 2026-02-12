@@ -9,7 +9,7 @@
 - **Database:** **PostgreSQL** with **pgroll** allows for zero-downtime schema
   migrations. **sqlc** for compile-time checked queries.
 - **API:** Contract-first with **OpenAPI 3.0** with **oapi-codegen**.
-  Automatic request/response validation via **kin-openapi**.
+  Automatic request/response validation via **kin-openapi**. Distributed cache-aside with **Redis**.
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
 - **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
 - **Infra:** **Docker swarm** for multinode deployment with Caddy.

@@ -10,6 +10,10 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
+/**
+ * Todo
+ */
+
 type TodoMapper struct{}
 
 func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
@@ -36,6 +40,7 @@ func (m *TodoMapper) ListRowToDomain(row db.ListTodosRow) *domain.Todo {
 	)
 }
 
+// ToPersistence maps Domain to the primary table struct.
 func (m *TodoMapper) ToPersistence(t *domain.Todo) db.Todos {
 	return db.Todos{
 		ID:        t.ID(),
@@ -45,14 +50,37 @@ func (m *TodoMapper) ToPersistence(t *domain.Todo) db.Todos {
 	}
 }
 
-type TodoEventDTO struct {
+/**
+ * Tags
+ */
+
+type TagMapper struct{}
+
+func (m *TagMapper) ToDomain(row db.Tags) *domain.Tag {
+	name, _ := domain.NewTagName(row.Name)
+	return domain.ReconstituteTag(row.ID, name)
+}
+
+// ToPersistence maps Domain to the primary table struct.
+func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
+	return db.Tags{
+		ID:   t.ID(),
+		Name: t.Name().String(),
+	}
+}
+
+/**
+ * Events
+ */
+
+type todoOutboxDTO struct {
 	ID        uuid.UUID `json:"id"`
 	Title     string    `json:"title"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type TagAddedEventDTO struct {
+type tagAddedOutboxDTO struct {
 	TodoID uuid.UUID `json:"todo_id"`
 	TagID  uuid.UUID `json:"tag_id"`
 }
@@ -62,21 +90,21 @@ func (m *TodoMapper) MapEvent(e domain.DomainEvent) (string, []byte, error) {
 
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
-		payload = TodoEventDTO{
+		payload = todoOutboxDTO{
 			ID:        evt.ID,
 			Title:     evt.Title,
 			Status:    evt.Status,
 			CreatedAt: evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
-		payload = TodoEventDTO{
+		payload = todoOutboxDTO{
 			ID:        evt.ID,
 			Title:     evt.Title,
 			Status:    evt.Status,
 			CreatedAt: evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
-		payload = TagAddedEventDTO{
+		payload = tagAddedOutboxDTO{
 			TodoID: evt.TodoID,
 			TagID:  evt.TagID,
 		}

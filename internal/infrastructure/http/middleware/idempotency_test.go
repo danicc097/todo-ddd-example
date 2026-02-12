@@ -143,6 +143,6 @@ func TestIdempotencyMiddleware(t *testing.T) {
 
 		ctx := context.Background()
 		_, err := rdb.Get(ctx, newIdempotencyRedisKey(key)).Result()
-		assert.ErrorContains(t, err, "nil") // deleted
+		assert.ErrorIs(t, err, redis.Nil) // deleted
 	})
 }

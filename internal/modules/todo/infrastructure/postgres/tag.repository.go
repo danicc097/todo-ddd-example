@@ -13,23 +13,31 @@ import (
 )
 
 type TagRepo struct {
-	q  *db.Queries
-	db db.DBTX
+	q      *db.Queries
+	db     db.DBTX
+	mapper *TagMapper
 }
 
 func NewTagRepo(pool *pgxpool.Pool) *TagRepo {
-	return &TagRepo{q: db.New(), db: pool}
+	return &TagRepo{
+		q:      db.New(),
+		db:     pool,
+		mapper: &TagMapper{},
+	}
 }
 
 func NewTagRepoFromTx(tx pgx.Tx) *TagRepo {
-	return &TagRepo{q: db.New(), db: tx}
+	return &TagRepo{
+		q:      db.New(),
+		db:     tx,
+		mapper: &TagMapper{},
+	}
 }
 
 func (r *TagRepo) Save(ctx context.Context, t *domain.Tag) error {
-	_, err := r.q.CreateTag(ctx, r.db, db.CreateTagParams{
-		ID:   t.ID(),
-		Name: t.Name().String(),
-	})
+	p := r.mapper.ToPersistence(t)
+
+	_, err := r.q.CreateTag(ctx, r.db, db.CreateTagParams(p))
 
 	return err
 }
@@ -44,9 +52,7 @@ func (r *TagRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tag, erro
 		return nil, err
 	}
 
-	tn, _ := domain.NewTagName(row.Name)
-
-	return domain.ReconstituteTag(row.ID, tn), nil
+	return r.mapper.ToDomain(row), nil
 }
 
 func (r *TagRepo) FindByName(ctx context.Context, name string) (*domain.Tag, error) {
@@ -59,7 +65,5 @@ func (r *TagRepo) FindByName(ctx context.Context, name string) (*domain.Tag, err
 		return nil, err
 	}
 
-	tn, _ := domain.NewTagName(row.Name)
-
-	return domain.ReconstituteTag(row.ID, tn), nil
+	return r.mapper.ToDomain(row), nil
 }

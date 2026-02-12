@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-client deploy psql logs debug-swarm req-create req-list req-complete ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-client deploy psql logs debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -151,6 +151,12 @@ endif
 	curl $(CURL_FLAGS) -sS -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete \
 		-H "Content-Type: application/json"
 
+req-byid:
+ifndef ID
+	$(error ID is undefined. Usage: make req-complete ID=...)
+endif
+	curl $(CURL_FLAGS) -sS -X GET $(API_URL)/api/v1/todos/$(ID) \
+		-H "Content-Type: application/json"
 
 ws-listen:
 	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \

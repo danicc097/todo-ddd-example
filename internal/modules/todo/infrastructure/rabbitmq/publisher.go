@@ -1,4 +1,4 @@
-package messaging
+package rabbitmq
 
 import (
 	"context"
@@ -11,11 +11,11 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
-type RabbitMQPublisher struct {
+type Publisher struct {
 	publisher *rabbitmq.Publisher
 }
 
-func NewRabbitMQPublisher(conn *rabbitmq.Conn) (*RabbitMQPublisher, error) {
+func NewPublisher(conn *rabbitmq.Conn) (*Publisher, error) {
 	pub, err := rabbitmq.NewPublisher(
 		conn,
 		rabbitmq.WithPublisherOptionsExchangeName("todo_events"),
@@ -27,28 +27,19 @@ func NewRabbitMQPublisher(conn *rabbitmq.Conn) (*RabbitMQPublisher, error) {
 		return nil, fmt.Errorf("failed to create publisher: %w", err)
 	}
 
-	return &RabbitMQPublisher{publisher: pub}, nil
+	return &Publisher{publisher: pub}, nil
 }
 
-func (p *RabbitMQPublisher) todoToDTO(todo *domain.Todo) TodoEventPayload {
-	return TodoEventPayload{
-		ID:        todo.ID(),
-		Title:     todo.Title().String(),
-		Status:    todo.Status().String(),
-		CreatedAt: todo.CreatedAt(),
-	}
+func (p *Publisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
+	return p.publish(ctx, todo.ID().String(), "todo.created", ToTodoEventDTO(todo))
 }
 
-func (p *RabbitMQPublisher) PublishTodoCreated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.created", p.todoToDTO(todo))
+func (p *Publisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
+	return p.publish(ctx, todo.ID().String(), "todo.updated", ToTodoEventDTO(todo))
 }
 
-func (p *RabbitMQPublisher) PublishTodoUpdated(ctx context.Context, todo *domain.Todo) error {
-	return p.publish(ctx, todo.ID().String(), "todo.updated", p.todoToDTO(todo))
-}
-
-func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
-	payload := TagAddedPayload{
+func (p *Publisher) PublishTagAdded(ctx context.Context, todoID uuid.UUID, tagID uuid.UUID) error {
+	payload := TagAddedEventDTO{
 		TodoID: todoID,
 		TagID:  tagID,
 	}
@@ -56,7 +47,7 @@ func (p *RabbitMQPublisher) PublishTagAdded(ctx context.Context, todoID uuid.UUI
 	return p.publish(ctx, todoID.String(), "todo.tagadded", payload)
 }
 
-func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, eventType string, body any) error {
+func (p *Publisher) publish(ctx context.Context, routingKey string, eventType string, body any) error {
 	bytes, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -73,6 +64,6 @@ func (p *RabbitMQPublisher) publish(ctx context.Context, routingKey string, even
 	)
 }
 
-func (p *RabbitMQPublisher) Close() {
+func (p *Publisher) Close() {
 	p.publisher.Close()
 }
