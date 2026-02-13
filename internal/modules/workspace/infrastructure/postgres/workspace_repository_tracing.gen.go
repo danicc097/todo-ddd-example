@@ -8,7 +8,6 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
-	"github.com/google/uuid"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,7 +37,7 @@ func NewWorkspaceRepositoryWithTracing(base _sourceDomain.WorkspaceRepository, i
 }
 
 // Delete implements WorkspaceRepository
-func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id uuid.UUID) (err error) {
+func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id _sourceDomain.WorkspaceID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Delete")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -84,7 +83,7 @@ func (_d WorkspaceRepositoryWithTracing) FindAll(ctx context.Context) (wpa1 []*_
 }
 
 // FindByID implements WorkspaceRepository
-func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id uuid.UUID) (wp1 *_sourceDomain.Workspace, err error) {
+func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.WorkspaceID) (wp1 *_sourceDomain.Workspace, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindByID")
 	defer func() {
 		if _d._spanDecorator != nil {

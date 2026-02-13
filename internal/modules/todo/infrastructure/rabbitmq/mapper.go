@@ -17,7 +17,7 @@ type TodoEventDTO struct {
 
 func ToTodoEventDTO(t *domain.Todo) TodoEventDTO {
 	return TodoEventDTO{
-		ID:        t.ID(),
+		ID:        t.ID().UUID,
 		Title:     t.Title().String(),
 		Status:    t.Status().String(),
 		CreatedAt: t.CreatedAt(),

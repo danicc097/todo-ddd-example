@@ -5,9 +5,9 @@
 
 ## Stack
 
-- **Architecture**: Follows/Inspired by **Clean Architecture**.
-- **Database:** **PostgreSQL** with **pgroll** allows for zero-downtime schema
-  migrations. **sqlc** for compile-time checked queries.
+- **Architecture**:  Follows/Inspired by **Clean Architecture** with **DDD** and
+  basic **CQRS**.
+- **Database:** **PostgreSQL** with **pgroll** for zero-downtime schema migrations. **sqlc** for type-safe queries.
 - **API:** Contract-first with **OpenAPI 3.0** with **oapi-codegen**.
   Automatic request/response validation via **kin-openapi**. Distributed cache-aside with **Redis**.
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.

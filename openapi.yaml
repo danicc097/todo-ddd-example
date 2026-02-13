@@ -1,9 +1,68 @@
+x-todoIDSchema: &x-todoIDSchema
+  type: string
+  format: uuid
+  x-go-type: "todoDomain.TodoID"
+  x-go-type-import:
+    path: "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+    name: "todoDomain"
+
+x-tagIDSchema: &x-tagIDSchema
+  type: string
+  format: uuid
+  x-go-type: "todoDomain.TagID"
+  x-go-type-import:
+    path: "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+    name: "todoDomain"
+
+x-userIDSchema: &x-userIDSchema
+  type: string
+  format: uuid
+  x-go-type: "userDomain.UserID"
+  x-go-type-import:
+    path: "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+    name: "userDomain"
+
+x-workspaceIDSchema: &x-workspaceIDSchema
+  type: string
+  format: uuid
+  x-go-type: "workspaceDomain.WorkspaceID"
+  x-go-type-import:
+    path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+    name: "workspaceDomain"
+
+x-todoIDParameter: &x-todoIDParameter
+  name: id
+  in: path
+  required: true
+  schema:
+    *x-todoIDSchema
+
+x-tagIDParameter: &x-tagIDParameter
+  name: id
+  in: path
+  required: true
+  schema:
+    *x-tagIDSchema
+
+x-userIDParameter: &x-userIDParameter
+  name: id
+  in: path
+  required: true
+  schema:
+    *x-userIDSchema
+
+x-workspaceIDParameter: &x-workspaceIDParameter
+  name: id
+  in: path
+  required: true
+  schema:
+    *x-workspaceIDSchema
+
 openapi: 3.0.3
 info:
   title: Todo DDD API
   version: 1.0.0
   description: A Todo api with delusions of grandeur.
-
 servers:
   - url: http://127.0.0.1:8090/api/v1
     description: Local swarm server
@@ -60,12 +119,7 @@ paths:
       tags:
         - todo
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - *x-todoIDParameter
       responses:
         '200':
           description: Todo found
@@ -83,12 +137,7 @@ paths:
       tags:
         - todo
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - *x-todoIDParameter
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
@@ -148,12 +197,7 @@ paths:
     get:
       operationId: getUserByID
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - *x-userIDParameter
       responses:
         '200':
           description: OK
@@ -177,8 +221,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/Workspace'
     post:
-      summary: Create a new workspace
-      operationId: createWorkspace
+      summary: Onboard a new workspace with initial members
+      operationId: onboardWorkspace
       tags:
         - workspace
       parameters:
@@ -188,10 +232,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateWorkspaceRequest'
+              $ref: '#/components/schemas/OnboardWorkspaceRequest'
       responses:
         '201':
-          description: Workspace created
+          description: Workspace created successfully
           content:
             application/json:
               schema:
@@ -199,9 +243,10 @@ paths:
                   id:
                     type: string
                     format: uuid
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
-
   /workspaces/{id}:
     delete:
       summary: Delete a workspace
@@ -209,15 +254,25 @@ paths:
       tags:
         - workspace
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - *x-workspaceIDParameter
       responses:
         '204':
           description: Workspace deleted
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+  /workspaces/{id}/members/{userId}:
+    delete:
+      summary: Remove a member from a workspace
+      operationId: removeWorkspaceMember
+      tags:
+        - workspace
+      parameters:
+        - *x-workspaceIDParameter
+        - !!merge <<: *x-userIDParameter
+          name: userId
+      responses:
+        '204':
+          description: Member removed
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
@@ -235,24 +290,42 @@ components:
         format: uuid
 
   schemas:
-    CreateWorkspaceRequest:
+    WorkspaceRole:
+      type: string
+      x-go-type: "workspaceDomain.WorkspaceRole"
+      x-go-type-import:
+        path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+        name: "workspaceDomain"
+    OnboardWorkspaceRequest:
       type: object
       required: [name]
       properties:
-        name: { type: string }
-        description: { type: string }
+        name:
+          type: string
+          description: The display name of the workspace.
+        description:
+          type: string
+          description: A brief description of the workspace purpose.
+        members:
+          description: Initial extra members to add to the workspace.
+          x-go-type: "map[uuid.UUID]workspaceDomain.WorkspaceRole"
+          x-go-type-import:
+            path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+            name: "workspaceDomain"
     Workspace:
       type: object
       required: [id, name, description]
       properties:
-        id: { type: string, format: uuid }
+        id:
+          *x-workspaceIDSchema
         name: { type: string }
         description: { type: string }
     Todo:
       type: object
       required: [id, title, status, createdAt]
       properties:
-        id: { type: string, format: uuid }
+        id:
+          *x-todoIDSchema
         title: { type: string }
         status: { $ref: '#/components/schemas/TodoStatus' }
         createdAt: { type: string, format: date-time }
@@ -273,7 +346,8 @@ components:
       type: object
       required: [id, email, name]
       properties:
-        id: { type: string, format: uuid }
+        id:
+          *x-userIDSchema
         email: { type: string }
         name: { type: string }
     RegisterUserRequest:

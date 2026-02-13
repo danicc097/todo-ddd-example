@@ -3,29 +3,38 @@ package application
 import (
 	"context"
 
-	"github.com/google/uuid"
-
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
-type DeleteWorkspaceUseCase interface {
-	Execute(ctx context.Context, id uuid.UUID) error
+type DeleteWorkspaceCommand struct {
+	ID domain.WorkspaceID
 }
 
-type deleteWorkspaceUseCase struct {
+type DeleteWorkspaceHandler struct {
 	repo domain.WorkspaceRepository
 }
 
-func NewDeleteWorkspaceUseCase(repo domain.WorkspaceRepository) DeleteWorkspaceUseCase {
-	return &deleteWorkspaceUseCase{repo: repo}
+var _ application.RequestHandler[DeleteWorkspaceCommand, application.Void] = (*DeleteWorkspaceHandler)(nil)
+
+func NewDeleteWorkspaceHandler(repo domain.WorkspaceRepository) *DeleteWorkspaceHandler {
+	return &DeleteWorkspaceHandler{repo: repo}
 }
 
-func (uc *deleteWorkspaceUseCase) Execute(ctx context.Context, id uuid.UUID) error {
+func (h *DeleteWorkspaceHandler) Handle(ctx context.Context, cmd DeleteWorkspaceCommand) (application.Void, error) {
 	meta := causation.FromContext(ctx)
-	// would check permissions to delete with meta.UserID being owner or authorized user/system
-	_ = meta
 
-	// triggers the audit wrapper's Delete -> AuditDelete -> fetch -> delete -> log
-	return uc.repo.Delete(ctx, id)
+	ws, err := h.repo.FindByID(ctx, cmd.ID)
+	if err != nil {
+		return application.Void{}, err
+	}
+
+	if !ws.IsOwner(userDomain.UserID{UUID: meta.UserID}) && !meta.IsSystem() {
+		return application.Void{}, domain.ErrNotOwner
+	}
+
+	// repo decorators handle audit, etc.
+	return application.Void{}, h.repo.Delete(ctx, cmd.ID)
 }

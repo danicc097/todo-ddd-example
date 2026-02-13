@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -42,7 +41,7 @@ func (r *TagRepo) Save(ctx context.Context, t *domain.Tag) error {
 	return err
 }
 
-func (r *TagRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Tag, error) {
+func (r *TagRepo) FindByID(ctx context.Context, id domain.TagID) (*domain.Tag, error) {
 	row, err := r.q.GetTagByID(ctx, r.db, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

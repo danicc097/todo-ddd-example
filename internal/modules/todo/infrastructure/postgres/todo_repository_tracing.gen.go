@@ -8,7 +8,6 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -61,7 +60,7 @@ func (_d TodoRepositoryWithTracing) FindAll(ctx context.Context) (tpa1 []*_sourc
 }
 
 // FindByID implements TodoRepository
-func (_d TodoRepositoryWithTracing) FindByID(ctx context.Context, id uuid.UUID) (tp1 *_sourceDomain.Todo, err error) {
+func (_d TodoRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.TodoID) (tp1 *_sourceDomain.Todo, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindByID")
 	defer func() {
 		if _d._spanDecorator != nil {

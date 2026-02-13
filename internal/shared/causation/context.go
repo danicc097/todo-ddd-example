@@ -22,8 +22,12 @@ type Metadata struct {
 	UserAgent     string    // how
 }
 
-func (m Metadata) IsAuthenticated() bool {
-	return m.UserID != uuid.Nil || m.UserIP == systemID
+func (m Metadata) IsUser() bool {
+	return m.UserID != uuid.Nil
+}
+
+func (m Metadata) IsSystem() bool {
+	return m.UserIP == systemID
 }
 
 func FromContext(ctx context.Context) Metadata {

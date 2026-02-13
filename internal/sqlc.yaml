@@ -22,13 +22,45 @@ sql:
           - db_type: "uuid"
             go_type:
               import: "github.com/google/uuid"
-              type: UUID
+              type: "UUID"
           - db_type: "uuid"
+            nullable: true
             go_type:
               import: "github.com/google/uuid"
-              type: UUID
+              type: "UUID"
               pointer: true
-            nullable: true
+          - column: "todos.id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "TodoID"
+          - column: "tags.id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "TagID"
+          - column: "todo_tags.todo_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "TodoID"
+          - column: "todo_tags.tag_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "TagID"
+          - column: "users.id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "UserID"
+          - column: "workspaces.id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "WorkspaceID"
+          - column: "workspace_members.workspace_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "WorkspaceID"
+          - column: "workspace_members.user_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "UserID"
           - db_type: pg_catalog.timestamptz
             go_type:
               type: time.Time

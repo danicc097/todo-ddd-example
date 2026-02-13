@@ -7,6 +7,7 @@ package db
 import (
 	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 	"github.com/google/uuid"
 )
 
@@ -21,38 +22,38 @@ type Outbox struct {
 }
 
 type Tags struct {
-	ID   uuid.UUID `db:"id" json:"id"`
-	Name string    `db:"name" json:"name"`
+	ID   types.TagID `db:"id" json:"id"`
+	Name string      `db:"name" json:"name"`
 }
 
 type TodoTags struct {
-	TodoID uuid.UUID `db:"todo_id" json:"todo_id"`
-	TagID  uuid.UUID `db:"tag_id" json:"tag_id"`
+	TodoID types.TodoID `db:"todo_id" json:"todo_id"`
+	TagID  types.TagID  `db:"tag_id" json:"tag_id"`
 }
 
 type Todos struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Title     string    `db:"title" json:"title"`
-	Status    string    `db:"status" json:"status"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        types.TodoID `db:"id" json:"id"`
+	Title     string       `db:"title" json:"title"`
+	Status    string       `db:"status" json:"status"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
 }
 
 type Users struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Email     string    `db:"email" json:"email"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        types.UserID `db:"id" json:"id"`
+	Email     string       `db:"email" json:"email"`
+	Name      string       `db:"name" json:"name"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
 }
 
 type WorkspaceMembers struct {
-	WorkspaceID uuid.UUID `db:"workspace_id" json:"workspace_id"`
-	UserID      uuid.UUID `db:"user_id" json:"user_id"`
-	Role        string    `db:"role" json:"role"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UserID      types.UserID      `db:"user_id" json:"user_id"`
+	Role        string            `db:"role" json:"role"`
 }
 
 type Workspaces struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	Name        string    `db:"name" json:"name"`
-	Description string    `db:"description" json:"description"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	ID          types.WorkspaceID `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	Description string            `db:"description" json:"description"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
 }

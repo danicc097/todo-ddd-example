@@ -8,7 +8,6 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	"github.com/google/uuid"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,7 +37,7 @@ func NewUserRepositoryWithTracing(base _sourceDomain.UserRepository, instance st
 }
 
 // FindByID implements UserRepository
-func (_d UserRepositoryWithTracing) FindByID(ctx context.Context, id uuid.UUID) (up1 *_sourceDomain.User, err error) {
+func (_d UserRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.UserID) (up1 *_sourceDomain.User, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.FindByID")
 	defer func() {
 		if _d._spanDecorator != nil {

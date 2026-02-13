@@ -22,6 +22,7 @@ linters:
     - nlreturn
     - noctx
     - nonamedreturns
+    - revive
     - sqlclosecheck
     - tagalign
     - testpackage
@@ -31,9 +32,11 @@ linters:
     - wsl
   settings:
     errcheck:
+      verbose: false # true to see what is needed exactly in exclude-functions
       check-type-assertions: true
       check-blank: true
       exclude-functions:
+        - (*github.com/gin-gonic/gin.Context).Error
         - io/ioutil.ReadFile
         - io.Copy(*bytes.Buffer)
         - io.Copy(os.Stdout)
@@ -57,7 +60,7 @@ linters:
           yaml: goCamel
         use-field-name: true
     varnamelen:
-      max-distance: 20
+      max-distance: 30
       ignore-names:
         - id
         - ch

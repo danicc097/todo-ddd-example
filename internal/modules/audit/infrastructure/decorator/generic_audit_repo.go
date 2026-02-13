@@ -10,32 +10,35 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
-type Identifiable interface {
-	ID() uuid.UUID
+type Identifiable[ID any] interface {
+	ID() ID
 }
 
 type ChangeExtractorFunc[T any] func(entity T) map[string]any
 
-type AuditRepoDecorator[T Identifiable] struct {
+type AuditRepoDecorator[T Identifiable[ID], ID any] struct {
 	auditRepo     auditDomain.AuditRepository
 	aggregateType auditDomain.AuditAggregateType
 	extractor     ChangeExtractorFunc[T]
+	idToUUID      func(ID) uuid.UUID
 }
 
-func NewAuditRepoDecorator[T Identifiable](
+func NewAuditRepoDecorator[T Identifiable[ID], ID any](
 	auditRepo auditDomain.AuditRepository,
 	aggType auditDomain.AuditAggregateType,
 	extractor ChangeExtractorFunc[T],
-) *AuditRepoDecorator[T] {
-	return &AuditRepoDecorator[T]{
+	idToUUID func(ID) uuid.UUID,
+) *AuditRepoDecorator[T, ID] {
+	return &AuditRepoDecorator[T, ID]{
 		auditRepo:     auditRepo,
 		aggregateType: aggType,
 		extractor:     extractor,
+		idToUUID:      idToUUID,
 	}
 }
 
 // AuditSave wraps a save/update operation.
-func (d *AuditRepoDecorator[T]) AuditSave(
+func (d *AuditRepoDecorator[T, ID]) AuditSave(
 	ctx context.Context,
 	entity T,
 	op auditDomain.AuditOperation,
@@ -50,11 +53,11 @@ func (d *AuditRepoDecorator[T]) AuditSave(
 
 // AuditDelete wraps a delete operation.
 // It requires a fetchFn to snapshot the state before deletion.
-func (d *AuditRepoDecorator[T]) AuditDelete(
+func (d *AuditRepoDecorator[T, ID]) AuditDelete(
 	ctx context.Context,
-	id uuid.UUID,
-	fetchFn func(context.Context, uuid.UUID) (T, error),
-	deleteFn func(context.Context, uuid.UUID) error,
+	id ID,
+	fetchFn func(context.Context, ID) (T, error),
+	deleteFn func(context.Context, ID) error,
 ) error {
 	entity, err := fetchFn(ctx, id)
 	if err != nil {
@@ -69,7 +72,7 @@ func (d *AuditRepoDecorator[T]) AuditDelete(
 	return d.log(ctx, entity, auditDomain.OpDelete)
 }
 
-func (d *AuditRepoDecorator[T]) log(ctx context.Context, entity T, op auditDomain.AuditOperation) error {
+func (d *AuditRepoDecorator[T, ID]) log(ctx context.Context, entity T, op auditDomain.AuditOperation) error {
 	meta := causation.FromContext(ctx)
 	changes := d.extractor(entity)
 
@@ -80,7 +83,7 @@ func (d *AuditRepoDecorator[T]) log(ctx context.Context, entity T, op auditDomai
 		meta.UserIP,
 		meta.UserAgent,
 		d.aggregateType,
-		entity.ID(),
+		d.idToUUID(entity.ID()),
 		op,
 		changes,
 	)

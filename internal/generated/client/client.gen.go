@@ -14,6 +14,10 @@ import (
 	"strings"
 	"time"
 
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	workspaceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -35,6 +39,18 @@ type CreateTodoRequest struct {
 	Title string `json:"title"`
 }
 
+// OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
+type OnboardWorkspaceRequest struct {
+	// Description A brief description of the workspace purpose.
+	Description *string `json:"description,omitempty"`
+
+	// Members Initial extra members to add to the workspace.
+	Members *map[uuid.UUID]workspaceDomain.WorkspaceRole `json:"members,omitempty"`
+
+	// Name The display name of the workspace.
+	Name string `json:"name"`
+}
+
 // RegisterUserRequest defines model for RegisterUserRequest.
 type RegisterUserRequest struct {
 	Email string `json:"email"`
@@ -43,10 +59,10 @@ type RegisterUserRequest struct {
 
 // Todo defines model for Todo.
 type Todo struct {
-	CreatedAt time.Time          `json:"createdAt"`
-	Id        openapi_types.UUID `json:"id"`
-	Status    TodoStatus         `json:"status"`
-	Title     string             `json:"title"`
+	CreatedAt time.Time         `json:"createdAt"`
+	Id        todoDomain.TodoID `json:"id"`
+	Status    TodoStatus        `json:"status"`
+	Title     string            `json:"title"`
 }
 
 // TodoStatus defines model for TodoStatus.
@@ -54,9 +70,16 @@ type TodoStatus string
 
 // User defines model for User.
 type User struct {
-	Email string             `json:"email"`
-	Id    openapi_types.UUID `json:"id"`
-	Name  string             `json:"name"`
+	Email string            `json:"email"`
+	Id    userDomain.UserID `json:"id"`
+	Name  string            `json:"name"`
+}
+
+// Workspace defines model for Workspace.
+type Workspace struct {
+	Description string                      `json:"description"`
+	Id          workspaceDomain.WorkspaceID `json:"id"`
+	Name        string                      `json:"name"`
 }
 
 // IdempotencyKey defines model for IdempotencyKey.
@@ -91,6 +114,12 @@ type RegisterUserParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// OnboardWorkspaceParams defines parameters for OnboardWorkspace.
+type OnboardWorkspaceParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
 
@@ -99,6 +128,9 @@ type CreateTodoJSONRequestBody = CreateTodoRequest
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
+
+// OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
+type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -187,10 +219,10 @@ type ClientInterface interface {
 	CreateTodo(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTodoByID request
-	GetTodoByID(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CompleteTodo request
-	CompleteTodo(ctx context.Context, id openapi_types.UUID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RegisterUserWithBody request with any body
 	RegisterUserWithBody(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -198,7 +230,21 @@ type ClientInterface interface {
 	RegisterUser(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserByID request
-	GetUserByID(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetUserByID(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkspaces request
+	ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OnboardWorkspaceWithBody request with any body
+	OnboardWorkspaceWithBody(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	OnboardWorkspace(ctx context.Context, params *OnboardWorkspaceParams, body OnboardWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWorkspace request
+	DeleteWorkspace(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveWorkspaceMember request
+	RemoveWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CreateTagWithBody(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -261,7 +307,7 @@ func (c *Client) CreateTodo(ctx context.Context, params *CreateTodoParams, body 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetTodoByID(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTodoByIDRequest(c.Server, id)
 	if err != nil {
 		return nil, err
@@ -273,7 +319,7 @@ func (c *Client) GetTodoByID(ctx context.Context, id openapi_types.UUID, reqEdit
 	return c.Client.Do(req)
 }
 
-func (c *Client) CompleteTodo(ctx context.Context, id openapi_types.UUID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCompleteTodoRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
@@ -309,8 +355,68 @@ func (c *Client) RegisterUser(ctx context.Context, params *RegisterUserParams, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserByID(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetUserByID(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserByIDRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkspacesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OnboardWorkspaceWithBody(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardWorkspaceRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OnboardWorkspace(ctx context.Context, params *OnboardWorkspaceParams, body OnboardWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardWorkspaceRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteWorkspace(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkspaceRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RemoveWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveWorkspaceMemberRequest(c.Server, id, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +565,7 @@ func NewCreateTodoRequestWithBody(server string, params *CreateTodoParams, conte
 }
 
 // NewGetTodoByIDRequest generates requests for GetTodoByID
-func NewGetTodoByIDRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+func NewGetTodoByIDRequest(server string, id todoDomain.TodoID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -493,7 +599,7 @@ func NewGetTodoByIDRequest(server string, id openapi_types.UUID) (*http.Request,
 }
 
 // NewCompleteTodoRequest generates requests for CompleteTodo
-func NewCompleteTodoRequest(server string, id openapi_types.UUID, params *CompleteTodoParams) (*http.Request, error) {
+func NewCompleteTodoRequest(server string, id todoDomain.TodoID, params *CompleteTodoParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -597,7 +703,7 @@ func NewRegisterUserRequestWithBody(server string, params *RegisterUserParams, c
 }
 
 // NewGetUserByIDRequest generates requests for GetUserByID
-func NewGetUserByIDRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+func NewGetUserByIDRequest(server string, id userDomain.UserID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -623,6 +729,163 @@ func NewGetUserByIDRequest(server string, id openapi_types.UUID) (*http.Request,
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListWorkspacesRequest generates requests for ListWorkspaces
+func NewListWorkspacesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewOnboardWorkspaceRequest calls the generic OnboardWorkspace builder with application/json body
+func NewOnboardWorkspaceRequest(server string, params *OnboardWorkspaceParams, body OnboardWorkspaceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOnboardWorkspaceRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewOnboardWorkspaceRequestWithBody generates requests for OnboardWorkspace with any type of body
+func NewOnboardWorkspaceRequestWithBody(server string, params *OnboardWorkspaceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteWorkspaceRequest generates requests for DeleteWorkspace
+func NewDeleteWorkspaceRequest(server string, id workspaceDomain.WorkspaceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRemoveWorkspaceMemberRequest generates requests for RemoveWorkspaceMember
+func NewRemoveWorkspaceMemberRequest(server string, id workspaceDomain.WorkspaceID, userId userDomain.UserID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userId", runtime.ParamLocationPath, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/members/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -687,10 +950,10 @@ type ClientWithResponsesInterface interface {
 	CreateTodoWithResponse(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
 
 	// GetTodoByIDWithResponse request
-	GetTodoByIDWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error)
+	GetTodoByIDWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error)
 
 	// CompleteTodoWithResponse request
-	CompleteTodoWithResponse(ctx context.Context, id openapi_types.UUID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error)
+	CompleteTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error)
 
 	// RegisterUserWithBodyWithResponse request with any body
 	RegisterUserWithBodyWithResponse(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
@@ -698,7 +961,21 @@ type ClientWithResponsesInterface interface {
 	RegisterUserWithResponse(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
 
 	// GetUserByIDWithResponse request
-	GetUserByIDWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error)
+	GetUserByIDWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error)
+
+	// ListWorkspacesWithResponse request
+	ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
+
+	// OnboardWorkspaceWithBodyWithResponse request with any body
+	OnboardWorkspaceWithBodyWithResponse(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardWorkspaceResponse, error)
+
+	OnboardWorkspaceWithResponse(ctx context.Context, params *OnboardWorkspaceParams, body OnboardWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardWorkspaceResponse, error)
+
+	// DeleteWorkspaceWithResponse request
+	DeleteWorkspaceWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
+
+	// RemoveWorkspaceMemberWithResponse request
+	RemoveWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*RemoveWorkspaceMemberResponse, error)
 }
 
 type CreateTagResponse struct {
@@ -864,6 +1141,98 @@ func (r GetUserByIDResponse) StatusCode() int {
 	return 0
 }
 
+type ListWorkspacesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Workspace
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkspacesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkspacesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type OnboardWorkspaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *struct {
+		Id *openapi_types.UUID `json:"id,omitempty"`
+	}
+	JSON400 *ErrorResponse
+	JSON4XX *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r OnboardWorkspaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OnboardWorkspaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteWorkspaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkspaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkspaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RemoveWorkspaceMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveWorkspaceMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveWorkspaceMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // CreateTagWithBodyWithResponse request with arbitrary body returning *CreateTagResponse
 func (c *ClientWithResponses) CreateTagWithBodyWithResponse(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
 	rsp, err := c.CreateTagWithBody(ctx, params, contentType, body, reqEditors...)
@@ -908,7 +1277,7 @@ func (c *ClientWithResponses) CreateTodoWithResponse(ctx context.Context, params
 }
 
 // GetTodoByIDWithResponse request returning *GetTodoByIDResponse
-func (c *ClientWithResponses) GetTodoByIDWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error) {
+func (c *ClientWithResponses) GetTodoByIDWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error) {
 	rsp, err := c.GetTodoByID(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -917,7 +1286,7 @@ func (c *ClientWithResponses) GetTodoByIDWithResponse(ctx context.Context, id op
 }
 
 // CompleteTodoWithResponse request returning *CompleteTodoResponse
-func (c *ClientWithResponses) CompleteTodoWithResponse(ctx context.Context, id openapi_types.UUID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error) {
+func (c *ClientWithResponses) CompleteTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error) {
 	rsp, err := c.CompleteTodo(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -943,12 +1312,56 @@ func (c *ClientWithResponses) RegisterUserWithResponse(ctx context.Context, para
 }
 
 // GetUserByIDWithResponse request returning *GetUserByIDResponse
-func (c *ClientWithResponses) GetUserByIDWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error) {
+func (c *ClientWithResponses) GetUserByIDWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error) {
 	rsp, err := c.GetUserByID(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetUserByIDResponse(rsp)
+}
+
+// ListWorkspacesWithResponse request returning *ListWorkspacesResponse
+func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
+	rsp, err := c.ListWorkspaces(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkspacesResponse(rsp)
+}
+
+// OnboardWorkspaceWithBodyWithResponse request with arbitrary body returning *OnboardWorkspaceResponse
+func (c *ClientWithResponses) OnboardWorkspaceWithBodyWithResponse(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardWorkspaceResponse, error) {
+	rsp, err := c.OnboardWorkspaceWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOnboardWorkspaceResponse(rsp)
+}
+
+func (c *ClientWithResponses) OnboardWorkspaceWithResponse(ctx context.Context, params *OnboardWorkspaceParams, body OnboardWorkspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardWorkspaceResponse, error) {
+	rsp, err := c.OnboardWorkspace(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOnboardWorkspaceResponse(rsp)
+}
+
+// DeleteWorkspaceWithResponse request returning *DeleteWorkspaceResponse
+func (c *ClientWithResponses) DeleteWorkspaceWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error) {
+	rsp, err := c.DeleteWorkspace(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkspaceResponse(rsp)
+}
+
+// RemoveWorkspaceMemberWithResponse request returning *RemoveWorkspaceMemberResponse
+func (c *ClientWithResponses) RemoveWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*RemoveWorkspaceMemberResponse, error) {
+	rsp, err := c.RemoveWorkspaceMember(ctx, id, userId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveWorkspaceMemberResponse(rsp)
 }
 
 // ParseCreateTagResponse parses an HTTP response from a CreateTagWithResponse call
@@ -1154,6 +1567,126 @@ func ParseGetUserByIDResponse(rsp *http.Response) (*GetUserByIDResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWorkspacesResponse parses an HTTP response from a ListWorkspacesWithResponse call
+func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkspacesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Workspace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOnboardWorkspaceResponse parses an HTTP response from a OnboardWorkspaceWithResponse call
+func ParseOnboardWorkspaceResponse(rsp *http.Response) (*OnboardWorkspaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OnboardWorkspaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Id *openapi_types.UUID `json:"id,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWorkspaceResponse parses an HTTP response from a DeleteWorkspaceWithResponse call
+func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkspaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveWorkspaceMemberResponse parses an HTTP response from a RemoveWorkspaceMemberWithResponse call
+func ParseRemoveWorkspaceMemberResponse(rsp *http.Response) (*RemoveWorkspaceMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveWorkspaceMemberResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
 
 	}
 

@@ -4,10 +4,6 @@ INSERT INTO workspaces(id, name, description, created_at)
 RETURNING
   *;
 
--- name: AddWorkspaceMember :exec
-INSERT INTO workspace_members(workspace_id, user_id, role)
-  VALUES ($1, $2, $3);
-
 -- name: GetWorkspaceByID :one
 SELECT
   *
@@ -35,4 +31,22 @@ ORDER BY
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces
 WHERE id = $1;
+
+-- name: UpsertWorkspace :one
+INSERT INTO workspaces(id, name, description, created_at)
+  VALUES ($1, $2, $3, $4)
+ON CONFLICT (id)
+  DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description
+  RETURNING
+    *;
+
+-- name: DeleteWorkspaceMembers :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1;
+
+-- name: AddWorkspaceMember :exec
+INSERT INTO workspace_members(workspace_id, user_id, role)
+  VALUES ($1, $2, $3);
 

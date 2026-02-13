@@ -19,7 +19,7 @@ func TestTodo_Complete(t *testing.T) {
 	})
 
 	t.Run("should fail transition if archived", func(t *testing.T) {
-		todo := ReconstituteTodo(uuid.New(), title, StatusArchived, time.Now(), nil)
+		todo := ReconstituteTodo(TodoID{UUID: uuid.New()}, title, StatusArchived, time.Now(), nil)
 		err := todo.Complete()
 		assert.ErrorIs(t, err, ErrInvalidStatus)
 	})

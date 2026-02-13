@@ -6,8 +6,8 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/application"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type UserHandler struct {
@@ -39,7 +39,7 @@ func (h *UserHandler) RegisterUser(c *gin.Context, params api.RegisterUserParams
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
-func (h *UserHandler) GetUserByID(c *gin.Context, id uuid.UUID) {
+func (h *UserHandler) GetUserByID(c *gin.Context, id userDomain.UserID) {
 	user, err := h.getUserUC.Execute(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)

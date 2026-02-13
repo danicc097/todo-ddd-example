@@ -6,15 +6,14 @@ import (
 	"sync"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 )
 
 type FakeTagRepository struct {
-	FindByIDStub        func(context.Context, uuid.UUID) (*domain.Tag, error)
+	FindByIDStub        func(context.Context, domain.TagID) (*domain.Tag, error)
 	findByIDMutex       sync.RWMutex
 	findByIDArgsForCall []struct {
 		arg1 context.Context
-		arg2 uuid.UUID
+		arg2 domain.TagID
 	}
 	findByIDReturns struct {
 		result1 *domain.Tag
@@ -54,12 +53,12 @@ type FakeTagRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeTagRepository) FindByID(arg1 context.Context, arg2 uuid.UUID) (*domain.Tag, error) {
+func (fake *FakeTagRepository) FindByID(arg1 context.Context, arg2 domain.TagID) (*domain.Tag, error) {
 	fake.findByIDMutex.Lock()
 	ret, specificReturn := fake.findByIDReturnsOnCall[len(fake.findByIDArgsForCall)]
 	fake.findByIDArgsForCall = append(fake.findByIDArgsForCall, struct {
 		arg1 context.Context
-		arg2 uuid.UUID
+		arg2 domain.TagID
 	}{arg1, arg2})
 	stub := fake.FindByIDStub
 	fakeReturns := fake.findByIDReturns
@@ -80,13 +79,13 @@ func (fake *FakeTagRepository) FindByIDCallCount() int {
 	return len(fake.findByIDArgsForCall)
 }
 
-func (fake *FakeTagRepository) FindByIDCalls(stub func(context.Context, uuid.UUID) (*domain.Tag, error)) {
+func (fake *FakeTagRepository) FindByIDCalls(stub func(context.Context, domain.TagID) (*domain.Tag, error)) {
 	fake.findByIDMutex.Lock()
 	defer fake.findByIDMutex.Unlock()
 	fake.FindByIDStub = stub
 }
 
-func (fake *FakeTagRepository) FindByIDArgsForCall(i int) (context.Context, uuid.UUID) {
+func (fake *FakeTagRepository) FindByIDArgsForCall(i int) (context.Context, domain.TagID) {
 	fake.findByIDMutex.RLock()
 	defer fake.findByIDMutex.RUnlock()
 	argsForCall := fake.findByIDArgsForCall[i]

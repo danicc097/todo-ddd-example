@@ -12,7 +12,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -43,7 +42,7 @@ func (d TagRepositoryWithCache) key(id string) string {
 	return fmt.Sprintf("tag:%s", id)
 }
 
-func (d TagRepositoryWithCache) FindByID(ctx context.Context, id uuid.UUID) (tp1 *_sourceDomain.Tag, err error) {
+func (d TagRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.TagID) (tp1 *_sourceDomain.Tag, err error) {
 
 	var cacheVal []byte
 	var unmarshalErr error

@@ -12,7 +12,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -43,7 +42,7 @@ func (d WorkspaceRepositoryWithCache) key(id string) string {
 	return fmt.Sprintf("ws:%s", id)
 }
 
-func (d WorkspaceRepositoryWithCache) Delete(ctx context.Context, id uuid.UUID) (err error) {
+func (d WorkspaceRepositoryWithCache) Delete(ctx context.Context, id _sourceDomain.WorkspaceID) (err error) {
 	return d.base.Delete(ctx, id)
 }
 
@@ -51,7 +50,7 @@ func (d WorkspaceRepositoryWithCache) FindAll(ctx context.Context) (wpa1 []*_sou
 	return d.base.FindAll(ctx)
 }
 
-func (d WorkspaceRepositoryWithCache) FindByID(ctx context.Context, id uuid.UUID) (wp1 *_sourceDomain.Workspace, err error) {
+func (d WorkspaceRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.WorkspaceID) (wp1 *_sourceDomain.Workspace, err error) {
 
 	var cacheVal []byte
 	var unmarshalErr error

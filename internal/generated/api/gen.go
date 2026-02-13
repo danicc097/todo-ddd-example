@@ -8,7 +8,11 @@ import (
 	"net/http"
 	"time"
 
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	workspaceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -30,10 +34,16 @@ type CreateTodoRequest struct {
 	Title string `json:"title"`
 }
 
-// CreateWorkspaceRequest defines model for CreateWorkspaceRequest.
-type CreateWorkspaceRequest struct {
+// OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
+type OnboardWorkspaceRequest struct {
+	// Description A brief description of the workspace purpose.
 	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
+
+	// Members Initial extra members to add to the workspace.
+	Members *map[uuid.UUID]workspaceDomain.WorkspaceRole `json:"members,omitempty"`
+
+	// Name The display name of the workspace.
+	Name string `json:"name"`
 }
 
 // RegisterUserRequest defines model for RegisterUserRequest.
@@ -44,10 +54,10 @@ type RegisterUserRequest struct {
 
 // Todo defines model for Todo.
 type Todo struct {
-	CreatedAt time.Time          `json:"createdAt"`
-	Id        openapi_types.UUID `json:"id"`
-	Status    TodoStatus         `json:"status"`
-	Title     string             `json:"title"`
+	CreatedAt time.Time         `json:"createdAt"`
+	Id        todoDomain.TodoID `json:"id"`
+	Status    TodoStatus        `json:"status"`
+	Title     string            `json:"title"`
 }
 
 // TodoStatus defines model for TodoStatus.
@@ -55,16 +65,16 @@ type TodoStatus string
 
 // User defines model for User.
 type User struct {
-	Email string             `json:"email"`
-	Id    openapi_types.UUID `json:"id"`
-	Name  string             `json:"name"`
+	Email string            `json:"email"`
+	Id    userDomain.UserID `json:"id"`
+	Name  string            `json:"name"`
 }
 
 // Workspace defines model for Workspace.
 type Workspace struct {
-	Description string             `json:"description"`
-	Id          openapi_types.UUID `json:"id"`
-	Name        string             `json:"name"`
+	Description string                      `json:"description"`
+	Id          workspaceDomain.WorkspaceID `json:"id"`
+	Name        string                      `json:"name"`
 }
 
 // IdempotencyKey defines model for IdempotencyKey.
@@ -99,8 +109,8 @@ type RegisterUserParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
-// CreateWorkspaceParams defines parameters for CreateWorkspace.
-type CreateWorkspaceParams struct {
+// OnboardWorkspaceParams defines parameters for OnboardWorkspace.
+type OnboardWorkspaceParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -114,8 +124,8 @@ type CreateTodoJSONRequestBody = CreateTodoRequest
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
 
-// CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
-type CreateWorkspaceJSONRequestBody = CreateWorkspaceRequest
+// OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
+type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -130,25 +140,28 @@ type ServerInterface interface {
 	CreateTodo(c *gin.Context, params CreateTodoParams)
 	// Get a todo by ID
 	// (GET /todos/{id})
-	GetTodoByID(c *gin.Context, id openapi_types.UUID)
+	GetTodoByID(c *gin.Context, id todoDomain.TodoID)
 	// Complete a todo
 	// (PATCH /todos/{id}/complete)
-	CompleteTodo(c *gin.Context, id openapi_types.UUID, params CompleteTodoParams)
+	CompleteTodo(c *gin.Context, id todoDomain.TodoID, params CompleteTodoParams)
 
 	// (POST /users)
 	RegisterUser(c *gin.Context, params RegisterUserParams)
 
 	// (GET /users/{id})
-	GetUserByID(c *gin.Context, id openapi_types.UUID)
+	GetUserByID(c *gin.Context, id userDomain.UserID)
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *gin.Context)
-	// Create a new workspace
+	// Onboard a new workspace with initial members
 	// (POST /workspaces)
-	CreateWorkspace(c *gin.Context, params CreateWorkspaceParams)
+	OnboardWorkspace(c *gin.Context, params OnboardWorkspaceParams)
 	// Delete a workspace
 	// (DELETE /workspaces/{id})
-	DeleteWorkspace(c *gin.Context, id openapi_types.UUID)
+	DeleteWorkspace(c *gin.Context, id workspaceDomain.WorkspaceID)
+	// Remove a member from a workspace
+	// (DELETE /workspaces/{id}/members/{userId})
+	RemoveWorkspaceMember(c *gin.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -257,7 +270,7 @@ func (siw *ServerInterfaceWrapper) GetTodoByID(c *gin.Context) {
 	var err error
 
 	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
+	var id todoDomain.TodoID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
 	if err != nil {
@@ -281,7 +294,7 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 	var err error
 
 	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
+	var id todoDomain.TodoID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
 	if err != nil {
@@ -368,7 +381,7 @@ func (siw *ServerInterfaceWrapper) GetUserByID(c *gin.Context) {
 	var err error
 
 	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
+	var id userDomain.UserID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
 	if err != nil {
@@ -399,13 +412,13 @@ func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
 	siw.Handler.ListWorkspaces(c)
 }
 
-// CreateWorkspace operation middleware
-func (siw *ServerInterfaceWrapper) CreateWorkspace(c *gin.Context) {
+// OnboardWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) OnboardWorkspace(c *gin.Context) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateWorkspaceParams
+	var params OnboardWorkspaceParams
 
 	headers := c.Request.Header
 
@@ -435,7 +448,7 @@ func (siw *ServerInterfaceWrapper) CreateWorkspace(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateWorkspace(c, params)
+	siw.Handler.OnboardWorkspace(c, params)
 }
 
 // DeleteWorkspace operation middleware
@@ -444,7 +457,7 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
 	var err error
 
 	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
+	var id workspaceDomain.WorkspaceID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
 	if err != nil {
@@ -460,6 +473,39 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
 	}
 
 	siw.Handler.DeleteWorkspace(c, id)
+}
+
+// RemoveWorkspaceMember operation middleware
+func (siw *ServerInterfaceWrapper) RemoveWorkspaceMember(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id workspaceDomain.WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId userDomain.UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", c.Param("userId"), &userId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveWorkspaceMember(c, id, userId)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -497,6 +543,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/users", wrapper.RegisterUser)
 	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
 	router.GET(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
-	router.POST(options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
+	router.POST(options.BaseURL+"/workspaces", wrapper.OnboardWorkspace)
 	router.DELETE(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
+	router.DELETE(options.BaseURL+"/workspaces/:id/members/:userId", wrapper.RemoveWorkspaceMember)
 }

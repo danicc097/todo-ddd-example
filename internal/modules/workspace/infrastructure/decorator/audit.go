@@ -10,11 +10,11 @@ import (
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
-var _ auditDecorator.Identifiable = (*wsDomain.Workspace)(nil)
+var _ wsDomain.WorkspaceRepository = (*WorkspaceAuditWrapper)(nil)
 
 type WorkspaceAuditWrapper struct {
 	base    wsDomain.WorkspaceRepository
-	auditor *auditDecorator.AuditRepoDecorator[*wsDomain.Workspace]
+	auditor *auditDecorator.AuditRepoDecorator[*wsDomain.Workspace, wsDomain.WorkspaceID]
 }
 
 func NewWorkspaceAuditWrapper(
@@ -32,6 +32,9 @@ func NewWorkspaceAuditWrapper(
 		auditRepo,
 		auditDomain.AggWorkspace,
 		extractor,
+		func(id wsDomain.WorkspaceID) uuid.UUID {
+			return id.UUID
+		},
 	)
 
 	return &WorkspaceAuditWrapper{
@@ -41,12 +44,10 @@ func NewWorkspaceAuditWrapper(
 }
 
 func (w *WorkspaceAuditWrapper) Save(ctx context.Context, entity *wsDomain.Workspace) error {
-	// assume Create for now, could detect
-	return w.auditor.AuditSave(ctx, entity, auditDomain.OpCreate, w.base.Save)
+	return w.auditor.AuditSave(ctx, entity, auditDomain.OpUpsert, w.base.Save)
 }
 
-func (w *WorkspaceAuditWrapper) Delete(ctx context.Context, id uuid.UUID) error {
-	// handles fetch-before-delete logic
+func (w *WorkspaceAuditWrapper) Delete(ctx context.Context, id wsDomain.WorkspaceID) error {
 	return w.auditor.AuditDelete(ctx, id, w.base.FindByID, w.base.Delete)
 }
 
@@ -54,7 +55,7 @@ func (w *WorkspaceAuditWrapper) Delete(ctx context.Context, id uuid.UUID) error 
 * Read methods bypass audit
  */
 
-func (w *WorkspaceAuditWrapper) FindByID(ctx context.Context, id uuid.UUID) (*wsDomain.Workspace, error) {
+func (w *WorkspaceAuditWrapper) FindByID(ctx context.Context, id wsDomain.WorkspaceID) (*wsDomain.Workspace, error) {
 	return w.base.FindByID(ctx, id)
 }
 

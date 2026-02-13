@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 type TodoRepo struct {
@@ -54,7 +54,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 		}
 	}
 
-	return r.saveDomainEvents(ctx, dbtx, t)
+	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, t)
 }
 
 func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
@@ -70,35 +70,10 @@ func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 		return err
 	}
 
-	return r.saveDomainEvents(ctx, dbtx, t)
+	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, t)
 }
 
-func (r *TodoRepo) saveDomainEvents(ctx context.Context, dbtx db.DBTX, t *domain.Todo) error {
-	for _, e := range t.Events() {
-		eventName, payload, err := r.mapper.MapEvent(e)
-		if err != nil {
-			return err
-		}
-
-		if payload == nil {
-			continue
-		}
-
-		if err := r.q.SaveOutboxEvent(ctx, dbtx, db.SaveOutboxEventParams{
-			ID:        uuid.New(),
-			EventType: eventName,
-			Payload:   payload,
-		}); err != nil {
-			return err
-		}
-	}
-
-	t.ClearEvents()
-
-	return nil
-}
-
-func (r *TodoRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Todo, error) {
+func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo, error) {
 	row, err := r.q.GetTodoByID(ctx, r.getDB(ctx), id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

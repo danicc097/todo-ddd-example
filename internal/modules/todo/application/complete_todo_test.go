@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -25,15 +26,17 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	pool := pgContainer.Connect(ctx, t)
 	repo := todoPg.NewTodoRepo(pool)
 
-	baseUC := application.NewCompleteTodoUseCase(repo)
-	uc := decorator.NewCompleteTodoUseCaseWithTransaction(baseUC, pool)
+	baseHandler := application.NewCompleteTodoHandler(repo)
+	handler := middleware.Transactional(pool, baseHandler)
 
 	t.Run("completes", func(t *testing.T) {
 		title, _ := domain.NewTodoTitle("Complete")
 		todo := domain.NewTodo(title)
 		require.NoError(t, repo.Save(ctx, todo))
 
-		err := uc.Execute(ctx, todo.ID())
+		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
+			ID: todo.ID(),
+		})
 		require.NoError(t, err)
 
 		found, _ := repo.FindByID(ctx, todo.ID())
@@ -44,5 +47,12 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.completed'").Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
+	})
+
+	t.Run("fails if todo not found", func(t *testing.T) {
+		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
+			ID: domain.TodoID{UUID: uuid.New()},
+		})
+		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
 	})
 }

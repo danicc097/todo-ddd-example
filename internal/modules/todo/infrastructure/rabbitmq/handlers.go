@@ -13,7 +13,7 @@ func (d TodoEventDTO) ToEntity() *domain.Todo {
 	title, _ := domain.NewTodoTitle(d.Title)
 	status := domain.TodoStatus(d.Status)
 
-	return domain.ReconstituteTodo(d.ID, title, status, d.CreatedAt, nil)
+	return domain.ReconstituteTodo(domain.TodoID{UUID: d.ID}, title, status, d.CreatedAt, nil)
 }
 
 func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Context, []byte) error {
@@ -30,7 +30,7 @@ func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Cont
 func MakeCreatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
 		evt := domain.TodoCreatedEvent{
-			ID:        p.ID,
+			ID:        domain.TodoID{UUID: p.ID},
 			Title:     p.Title,
 			Status:    p.Status,
 			CreatedAt: p.CreatedAt,
@@ -44,7 +44,7 @@ func MakeCreatedHandler(pub shared.EventPublisher) func(context.Context, []byte)
 func MakeUpdatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
 		evt := domain.TodoCompletedEvent{
-			ID:        p.ID,
+			ID:        domain.TodoID{UUID: p.ID},
 			Title:     p.Title,
 			Status:    p.Status,
 			CreatedAt: p.CreatedAt,
@@ -58,8 +58,8 @@ func MakeUpdatedHandler(pub shared.EventPublisher) func(context.Context, []byte)
 func MakeTagAddedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TagAddedEventDTO) error {
 		evt := domain.TagAddedEvent{
-			TodoID:   p.TodoID,
-			TagID:    p.TagID,
+			TodoID:   domain.TodoID{UUID: p.TodoID},
+			TagID:    domain.TagID{UUID: p.TagID},
 			Occurred: time.Now(),
 		}
 

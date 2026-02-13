@@ -2,8 +2,6 @@ package domain
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 //counterfeiter:generate . TodoRepository
@@ -11,7 +9,7 @@ import (
 //go:generate go tool gowrap gen -g -i TodoRepository -t ../../../../templates/cache.gotmpl -o ../infrastructure/decorator/todo_repository_cache.gen.go -v "KeyPrefix=todo" -v "EntityType=*_sourceDomain.Todo"
 type TodoRepository interface {
 	Save(ctx context.Context, todo *Todo) error
-	FindByID(ctx context.Context, id uuid.UUID) (*Todo, error)
+	FindByID(ctx context.Context, id TodoID) (*Todo, error)
 	FindAll(ctx context.Context) ([]*Todo, error)
 	Update(ctx context.Context, todo *Todo) error
 }
@@ -21,6 +19,6 @@ type TodoRepository interface {
 //go:generate go tool gowrap gen -g -i TagRepository -t ../../../../templates/cache.gotmpl -o ../infrastructure/decorator/tag_repository_cache.gen.go -v "KeyPrefix=tag" -v "EntityType=*_sourceDomain.Tag"
 type TagRepository interface {
 	Save(ctx context.Context, tag *Tag) error
-	FindByID(ctx context.Context, id uuid.UUID) (*Tag, error)
+	FindByID(ctx context.Context, id TagID) (*Tag, error)
 	FindByName(ctx context.Context, name string) (*Tag, error)
 }

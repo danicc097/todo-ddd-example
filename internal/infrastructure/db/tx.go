@@ -20,6 +20,7 @@ func ExtractTx(ctx context.Context) pgx.Tx {
 	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
 		return tx
 	}
+
 	return nil
 }
 
@@ -39,6 +40,7 @@ func RunInTx[T any](ctx context.Context, pool *pgxpool.Pool, fn func(ctx context
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback(ctx)
+
 			panic(p) // rethrow
 		} else if err != nil {
 			_ = tx.Rollback(ctx)

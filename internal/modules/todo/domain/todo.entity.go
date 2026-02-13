@@ -4,29 +4,31 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var ErrTodoNotFound = errors.New("todo not found")
 
+type TodoID = shared.ID[Todo]
+
 type Todo struct {
 	AggregateRoot
 
-	id        uuid.UUID
+	id        TodoID
 	title     TodoTitle
 	status    TodoStatus
-	tags      []uuid.UUID
+	tags      []TagID
 	createdAt time.Time
 }
 
 func NewTodo(title TodoTitle) *Todo {
-	id := uuid.New()
+	id := shared.NewID[Todo]()
 	now := time.Now()
 	t := &Todo{
 		id:        id,
 		title:     title,
 		status:    StatusPending,
-		tags:      make([]uuid.UUID, 0),
+		tags:      make([]TagID, 0),
 		createdAt: now,
 	}
 	t.RecordEvent(TodoCreatedEvent{
@@ -40,7 +42,7 @@ func NewTodo(title TodoTitle) *Todo {
 	return t
 }
 
-func ReconstituteTodo(id uuid.UUID, title TodoTitle, status TodoStatus, createdAt time.Time, tags []uuid.UUID) *Todo {
+func ReconstituteTodo(id TodoID, title TodoTitle, status TodoStatus, createdAt time.Time, tags []TagID) *Todo {
 	return &Todo{
 		id:        id,
 		title:     title,
@@ -67,7 +69,7 @@ func (t *Todo) Complete() error {
 	return nil
 }
 
-func (t *Todo) AddTag(tagID uuid.UUID) {
+func (t *Todo) AddTag(tagID TagID) {
 	t.tags = append(t.tags, tagID)
 	t.RecordEvent(TagAddedEvent{
 		TodoID:   t.id,
@@ -76,11 +78,11 @@ func (t *Todo) AddTag(tagID uuid.UUID) {
 	})
 }
 
-func (t *Todo) ID() uuid.UUID        { return t.id }
+func (t *Todo) ID() TodoID           { return t.id }
 func (t *Todo) Title() TodoTitle     { return t.title }
 func (t *Todo) Status() TodoStatus   { return t.status }
 func (t *Todo) CreatedAt() time.Time { return t.createdAt }
-func (t *Todo) Tags() []uuid.UUID    { return t.tags }
+func (t *Todo) Tags() []TagID        { return t.tags }
 
 // NOTE: entity should not know how it's serialized to the outside world (apis, messaging...)
 // func (t *Todo) MarshalJSON() ([]byte, error) {

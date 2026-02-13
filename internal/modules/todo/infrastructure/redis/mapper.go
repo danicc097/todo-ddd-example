@@ -17,24 +17,34 @@ type TodoCacheDTO struct {
 }
 
 func ToTodoCacheDTO(t *domain.Todo) TodoCacheDTO {
+	tagUUIDs := make([]uuid.UUID, len(t.Tags()))
+	for i, id := range t.Tags() {
+		tagUUIDs[i] = id.UUID
+	}
+
 	return TodoCacheDTO{
-		ID:        t.ID(),
+		ID:        t.ID().UUID,
 		Title:     t.Title().String(),
 		Status:    t.Status().String(),
 		CreatedAt: t.CreatedAt(),
-		Tags:      t.Tags(),
+		Tags:      tagUUIDs,
 	}
 }
 
 func FromTodoCacheDTO(dto TodoCacheDTO) *domain.Todo {
 	title, _ := domain.NewTodoTitle(dto.Title)
 
+	tagIDs := make([]domain.TagID, len(dto.Tags))
+	for i, id := range dto.Tags {
+		tagIDs[i] = domain.TagID{UUID: id}
+	}
+
 	return domain.ReconstituteTodo(
-		dto.ID,
+		domain.TodoID{UUID: dto.ID},
 		title,
 		domain.TodoStatus(dto.Status),
 		dto.CreatedAt,
-		dto.Tags,
+		tagIDs,
 	)
 }
 
@@ -45,12 +55,12 @@ type TagCacheDTO struct {
 
 func ToTagCacheDTO(t *domain.Tag) TagCacheDTO {
 	return TagCacheDTO{
-		ID:   t.ID(),
+		ID:   t.ID().UUID,
 		Name: t.Name().String(),
 	}
 }
 
 func FromTagCacheDTO(dto TagCacheDTO) *domain.Tag {
 	name, _ := domain.NewTagName(dto.Name)
-	return domain.ReconstituteTag(dto.ID, name)
+	return domain.ReconstituteTag(domain.TagID{UUID: dto.ID}, name)
 }

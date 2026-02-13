@@ -8,6 +8,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 /**
@@ -19,24 +20,34 @@ type TodoMapper struct{}
 func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
 
+	tagIDs := make([]domain.TagID, len(row.Tags))
+	for i, id := range row.Tags {
+		tagIDs[i] = domain.TagID{UUID: id}
+	}
+
 	return domain.ReconstituteTodo(
 		row.ID,
 		title,
 		domain.TodoStatus(row.Status),
 		row.CreatedAt,
-		row.Tags,
+		tagIDs,
 	)
 }
 
 func (m *TodoMapper) ListRowToDomain(row db.ListTodosRow) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
 
+	tagIDs := make([]domain.TagID, len(row.Tags))
+	for i, id := range row.Tags {
+		tagIDs[i] = domain.TagID{UUID: id}
+	}
+
 	return domain.ReconstituteTodo(
 		row.ID,
 		title,
 		domain.TodoStatus(row.Status),
 		row.CreatedAt,
-		row.Tags,
+		tagIDs,
 	)
 }
 
@@ -85,28 +96,28 @@ type tagAddedOutboxDTO struct {
 	TagID  uuid.UUID `json:"tag_id"`
 }
 
-func (m *TodoMapper) MapEvent(e domain.DomainEvent) (string, []byte, error) {
+func (m *TodoMapper) MapEvent(e shared.DomainEvent) (string, []byte, error) {
 	var payload any
 
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
 		payload = todoOutboxDTO{
-			ID:        evt.ID,
+			ID:        evt.ID.UUID,
 			Title:     evt.Title,
 			Status:    evt.Status,
 			CreatedAt: evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
 		payload = todoOutboxDTO{
-			ID:        evt.ID,
+			ID:        evt.ID.UUID,
 			Title:     evt.Title,
 			Status:    evt.Status,
 			CreatedAt: evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
 		payload = tagAddedOutboxDTO{
-			TodoID: evt.TodoID,
-			TagID:  evt.TagID,
+			TodoID: evt.TodoID.UUID,
+			TagID:  evt.TagID.UUID,
 		}
 	default:
 		return "", nil, nil

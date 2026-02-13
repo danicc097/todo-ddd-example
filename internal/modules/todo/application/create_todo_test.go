@@ -4,14 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -27,8 +26,8 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 	repo := todoPg.NewTodoRepo(pool)
 	tagRepo := todoPg.NewTagRepo(pool)
 
-	baseUC := application.NewCreateTodoUseCase(repo)
-	uc := decorator.NewCreateTodoUseCaseWithTransaction(baseUC, pool)
+	baseHandler := application.NewCreateTodoHandler(repo)
+	handler := middleware.Transactional(pool, baseHandler)
 
 	t.Run("creates", func(t *testing.T) {
 		tn, _ := domain.NewTagName("urgent")
@@ -39,10 +38,10 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 
 		cmd := application.CreateTodoCommand{
 			Title:  title,
-			TagIDs: []uuid.UUID{tag.ID()},
+			TagIDs: []domain.TagID{tag.ID()},
 		}
 
-		id, err := uc.Execute(ctx, cmd)
+		id, err := handler.Handle(ctx, cmd)
 		require.NoError(t, err)
 
 		found, err := repo.FindByID(ctx, id)

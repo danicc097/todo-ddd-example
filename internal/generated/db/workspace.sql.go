@@ -9,7 +9,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 )
 
 const AddWorkspaceMember = `-- name: AddWorkspaceMember :exec
@@ -18,9 +18,9 @@ INSERT INTO workspace_members(workspace_id, user_id, role)
 `
 
 type AddWorkspaceMemberParams struct {
-	WorkspaceID uuid.UUID `db:"workspace_id" json:"workspace_id"`
-	UserID      uuid.UUID `db:"user_id" json:"user_id"`
-	Role        string    `db:"role" json:"role"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UserID      types.UserID      `db:"user_id" json:"user_id"`
+	Role        string            `db:"role" json:"role"`
 }
 
 func (q *Queries) AddWorkspaceMember(ctx context.Context, db DBTX, arg AddWorkspaceMemberParams) error {
@@ -36,10 +36,10 @@ RETURNING
 `
 
 type CreateWorkspaceParams struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	Name        string    `db:"name" json:"name"`
-	Description string    `db:"description" json:"description"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	ID          types.WorkspaceID `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	Description string            `db:"description" json:"description"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error) {
@@ -64,8 +64,18 @@ DELETE FROM workspaces
 WHERE id = $1
 `
 
-func (q *Queries) DeleteWorkspace(ctx context.Context, db DBTX, id uuid.UUID) error {
+func (q *Queries) DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error {
 	_, err := db.Exec(ctx, DeleteWorkspace, id)
+	return err
+}
+
+const DeleteWorkspaceMembers = `-- name: DeleteWorkspaceMembers :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1
+`
+
+func (q *Queries) DeleteWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) error {
+	_, err := db.Exec(ctx, DeleteWorkspaceMembers, workspaceID)
 	return err
 }
 
@@ -78,7 +88,7 @@ WHERE
   id = $1
 `
 
-func (q *Queries) GetWorkspaceByID(ctx context.Context, db DBTX, id uuid.UUID) (Workspaces, error) {
+func (q *Queries) GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error) {
 	row := db.QueryRow(ctx, GetWorkspaceByID, id)
 	var i Workspaces
 	err := row.Scan(
@@ -99,7 +109,7 @@ WHERE
   workspace_id = $1
 `
 
-func (q *Queries) GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID uuid.UUID) ([]WorkspaceMembers, error) {
+func (q *Queries) GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error) {
 	rows, err := db.Query(ctx, GetWorkspaceMembers, workspaceID)
 	if err != nil {
 		return nil, err
@@ -151,4 +161,39 @@ func (q *Queries) ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const UpsertWorkspace = `-- name: UpsertWorkspace :one
+INSERT INTO workspaces(id, name, description, created_at)
+  VALUES ($1, $2, $3, $4)
+ON CONFLICT (id)
+  DO UPDATE SET
+    name = EXCLUDED.name,
+    description = EXCLUDED.description
+  RETURNING
+    id, name, description, created_at
+`
+
+type UpsertWorkspaceParams struct {
+	ID          types.WorkspaceID `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	Description string            `db:"description" json:"description"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorkspaceParams) (Workspaces, error) {
+	row := db.QueryRow(ctx, UpsertWorkspace,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.CreatedAt,
+	)
+	var i Workspaces
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+	)
+	return i, err
 }

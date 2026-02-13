@@ -9,7 +9,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 )
 
 const CreateUser = `-- name: CreateUser :one
@@ -20,10 +20,10 @@ RETURNING
 `
 
 type CreateUserParams struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Email     string    `db:"email" json:"email"`
-	Name      string    `db:"name" json:"name"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        types.UserID `db:"id" json:"id"`
+	Email     string       `db:"email" json:"email"`
+	Name      string       `db:"name" json:"name"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error) {
@@ -52,7 +52,7 @@ WHERE
   id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, db DBTX, id uuid.UUID) (Users, error) {
+func (q *Queries) GetUserByID(ctx context.Context, db DBTX, id types.UserID) (Users, error) {
 	row := db.QueryRow(ctx, GetUserByID, id)
 	var i Users
 	err := row.Scan(

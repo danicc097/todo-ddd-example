@@ -3,33 +3,29 @@ package application
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type CreateTodoCommand struct {
 	Title  string
-	TagIDs []uuid.UUID
+	TagIDs []domain.TagID
 }
 
-//go:generate go tool gowrap gen -g -i CreateTodoUseCase -t ../../../../templates/transactional.gotmpl -o ../infrastructure/decorator/create_todo_tx.gen.go
-type CreateTodoUseCase interface {
-	Execute(ctx context.Context, cmd CreateTodoCommand) (uuid.UUID, error)
-}
-
-type createTodoUseCase struct {
+type CreateTodoHandler struct {
 	repo domain.TodoRepository
 }
 
-func NewCreateTodoUseCase(repo domain.TodoRepository) CreateTodoUseCase {
-	return &createTodoUseCase{repo: repo}
+var _ application.RequestHandler[CreateTodoCommand, domain.TodoID] = (*CreateTodoHandler)(nil)
+
+func NewCreateTodoHandler(repo domain.TodoRepository) *CreateTodoHandler {
+	return &CreateTodoHandler{repo: repo}
 }
 
-func (uc *createTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand) (uuid.UUID, error) {
+func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (domain.TodoID, error) {
 	title, err := domain.NewTodoTitle(cmd.Title)
 	if err != nil {
-		return uuid.UUID{}, err
+		return domain.TodoID{}, err
 	}
 
 	todo := domain.NewTodo(title)
@@ -37,8 +33,8 @@ func (uc *createTodoUseCase) Execute(ctx context.Context, cmd CreateTodoCommand)
 		todo.AddTag(tagID)
 	}
 
-	if err := uc.repo.Save(ctx, todo); err != nil {
-		return uuid.UUID{}, err
+	if err := h.repo.Save(ctx, todo); err != nil {
+		return domain.TodoID{}, err
 	}
 
 	return todo.ID(), nil

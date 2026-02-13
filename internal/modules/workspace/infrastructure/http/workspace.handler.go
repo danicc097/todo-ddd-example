@@ -4,67 +4,103 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
-	"github.com/danicc097/todo-ddd-example/internal/utils/mapper"
+	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type WorkspaceHandler struct {
-	createUC application.CreateWorkspaceUseCase
-	listUC   application.ListWorkspacesUseCase
-	deleteUC application.DeleteWorkspaceUseCase
-	mapper   *WorkspaceRestMapper
+	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID]
+	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void]
+	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void]
+
+	queryService application.WorkspaceQueryService
 }
 
 func NewWorkspaceHandler(
-	createUC application.CreateWorkspaceUseCase,
-	listUC application.ListWorkspacesUseCase,
-	deleteUC application.DeleteWorkspaceUseCase,
+	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID],
+	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void],
+	qs application.WorkspaceQueryService,
+	deleteHandler sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void],
 ) *WorkspaceHandler {
 	return &WorkspaceHandler{
-		createUC: createUC,
-		listUC:   listUC,
-		deleteUC: deleteUC,
-		mapper:   &WorkspaceRestMapper{},
+		onboardHandler:      onboardHandler,
+		removeMemberHandler: removeMemberHandler,
+		queryService:        qs,
+		deleteHandler:       deleteHandler,
 	}
 }
 
-func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context, params api.CreateWorkspaceParams) {
-	var req api.CreateWorkspaceRequest
+func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWorkspaceParams) {
+	var req api.OnboardWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
 		return
 	}
 
-	cmd := application.CreateWorkspaceCommand{
-		Name:        req.Name,
-		Description: *req.Description,
+	members := make(map[userDomain.UserID]application.MemberInitialState)
+
+	if req.Members != nil {
+		for uid, role := range *req.Members {
+			members[userDomain.UserID{UUID: uid}] = application.MemberInitialState{Role: role}
+		}
 	}
 
-	id, err := h.createUC.Execute(c.Request.Context(), cmd)
+	description := ""
+	if req.Description != nil {
+		description = *req.Description
+	}
+
+	cmd := application.OnboardWorkspaceCommand{
+		Name:        req.Name,
+		Description: description,
+		Members:     members,
+		OwnerID:     userDomain.UserID{},
+	}
+
+	id, err := h.onboardHandler.Handle(c.Request.Context(), cmd)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
-	list, err := h.listUC.Execute(c.Request.Context())
+	list, err := h.queryService.List(c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, mapper.MapList(list, h.mapper.ToResponse))
+	c.JSON(http.StatusOK, list)
 }
 
-func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id uuid.UUID) {
-	if err := h.deleteUC.Execute(c.Request.Context(), id); err != nil {
+func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id domain.WorkspaceID) {
+	cmd := application.DeleteWorkspaceCommand{
+		ID: id,
+	}
+
+	if _, err := h.deleteHandler.Handle(c.Request.Context(), cmd); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *WorkspaceHandler) RemoveWorkspaceMember(c *gin.Context, id domain.WorkspaceID, userID userDomain.UserID) {
+	cmd := application.RemoveWorkspaceMemberCommand{
+		WorkspaceID: id,
+		MemberID:    userID,
+	}
+
+	if _, err := h.removeMemberHandler.Handle(c.Request.Context(), cmd); err != nil {
 		c.Error(err)
 		return
 	}

@@ -11,18 +11,22 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 type WorkspaceRepo struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
+	q      *db.Queries
+	pool   *pgxpool.Pool
+	mapper *WorkspaceMapper
 }
 
 func NewWorkspaceRepo(pool *pgxpool.Pool) *WorkspaceRepo {
 	return &WorkspaceRepo{
-		q:    db.New(),
-		pool: pool,
+		q:      db.New(),
+		pool:   pool,
+		mapper: &WorkspaceMapper{},
 	}
 }
 
@@ -30,28 +34,28 @@ func (r *WorkspaceRepo) getDB(ctx context.Context) db.DBTX {
 	if tx := infraDB.ExtractTx(ctx); tx != nil {
 		return tx
 	}
+
 	return r.pool
 }
 
 func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 	dbtx := r.getDB(ctx)
 
-	// Note: In a real production system, 'Save' usually handles Upsert (Insert or Update).
-	// Since we are using specific SQL queries, we assume this is a Create operation
-	// or that the ID generation strategy prevents collisions.
-	_, err := r.q.CreateWorkspace(ctx, dbtx, db.CreateWorkspaceParams{
+	_, err := r.q.UpsertWorkspace(ctx, dbtx, db.UpsertWorkspaceParams{
 		ID:          w.ID(),
 		Name:        w.Name(),
 		Description: w.Description(),
 		CreatedAt:   w.CreatedAt(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to save workspace: %w", err)
+		return fmt.Errorf("failed to upsert workspace: %w", err)
 	}
 
-	// Save Members
-	// In a real generic Save, we would need to handle diffs (detect removed members).
-	// For this implementation, we insert the current state.
+	// diffing not worth it
+	if err := r.q.DeleteWorkspaceMembers(ctx, dbtx, w.ID()); err != nil {
+		return fmt.Errorf("failed to clear members: %w", err)
+	}
+
 	for userID, role := range w.Members() {
 		err := r.q.AddWorkspaceMember(ctx, dbtx, db.AddWorkspaceMemberParams{
 			WorkspaceID: w.ID(),
@@ -59,14 +63,14 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 			Role:        string(role),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to save workspace member %s: %w", userID, err)
+			return fmt.Errorf("failed to add member %s: %w", userID, err)
 		}
 	}
 
-	return nil
+	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, w)
 }
 
-func (r *WorkspaceRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Workspace, error) {
+func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*domain.Workspace, error) {
 	dbtx := r.getDB(ctx)
 
 	w, err := r.q.GetWorkspaceByID(ctx, dbtx, id)
@@ -74,6 +78,7 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Wor
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrWorkspaceNotFound
 		}
+
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
 
@@ -82,13 +87,14 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Wor
 		return nil, fmt.Errorf("failed to get workspace members: %w", err)
 	}
 
-	memberMap := make(map[uuid.UUID]domain.WorkspaceRole, len(members))
-	for _, m := range members {
-		role, err := domain.NewWorkspaceRole(m.Role)
-		if err != nil {
-			return nil, err
-		}
-		memberMap[m.UserID] = role
+	memberMap, err := toMemberMap(members)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map workspace members: %w", err)
+	}
+
+	domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole, len(memberMap))
+	for uid, role := range memberMap {
+		domainMemberMap[userDomain.UserID{UUID: uid}] = role
 	}
 
 	return domain.ReconstituteWorkspace(
@@ -96,8 +102,22 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Wor
 		w.Name,
 		w.Description,
 		w.CreatedAt,
-		memberMap,
+		domainMemberMap,
 	), nil
+}
+
+func toMemberMap(members []db.WorkspaceMembers) (map[uuid.UUID]domain.WorkspaceRole, error) {
+	memberMap := make(map[uuid.UUID]domain.WorkspaceRole, len(members))
+	for _, m := range members {
+		role, err := domain.NewWorkspaceRole(m.Role)
+		if err != nil {
+			return nil, err
+		}
+
+		memberMap[m.UserID.UUID] = role
+	}
+
+	return memberMap, nil
 }
 
 func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error) {
@@ -111,18 +131,17 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 	workspaces := make([]*domain.Workspace, 0, len(rows))
 
 	for _, row := range rows {
-		// N+1 Query: In a high-throughput scenario, fetch all members in one batch query
-		// using 'WHERE workspace_id IN (...)' and map them in memory.
-		// For this implementation, we query per workspace to ensure Aggregate consistency.
+		// N+1 for now, should batch
 		members, err := r.q.GetWorkspaceMembers(ctx, dbtx, row.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch members for workspace %s: %w", row.ID, err)
 		}
 
-		memberMap := make(map[uuid.UUID]domain.WorkspaceRole, len(members))
-		for _, m := range members {
-			role, _ := domain.NewWorkspaceRole(m.Role)
-			memberMap[m.UserID] = role
+		memberMap, _ := toMemberMap(members)
+
+		domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole, len(memberMap))
+		for uid, role := range memberMap {
+			domainMemberMap[userDomain.UserID{UUID: uid}] = role
 		}
 
 		workspaces = append(workspaces, domain.ReconstituteWorkspace(
@@ -130,17 +149,16 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 			row.Name,
 			row.Description,
 			row.CreatedAt,
-			memberMap,
+			domainMemberMap,
 		))
 	}
 
 	return workspaces, nil
 }
 
-func (r *WorkspaceRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *WorkspaceRepo) Delete(ctx context.Context, id domain.WorkspaceID) error {
 	dbtx := r.getDB(ctx)
 
-	// Cascading delete in DB handles members automatically
 	if err := r.q.DeleteWorkspace(ctx, dbtx, id); err != nil {
 		return fmt.Errorf("failed to delete workspace: %w", err)
 	}

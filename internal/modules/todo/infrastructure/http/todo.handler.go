@@ -4,41 +4,39 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
-	"github.com/danicc097/todo-ddd-example/internal/utils/mapper"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type TodoHandler struct {
-	createUC    application.CreateTodoUseCase
-	completeUC  application.CompleteTodoUseCase
-	getAllUC    application.GetAllTodosUseCase
-	getTodoUC   application.GetTodoUseCase
-	createTagUC application.CreateTagUseCase
-	hub         *ws.TodoHub
-	mapper      *TodoRestMapper
+	createHandler    sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID]
+	completeHandler  sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void]
+	createTagHandler sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID]
+
+	// keeping queries nontransactional
+	queryService application.TodoQueryService
+
+	hub *ws.TodoHub
 }
 
 func NewTodoHandler(
-	c application.CreateTodoUseCase,
-	comp application.CompleteTodoUseCase,
-	g application.GetAllTodosUseCase,
-	gt application.GetTodoUseCase,
-	ct application.CreateTagUseCase,
+	c sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID],
+	comp sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void],
+	ct sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID],
+	qs application.TodoQueryService,
 	hub *ws.TodoHub,
 ) *TodoHandler {
 	return &TodoHandler{
-		createUC:    c,
-		completeUC:  comp,
-		getAllUC:    g,
-		getTodoUC:   gt,
-		createTagUC: ct,
-		hub:         hub,
-		mapper:      &TodoRestMapper{},
+		createHandler:    c,
+		completeHandler:  comp,
+		createTagHandler: ct,
+		queryService:     qs,
+		hub:              hub,
 	}
 }
 
@@ -53,37 +51,37 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, params api.CreateTodoParams) {
 		return
 	}
 
-	id, err := h.createUC.Execute(c.Request.Context(), application.CreateTodoCommand{Title: req.Title})
+	id, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{Title: req.Title})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
 }
 
 func (h *TodoHandler) GetAllTodos(c *gin.Context) {
-	todos, err := h.getAllUC.Execute(c.Request.Context())
+	todos, err := h.queryService.GetAll(c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, mapper.MapList(todos, h.mapper.ToResponse))
+	c.JSON(http.StatusOK, todos)
 }
 
-func (h *TodoHandler) GetTodoByID(c *gin.Context, id uuid.UUID) {
-	todo, err := h.getTodoUC.Execute(c.Request.Context(), id)
+func (h *TodoHandler) GetTodoByID(c *gin.Context, id domain.TodoID) {
+	todo, err := h.queryService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, h.mapper.ToResponse(todo))
+	c.JSON(http.StatusOK, todo)
 }
 
-func (h *TodoHandler) CompleteTodo(c *gin.Context, id uuid.UUID, params api.CompleteTodoParams) {
-	if err := h.completeUC.Execute(c.Request.Context(), id); err != nil {
+func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.CompleteTodoParams) {
+	if _, err := h.completeHandler.Handle(c.Request.Context(), application.CompleteTodoCommand{ID: id}); err != nil {
 		c.Error(err)
 		return
 	}
@@ -98,11 +96,11 @@ func (h *TodoHandler) CreateTag(c *gin.Context, params api.CreateTagParams) {
 		return
 	}
 
-	id, err := h.createTagUC.Execute(c.Request.Context(), req.Name)
+	id, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{Name: req.Name})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
 }

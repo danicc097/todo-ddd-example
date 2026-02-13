@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-client deploy psql logs debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -49,7 +49,7 @@ dev:
 	$(AIR) -c .air.toml
 
 test:
-	make gen-schema
+	$(MAKE) gen-schema
 	go test ./...
 
 test-e2e:
@@ -62,29 +62,58 @@ lint:
 	$(GOLINT) run --allow-parallel-runners --fix
 
 gen:
-	make gen-sqlc
+	$(MAKE) gen-sqlc
+	$(MAKE) gen-oapi
 	go generate ./...
 
-gen-sqlc:
-	make gen-schema
+CACHE_DIR := .cache
+$(shell mkdir -p $(CACHE_DIR))
 
-	$(SQLC) generate -f internal/sqlc.yaml
+CHKSM := $(shell command -v sha1sum >/dev/null && echo "sha1sum" || echo "md5 -q")
 
-gen-client:
-	go tool oapi-codegen --config=internal/oapi-codegen-client.yaml openapi.yaml
+
+MIG_DEPS    := $(MIGRATIONS_DIR)
+SQLC_DEPS   := internal/sqlc.yaml $(SCHEMA_OUT) ./sql/queries
+OAPI_DEPS := internal/oapi-codegen-client.yaml internal/oapi-codegen.yaml openapi.yaml
+
+STRIP := awk '{print $$1}'
+
+# caching allows for go test cache to work properly, else on regen of the same e.g. schema.sql its invalidated.
+get_hash = find $(1) -type f -not -path '*/.*' | sort | xargs $(CHKSM) | $(CHKSM) | $(STRIP)
+is_changed = [ "$$($(call get_hash,$(1)))" != "$$(cat $(CACHE_DIR)/$(2) 2>/dev/null)" ]
+update_cache = $(call get_hash,$(1)) > $(CACHE_DIR)/$(2)
+
 
 gen-schema:
+	if $(call is_changed,$(MIG_DEPS),mig_hash); then \
+		echo "Migrations changed. Re-generating..."; \
+		$(MAKE) run-gen-schema; \
+		$(call update_cache,$(MIG_DEPS),mig_hash); \
+	fi
+
+gen-sqlc: gen-schema
+	if $(call is_changed,$(SQLC_DEPS),sqlc_hash); then \
+		echo "SQL changed. Updating SQLC..."; \
+		$(SQLC) generate -f internal/sqlc.yaml; \
+		$(call update_cache,$(SQLC_DEPS),sqlc_hash); \
+	fi
+
+gen-oapi:
+	if $(call is_changed,$(OAPI_DEPS),oapi_hash); then \
+		echo "OpenAPI spec/config changed. Updating..."; \
+		go tool oapi-codegen -config internal/oapi-codegen.yaml openapi.yaml; \
+		go tool oapi-codegen -config internal/oapi-codegen-client.yaml openapi.yaml; \
+		$(call update_cache,$(OAPI_DEPS),oapi_hash); \
+	fi
+
+run-gen-schema:
 	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \
 		echo "Error: Container $(DB_CONTAINER_NAME) not found. Run 'make deploy' first."; exit 1; \
 	fi
-
 	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
 	$(DOCKER_PSQL) -d postgres -c "CREATE DATABASE $(GEN_DB);" >/dev/null
-
 	$(PGROLL) --postgres-url "$(GEN_PG_URL)" init
-
 	find $(MIGRATIONS_DIR) -name "*.json" | sort | xargs -I % $(PGROLL) --postgres-url "$(GEN_PG_URL)" start --complete %
-
 	docker exec -i $(DB_CONTAINER_NAME) pg_dump -s -x -n public -U $(DB_USER) -d $(GEN_DB) \
 		| grep -v '^\\' \
 		| grep -v '^--' \

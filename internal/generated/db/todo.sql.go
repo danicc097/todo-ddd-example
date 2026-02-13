@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 	"github.com/google/uuid"
 )
 
@@ -18,8 +19,8 @@ INSERT INTO todo_tags(todo_id, tag_id)
 `
 
 type AddTagToTodoParams struct {
-	TodoID uuid.UUID `db:"todo_id" json:"todo_id"`
-	TagID  uuid.UUID `db:"tag_id" json:"tag_id"`
+	TodoID types.TodoID `db:"todo_id" json:"todo_id"`
+	TagID  types.TagID  `db:"tag_id" json:"tag_id"`
 }
 
 func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error {
@@ -35,10 +36,10 @@ RETURNING
 `
 
 type CreateTodoParams struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	Title     string    `db:"title" json:"title"`
-	Status    string    `db:"status" json:"status"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        types.TodoID `db:"id" json:"id"`
+	Title     string       `db:"title" json:"title"`
+	Status    string       `db:"status" json:"status"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error) {
@@ -75,14 +76,14 @@ GROUP BY
 `
 
 type GetTodoByIDRow struct {
-	ID        uuid.UUID   `db:"id" json:"id"`
-	Title     string      `db:"title" json:"title"`
-	Status    string      `db:"status" json:"status"`
-	CreatedAt time.Time   `db:"created_at" json:"created_at"`
-	Tags      []uuid.UUID `db:"tags" json:"tags"`
+	ID        types.TodoID `db:"id" json:"id"`
+	Title     string       `db:"title" json:"title"`
+	Status    string       `db:"status" json:"status"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
+	Tags      []uuid.UUID  `db:"tags" json:"tags"`
 }
 
-func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id uuid.UUID) (GetTodoByIDRow, error) {
+func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error) {
 	row := db.QueryRow(ctx, GetTodoByID, id)
 	var i GetTodoByIDRow
 	err := row.Scan(
@@ -112,11 +113,11 @@ ORDER BY
 `
 
 type ListTodosRow struct {
-	ID        uuid.UUID   `db:"id" json:"id"`
-	Title     string      `db:"title" json:"title"`
-	Status    string      `db:"status" json:"status"`
-	CreatedAt time.Time   `db:"created_at" json:"created_at"`
-	Tags      []uuid.UUID `db:"tags" json:"tags"`
+	ID        types.TodoID `db:"id" json:"id"`
+	Title     string       `db:"title" json:"title"`
+	Status    string       `db:"status" json:"status"`
+	CreatedAt time.Time    `db:"created_at" json:"created_at"`
+	Tags      []uuid.UUID  `db:"tags" json:"tags"`
 }
 
 func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error) {
@@ -156,9 +157,9 @@ WHERE
 `
 
 type UpdateTodoParams struct {
-	ID     uuid.UUID `db:"id" json:"id"`
-	Title  string    `db:"title" json:"title"`
-	Status string    `db:"status" json:"status"`
+	ID     types.TodoID `db:"id" json:"id"`
+	Title  string       `db:"title" json:"title"`
+	Status string       `db:"status" json:"status"`
 }
 
 func (q *Queries) UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error {

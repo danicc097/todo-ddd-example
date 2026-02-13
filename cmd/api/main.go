@@ -21,14 +21,16 @@ import (
 	rdb "github.com/redis/go-redis/v9"
 	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"gopkg.in/yaml.v3"
 
 	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
+	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
+	todoDecorator "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
@@ -36,14 +38,14 @@ import (
 	todoRedis "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
+	userAdapters "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/adapters"
 	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
-
-	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	wsDecorator "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/decorator"
 	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedMiddleware "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 )
 
 type CompositeHandler struct {
@@ -156,7 +158,7 @@ func main() {
 
 	baseTodoRepo := todoPg.NewTodoRepo(pool)
 	todoCodec := todoRedis.NewTodoCacheCodec()
-	cachedTodoRepo := decorator.NewTodoRepositoryWithCache(
+	cachedTodoRepo := todoDecorator.NewTodoRepositoryWithCache(
 		baseTodoRepo,
 		redisClient,
 		5*time.Minute,
@@ -166,7 +168,7 @@ func main() {
 
 	baseTagRepo := todoPg.NewTagRepo(pool)
 	tagCodec := todoRedis.NewTagCacheCodec()
-	cachedTagRepo := decorator.NewTagRepositoryWithCache(
+	cachedTagRepo := todoDecorator.NewTagRepositoryWithCache(
 		baseTagRepo,
 		redisClient,
 		60*time.Minute,
@@ -174,15 +176,12 @@ func main() {
 	)
 	tagRepo := todoPg.NewTagRepositoryWithTracing(cachedTagRepo, "todo-ddd-api")
 
-	// User Repo (No cache)
 	baseUserRepo := userPg.NewUserRepo(pool)
 	userRepo := userPg.NewUserRepositoryWithTracing(baseUserRepo, "todo-ddd-api")
 
 	auditRepo := auditMem.NewAuditRepository()
-
 	baseWsRepo := wsPg.NewWorkspaceRepo(pool)
 	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(baseWsRepo, auditRepo)
-
 	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
 
 	mqConn, err := rabbitmq.NewConn(
@@ -208,36 +207,41 @@ func main() {
 
 	hub := ws.NewTodoHub(redisClient)
 
-	createTodoBase := todoApp.NewCreateTodoUseCase(todoRepo)
-	createTodoUC := decorator.NewCreateTodoUseCaseWithTransaction(createTodoBase, pool)
+	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo)
+	createTodoHandler := sharedMiddleware.Transactional(pool, createTodoBase)
 
-	completeTodoBase := todoApp.NewCompleteTodoUseCase(todoRepo)
-	completeTodoUC := decorator.NewCompleteTodoUseCaseWithTransaction(completeTodoBase, pool)
+	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo)
+	completeTodoHandler := sharedMiddleware.Transactional(pool, completeTodoBase)
 
-	createTagBase := todoApp.NewCreateTagUseCase(tagRepo)
-	createTagUC := decorator.NewCreateTagUseCaseWithTransaction(createTagBase, pool)
+	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
+	createTagHandler := sharedMiddleware.Transactional(pool, createTagBase)
 
-	getAllTodosUC := todoApp.NewGetAllTodosUseCase(todoRepo)
-	getTodoUC := todoApp.NewGetTodoUseCase(todoRepo)
+	// queries bypass tx
+	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
+	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(baseTodoQueryService, "todo-ddd-api")
 
 	registerUserUC := userApp.NewRegisterUserUseCase(userRepo)
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
-	createWsBase := wsApp.NewCreateWorkspaceUseCase(wsRepo)
-	createWsUC := createWsBase
+	wsUserGateway := userAdapters.NewWorkspaceUserGateway(userRepo)
 
-	listWsBase := wsApp.NewListWorkspacesUseCase(wsRepo)
-	listWsUC := listWsBase
+	onboardWsBase := wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserGateway)
+	onboardWsHandler := sharedMiddleware.Transactional(pool, onboardWsBase)
 
-	deleteWsBase := wsApp.NewDeleteWorkspaceUseCase(wsRepo)
-	deleteWsUC := deleteWsBase
+	removeWsMemberBase := wsApp.NewRemoveWorkspaceMemberHandler(wsRepo)
+	removeWsMemberHandler := sharedMiddleware.Transactional(pool, removeWsMemberBase)
+
+	deleteWsBase := wsApp.NewDeleteWorkspaceHandler(wsRepo)
+	deleteWsHandler := sharedMiddleware.Transactional(pool, deleteWsBase)
+
+	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
+	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
 
 	th := todoHttp.NewTodoHandler(
-		createTodoUC,
-		completeTodoUC,
-		getAllTodosUC,
-		getTodoUC,
-		createTagUC,
+		createTodoHandler,
+		completeTodoHandler,
+		createTagHandler,
+		todoQueryService,
 		hub,
 	)
 
@@ -247,9 +251,10 @@ func main() {
 	)
 
 	wh := wsHttp.NewWorkspaceHandler(
-		createWsUC,
-		listWsUC,
-		deleteWsUC,
+		onboardWsHandler,
+		removeWsMemberHandler,
+		workspaceQueryService,
+		deleteWsHandler,
 	)
 
 	relay := outbox.NewRelay(pool)
@@ -274,6 +279,7 @@ func main() {
 			p := c.Request.URL.Path
 			if p == "/ws" ||
 				p == "/api/v1/docs" ||
+				p == "/favicon.ico" ||
 				p == "/openapi.yaml" {
 				c.Next()
 				return
@@ -283,7 +289,15 @@ func main() {
 		})
 	}
 
-	r.StaticFile("/openapi.yaml", "./openapi.yaml")
+	explodedSpec, err := getExplodedSpec("./openapi.yaml")
+	if err != nil {
+		slog.Error("failed to explode openapi spec", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	r.GET("/openapi.yaml", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/x-yaml", explodedSpec)
+	})
 	r.GET("/api/v1/docs", swaggerUIHandler("/openapi.yaml"))
 
 	handler := &CompositeHandler{
@@ -347,4 +361,21 @@ func createOpenAPIValidatorMw() gin.HandlerFunc {
 	}
 
 	return oaMiddleware.RequestValidatorWithOptions(validatorOpts)
+}
+
+func getExplodedSpec(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var spec any
+
+	dec := yaml.NewDecoder(f)
+	if err := dec.Decode(&spec); err != nil {
+		return nil, err
+	}
+
+	return yaml.Marshal(spec)
 }

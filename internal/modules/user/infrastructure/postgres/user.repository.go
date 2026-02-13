@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -41,7 +40,7 @@ func (r *UserRepo) Save(ctx context.Context, u *domain.User) error {
 	return err
 }
 
-func (r *UserRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (r *UserRepo) FindByID(ctx context.Context, id domain.UserID) (*domain.User, error) {
 	row, err := r.q.GetUserByID(ctx, r.db, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

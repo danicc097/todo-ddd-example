@@ -71,7 +71,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("by id non-existent", func(t *testing.T) {
-		_, err := repo.FindByID(ctx, uuid.New())
+		_, err := repo.FindByID(ctx, domain.TodoID{UUID: uuid.New()})
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
 	})
 
@@ -94,6 +94,6 @@ func TestTodoRepo_Integration(t *testing.T) {
 
 		found, err := repo.FindByID(ctx, taggedTodo.ID())
 		require.NoError(t, err)
-		assert.ElementsMatch(t, []uuid.UUID{tag1.ID(), tag2.ID()}, found.Tags())
+		assert.ElementsMatch(t, []domain.TagID{tag1.ID(), tag2.ID()}, found.Tags())
 	})
 }

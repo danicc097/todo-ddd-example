@@ -3,34 +3,34 @@ package application
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
-//go:generate go tool gowrap gen -g -i CreateTagUseCase -t ../../../../templates/transactional.gotmpl -o ../infrastructure/decorator/create_tag_tx.gen.go
-type CreateTagUseCase interface {
-	Execute(ctx context.Context, name string) (uuid.UUID, error)
+type CreateTagCommand struct {
+	Name string
 }
 
-type createTagUseCase struct {
+type CreateTagHandler struct {
 	repo domain.TagRepository
 }
 
-func NewCreateTagUseCase(repo domain.TagRepository) CreateTagUseCase {
-	return &createTagUseCase{repo: repo}
+var _ application.RequestHandler[CreateTagCommand, domain.TagID] = (*CreateTagHandler)(nil)
+
+func NewCreateTagHandler(repo domain.TagRepository) *CreateTagHandler {
+	return &CreateTagHandler{repo: repo}
 }
 
-func (uc *createTagUseCase) Execute(ctx context.Context, name string) (uuid.UUID, error) {
-	tn, err := domain.NewTagName(name)
+func (h *CreateTagHandler) Handle(ctx context.Context, cmd CreateTagCommand) (domain.TagID, error) {
+	tn, err := domain.NewTagName(cmd.Name)
 	if err != nil {
-		return uuid.UUID{}, err
+		return domain.TagID{}, err
 	}
 
 	tag := domain.NewTag(tn)
 
-	if err := uc.repo.Save(ctx, tag); err != nil {
-		return uuid.UUID{}, err
+	if err := h.repo.Save(ctx, tag); err != nil {
+		return domain.TagID{}, err
 	}
 
 	return tag.ID(), nil

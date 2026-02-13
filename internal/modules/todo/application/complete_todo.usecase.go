@@ -3,33 +3,33 @@ package application
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
-//go:generate go tool gowrap gen -g -i CompleteTodoUseCase -t ../../../../templates/transactional.gotmpl -o ../infrastructure/decorator/complete_todo_tx.gen.go
-type CompleteTodoUseCase interface {
-	Execute(ctx context.Context, id uuid.UUID) error
+type CompleteTodoCommand struct {
+	ID domain.TodoID
 }
 
-type completeTodoUseCase struct {
+type CompleteTodoHandler struct {
 	repo domain.TodoRepository
 }
 
-func NewCompleteTodoUseCase(repo domain.TodoRepository) CompleteTodoUseCase {
-	return &completeTodoUseCase{repo: repo}
+var _ application.RequestHandler[CompleteTodoCommand, application.Void] = (*CompleteTodoHandler)(nil)
+
+func NewCompleteTodoHandler(repo domain.TodoRepository) *CompleteTodoHandler {
+	return &CompleteTodoHandler{repo: repo}
 }
 
-func (uc *completeTodoUseCase) Execute(ctx context.Context, id uuid.UUID) error {
-	todo, err := uc.repo.FindByID(ctx, id)
+func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoCommand) (application.Void, error) {
+	todo, err := h.repo.FindByID(ctx, cmd.ID)
 	if err != nil {
-		return err
+		return application.Void{}, err
 	}
 
 	if err := todo.Complete(); err != nil {
-		return err
+		return application.Void{}, err
 	}
 
-	return uc.repo.Update(ctx, todo)
+	return application.Void{}, h.repo.Update(ctx, todo)
 }

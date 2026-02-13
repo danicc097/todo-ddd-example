@@ -12,7 +12,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -47,7 +46,7 @@ func (d TodoRepositoryWithCache) FindAll(ctx context.Context) (tpa1 []*_sourceDo
 	return d.base.FindAll(ctx)
 }
 
-func (d TodoRepositoryWithCache) FindByID(ctx context.Context, id uuid.UUID) (tp1 *_sourceDomain.Todo, err error) {
+func (d TodoRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.TodoID) (tp1 *_sourceDomain.Todo, err error) {
 
 	var cacheVal []byte
 	var unmarshalErr error

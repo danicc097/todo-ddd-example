@@ -1,3 +1,4 @@
+/.cache
 input.txt
 test.sh
 __debug*

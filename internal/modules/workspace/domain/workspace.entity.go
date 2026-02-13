@@ -4,8 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
-
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
@@ -14,38 +13,58 @@ var (
 	ErrUserAlreadyMember = errors.New("user is already a member")
 	ErrMemberNotFound    = errors.New("member not found")
 	ErrWorkspaceNotFound = errors.New("workspace not found")
+	ErrNotOwner          = errors.New("only the owner can perform this action")
 )
 
+type WorkspaceID = shared.ID[Workspace]
+
 type Workspace struct {
-	id          uuid.UUID
+	id          WorkspaceID
 	name        string
 	description string
-	members     map[uuid.UUID]WorkspaceRole
+	members     map[userDomain.UserID]WorkspaceRole
 	createdAt   time.Time
 
 	events []shared.DomainEvent
 }
 
-func NewWorkspace(name, description string, creatorID uuid.UUID) *Workspace {
-	w := &Workspace{
-		id:          uuid.New(),
+func NewWorkspace(name, description string, creatorID userDomain.UserID) *Workspace {
+	id := shared.NewID[Workspace]()
+	now := time.Now()
+
+	ws := &Workspace{
+		id:          id,
 		name:        name,
 		description: description,
-		members:     make(map[uuid.UUID]WorkspaceRole),
-		createdAt:   time.Now(),
+		members:     make(map[userDomain.UserID]WorkspaceRole),
+		createdAt:   now,
 	}
 
-	w.members[creatorID] = RoleOwner
+	ws.members[creatorID] = RoleOwner
 
-	return w
+	ws.RecordEvent(WorkspaceCreatedEvent{
+		ID:       id,
+		Name:     name,
+		OwnerID:  creatorID,
+		Occurred: now,
+	})
+
+	ws.RecordEvent(MemberAddedEvent{
+		WorkspaceID: id,
+		UserID:      creatorID,
+		Role:        string(RoleOwner),
+		Occurred:    now,
+	})
+
+	return ws
 }
 
 func ReconstituteWorkspace(
-	id uuid.UUID,
+	id WorkspaceID,
 	name string,
 	description string,
 	createdAt time.Time,
-	members map[uuid.UUID]WorkspaceRole,
+	members map[userDomain.UserID]WorkspaceRole,
 ) *Workspace {
 	return &Workspace{
 		id:          id,
@@ -56,17 +75,29 @@ func ReconstituteWorkspace(
 	}
 }
 
-func (w *Workspace) AddMember(userID uuid.UUID, role WorkspaceRole) error {
+func (w *Workspace) AddMember(userID userDomain.UserID, role WorkspaceRole) error {
 	if _, exists := w.members[userID]; exists {
 		return ErrUserAlreadyMember
 	}
 
 	w.members[userID] = role
 
+	w.RecordEvent(MemberAddedEvent{
+		WorkspaceID: w.id,
+		UserID:      userID,
+		Role:        string(role),
+		Occurred:    time.Now(),
+	})
+
 	return nil
 }
 
-func (w *Workspace) RemoveMember(userID uuid.UUID) error {
+func (w *Workspace) IsOwner(userID userDomain.UserID) bool {
+	role, exists := w.members[userID]
+	return exists && role == RoleOwner
+}
+
+func (w *Workspace) RemoveMember(userID userDomain.UserID) error {
 	role, exists := w.members[userID]
 	if !exists {
 		return ErrMemberNotFound
@@ -77,6 +108,12 @@ func (w *Workspace) RemoveMember(userID uuid.UUID) error {
 	}
 
 	delete(w.members, userID)
+
+	w.RecordEvent(MemberRemovedEvent{
+		WorkspaceID: w.id,
+		UserID:      userID,
+		Occurred:    time.Now(),
+	})
 
 	return nil
 }
@@ -93,10 +130,14 @@ func (w *Workspace) countOwners() int {
 	return count
 }
 
-func (w *Workspace) ID() uuid.UUID                        { return w.id }
-func (w *Workspace) Name() string                         { return w.name }
-func (w *Workspace) Description() string                  { return w.description }
-func (w *Workspace) CreatedAt() time.Time                 { return w.createdAt }
-func (w *Workspace) Members() map[uuid.UUID]WorkspaceRole { return w.members }
-func (w *Workspace) Events() []shared.DomainEvent         { return w.events }
-func (w *Workspace) ClearEvents()                         { w.events = nil }
+func (w *Workspace) ID() WorkspaceID                              { return w.id }
+func (w *Workspace) Name() string                                 { return w.name }
+func (w *Workspace) Description() string                          { return w.description }
+func (w *Workspace) CreatedAt() time.Time                         { return w.createdAt }
+func (w *Workspace) Members() map[userDomain.UserID]WorkspaceRole { return w.members }
+func (w *Workspace) Events() []shared.DomainEvent                 { return w.events }
+func (w *Workspace) ClearEvents()                                 { w.events = nil }
+
+func (w *Workspace) RecordEvent(e shared.DomainEvent) {
+	w.events = append(w.events, e)
+}

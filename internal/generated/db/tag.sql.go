@@ -8,7 +8,7 @@ package db
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 )
 
 const CreateTag = `-- name: CreateTag :one
@@ -19,8 +19,8 @@ RETURNING
 `
 
 type CreateTagParams struct {
-	ID   uuid.UUID `db:"id" json:"id"`
-	Name string    `db:"name" json:"name"`
+	ID   types.TagID `db:"id" json:"id"`
+	Name string      `db:"name" json:"name"`
 }
 
 func (q *Queries) CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error) {
@@ -40,7 +40,7 @@ WHERE
   id = $1
 `
 
-func (q *Queries) GetTagByID(ctx context.Context, db DBTX, id uuid.UUID) (Tags, error) {
+func (q *Queries) GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error) {
 	row := db.QueryRow(ctx, GetTagByID, id)
 	var i Tags
 	err := row.Scan(&i.ID, &i.Name)
