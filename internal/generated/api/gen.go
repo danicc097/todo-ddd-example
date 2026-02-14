@@ -24,6 +24,11 @@ const (
 	PENDING   TodoStatus = "PENDING"
 )
 
+// AssignTagToTodoRequest defines model for AssignTagToTodoRequest.
+type AssignTagToTodoRequest struct {
+	TagId todoDomain.TagID `json:"tagId"`
+}
+
 // CreateTagRequest defines model for CreateTagRequest.
 type CreateTagRequest struct {
 	Name string `json:"name"`
@@ -105,6 +110,9 @@ type Workspace struct {
 	Name        string                      `json:"name"`
 }
 
+// WorkspaceRole defines model for WorkspaceRole.
+type WorkspaceRole = workspaceDomain.WorkspaceRole
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = openapi_types.UUID
 
@@ -130,6 +138,12 @@ type CompleteTodoParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// AssignTagToTodoParams defines parameters for AssignTagToTodo.
+type AssignTagToTodoParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // RegisterUserParams defines parameters for RegisterUser.
 type RegisterUserParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -138,6 +152,18 @@ type RegisterUserParams struct {
 
 // OnboardWorkspaceParams defines parameters for OnboardWorkspace.
 type OnboardWorkspaceParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AddWorkspaceMemberJSONBody defines parameters for AddWorkspaceMember.
+type AddWorkspaceMemberJSONBody struct {
+	Role   WorkspaceRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+// AddWorkspaceMemberParams defines parameters for AddWorkspaceMember.
+type AddWorkspaceMemberParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -151,11 +177,17 @@ type CreateTagParams struct {
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
 
+// AssignTagToTodoJSONRequestBody defines body for AssignTagToTodo for application/json ContentType.
+type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
+
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
+
+// AddWorkspaceMemberJSONRequestBody defines body for AddWorkspaceMember for application/json ContentType.
+type AddWorkspaceMemberJSONRequestBody AddWorkspaceMemberJSONBody
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
@@ -174,6 +206,9 @@ type ServerInterface interface {
 	// Complete a todo
 	// (PATCH /todos/{id}/complete)
 	CompleteTodo(c *gin.Context, id todoDomain.TodoID, params CompleteTodoParams)
+	// Assign a tag to a todo
+	// (POST /todos/{id}/tags)
+	AssignTagToTodo(c *gin.Context, id todoDomain.TodoID, params AssignTagToTodoParams)
 
 	// (POST /users)
 	RegisterUser(c *gin.Context, params RegisterUserParams)
@@ -192,6 +227,9 @@ type ServerInterface interface {
 	// Delete a workspace
 	// (DELETE /workspaces/{id})
 	DeleteWorkspace(c *gin.Context, id workspaceDomain.WorkspaceID)
+	// Add a member to a workspace
+	// (POST /workspaces/{id}/members)
+	AddWorkspaceMember(c *gin.Context, id workspaceDomain.WorkspaceID, params AddWorkspaceMemberParams)
 	// Remove a member from a workspace
 	// (DELETE /workspaces/{id}/members/{userId})
 	RemoveWorkspaceMember(c *gin.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID)
@@ -334,6 +372,54 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 	}
 
 	siw.Handler.CompleteTodo(c, id, params)
+}
+
+// AssignTagToTodo operation middleware
+func (siw *ServerInterfaceWrapper) AssignTagToTodo(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id todoDomain.TodoID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AssignTagToTodoParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AssignTagToTodo(c, id, params)
 }
 
 // RegisterUser operation middleware
@@ -499,6 +585,54 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
 	siw.Handler.DeleteWorkspace(c, id)
 }
 
+// AddWorkspaceMember operation middleware
+func (siw *ServerInterfaceWrapper) AddWorkspaceMember(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id workspaceDomain.WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddWorkspaceMemberParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddWorkspaceMember(c, id, params)
+}
+
 // RemoveWorkspaceMember operation middleware
 func (siw *ServerInterfaceWrapper) RemoveWorkspaceMember(c *gin.Context) {
 
@@ -635,12 +769,14 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/todos", wrapper.CreateTodo)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)
+	router.POST(options.BaseURL+"/todos/:id/tags", wrapper.AssignTagToTodo)
 	router.POST(options.BaseURL+"/users", wrapper.RegisterUser)
 	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
 	router.GET(options.BaseURL+"/users/:id/workspaces", wrapper.GetUserWorkspaces)
 	router.GET(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 	router.POST(options.BaseURL+"/workspaces", wrapper.OnboardWorkspace)
 	router.DELETE(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
+	router.POST(options.BaseURL+"/workspaces/:id/members", wrapper.AddWorkspaceMember)
 	router.DELETE(options.BaseURL+"/workspaces/:id/members/:userId", wrapper.RemoveWorkspaceMember)
 	router.GET(options.BaseURL+"/workspaces/:id/tags", wrapper.GetWorkspaceTags)
 	router.POST(options.BaseURL+"/workspaces/:id/tags", wrapper.CreateTag)

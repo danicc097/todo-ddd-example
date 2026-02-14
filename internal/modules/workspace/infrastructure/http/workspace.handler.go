@@ -15,6 +15,7 @@ import (
 
 type WorkspaceHandler struct {
 	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID]
+	addMemberHandler    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void]
 	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void]
 	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void]
 
@@ -23,12 +24,14 @@ type WorkspaceHandler struct {
 
 func NewWorkspaceHandler(
 	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID],
+	addMemberHandler sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void],
 	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void],
 	qs application.WorkspaceQueryService,
 	deleteHandler sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void],
 ) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		onboardHandler:      onboardHandler,
+		addMemberHandler:    addMemberHandler,
 		removeMemberHandler: removeMemberHandler,
 		queryService:        qs,
 		deleteHandler:       deleteHandler,
@@ -87,6 +90,28 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id domain.WorkspaceID
 	}
 
 	if _, err := h.deleteHandler.Handle(c.Request.Context(), cmd); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *WorkspaceHandler) AddWorkspaceMember(c *gin.Context, id domain.WorkspaceID, params api.AddWorkspaceMemberParams) {
+	var req struct {
+		UserID userDomain.UserID    `json:"userId"`
+		Role   domain.WorkspaceRole `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+		return
+	}
+
+	if _, err := h.addMemberHandler.Handle(c.Request.Context(), application.AddWorkspaceMemberCommand{
+		WorkspaceID: id,
+		UserID:      req.UserID,
+		Role:        req.Role,
+	}); err != nil {
 		c.Error(err)
 		return
 	}

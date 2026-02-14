@@ -45,5 +45,8 @@ WHERE
 
 -- name: AddTagToTodo :exec
 INSERT INTO todo_tags(todo_id, tag_id)
-  VALUES ($1, $2);
+  VALUES ($1, $2)
+  /* we blindly add tags */
+ON CONFLICT
+  DO NOTHING;
 

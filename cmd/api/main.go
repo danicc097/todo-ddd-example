@@ -216,6 +216,9 @@ func main() {
 	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
 	createTagHandler := sharedMiddleware.Transactional(pool, createTagBase)
 
+	assignTagToTodoBase := todoApp.NewAssignTagToTodoHandler(todoRepo)
+	assignTagToTodoHandler := sharedMiddleware.Transactional(pool, assignTagToTodoBase)
+
 	// queries bypass tx
 	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
 	apiTodoCodec := todoRedis.NewAPITodoCacheCodec()
@@ -236,6 +239,9 @@ func main() {
 	onboardWsBase := wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserGateway)
 	onboardWsHandler := sharedMiddleware.Transactional(pool, onboardWsBase)
 
+	addWsMemberBase := wsApp.NewAddWorkspaceMemberHandler(wsRepo)
+	addWsMemberHandler := sharedMiddleware.Transactional(pool, addWsMemberBase)
+
 	removeWsMemberBase := wsApp.NewRemoveWorkspaceMemberHandler(wsRepo)
 	removeWsMemberHandler := sharedMiddleware.Transactional(pool, removeWsMemberBase)
 
@@ -249,6 +255,7 @@ func main() {
 		createTodoHandler,
 		completeTodoHandler,
 		createTagHandler,
+		assignTagToTodoHandler,
 		todoQueryService,
 		hub,
 	)
@@ -261,6 +268,7 @@ func main() {
 
 	wh := wsHttp.NewWorkspaceHandler(
 		onboardWsHandler,
+		addWsMemberHandler,
 		removeWsMemberHandler,
 		workspaceQueryService,
 		deleteWsHandler,

@@ -1,10 +1,12 @@
 package main
 
+//go:generate go run ./gen/main.go
+
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,11 +16,22 @@ import (
 func main() {
 	var apiURL string
 
+	defaultURL := "http://127.0.0.1:8090/api/v1"
+
+	if envURL := os.Getenv("API_URL"); envURL != "" {
+		if strings.Contains(envURL, "/api/") {
+			defaultURL = envURL
+		} else {
+			defaultURL = strings.TrimRight(envURL, "/") + "/api/v1"
+		}
+	}
+
 	rootCmd := &cobra.Command{
 		Use:   "todo-cli",
 		Short: "CLI for Todo API",
 	}
-	rootCmd.PersistentFlags().StringVar(&apiURL, "url", "http://127.0.0.1:8090/api/v1", "API Server URL")
+
+	rootCmd.PersistentFlags().StringVar(&apiURL, "url", defaultURL, "API Server URL (also set via API_URL env var)")
 
 	getClient := func() (*client.ClientWithResponses, context.Context) {
 		c, err := client.NewClientWithResponses(apiURL)
@@ -29,51 +42,7 @@ func main() {
 		return c, context.Background()
 	}
 
-	listCmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all todos",
-		Run: func(cmd *cobra.Command, args []string) {
-			c, ctx := getClient()
-
-			resp, err := c.GetAllTodosWithResponse(ctx)
-			if err != nil {
-				log.Fatalf("Request failed: %v", err)
-			}
-
-			if resp.JSON200 == nil {
-				log.Fatalf("Error: status %d", resp.StatusCode())
-			}
-
-			for _, t := range *resp.JSON200 {
-				fmt.Printf("[%s] %s (%s)\n", t.Id, t.Title, t.Status)
-			}
-		},
-	}
-
-	createCmd := &cobra.Command{
-		Use:   "create [title]",
-		Short: "Create a new todo",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			c, ctx := getClient()
-			title := args[0]
-
-			body := client.CreateTodoRequest{Title: title}
-
-			resp, err := c.CreateTodoWithResponse(ctx, &client.CreateTodoParams{}, body)
-			if err != nil {
-				log.Fatalf("Request failed: %v", err)
-			}
-
-			if resp.JSON201 == nil {
-				log.Fatalf("Failed to create: status %d", resp.StatusCode())
-			}
-
-			fmt.Printf("Created Todo ID: %s\n", resp.JSON201.Id)
-		},
-	}
-
-	rootCmd.AddCommand(listCmd, createCmd)
+	RegisterGeneratedCommands(rootCmd, getClient)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

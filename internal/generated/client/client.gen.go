@@ -29,6 +29,11 @@ const (
 	PENDING   TodoStatus = "PENDING"
 )
 
+// AssignTagToTodoRequest defines model for AssignTagToTodoRequest.
+type AssignTagToTodoRequest struct {
+	TagId todoDomain.TagID `json:"tagId"`
+}
+
 // CreateTagRequest defines model for CreateTagRequest.
 type CreateTagRequest struct {
 	Name string `json:"name"`
@@ -110,6 +115,9 @@ type Workspace struct {
 	Name        string                      `json:"name"`
 }
 
+// WorkspaceRole defines model for WorkspaceRole.
+type WorkspaceRole = workspaceDomain.WorkspaceRole
+
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = openapi_types.UUID
 
@@ -135,6 +143,12 @@ type CompleteTodoParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// AssignTagToTodoParams defines parameters for AssignTagToTodo.
+type AssignTagToTodoParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // RegisterUserParams defines parameters for RegisterUser.
 type RegisterUserParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -143,6 +157,18 @@ type RegisterUserParams struct {
 
 // OnboardWorkspaceParams defines parameters for OnboardWorkspace.
 type OnboardWorkspaceParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AddWorkspaceMemberJSONBody defines parameters for AddWorkspaceMember.
+type AddWorkspaceMemberJSONBody struct {
+	Role   WorkspaceRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+// AddWorkspaceMemberParams defines parameters for AddWorkspaceMember.
+type AddWorkspaceMemberParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -156,11 +182,17 @@ type CreateTagParams struct {
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
 
+// AssignTagToTodoJSONRequestBody defines body for AssignTagToTodo for application/json ContentType.
+type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
+
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
+
+// AddWorkspaceMemberJSONRequestBody defines body for AddWorkspaceMember for application/json ContentType.
+type AddWorkspaceMemberJSONRequestBody AddWorkspaceMemberJSONBody
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
@@ -252,6 +284,11 @@ type ClientInterface interface {
 	// CompleteTodo request
 	CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AssignTagToTodoWithBody request with any body
+	AssignTagToTodoWithBody(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AssignTagToTodo(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RegisterUserWithBody request with any body
 	RegisterUserWithBody(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -273,6 +310,11 @@ type ClientInterface interface {
 
 	// DeleteWorkspace request
 	DeleteWorkspace(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddWorkspaceMemberWithBody request with any body
+	AddWorkspaceMemberWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, body AddWorkspaceMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RemoveWorkspaceMember request
 	RemoveWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -336,6 +378,30 @@ func (c *Client) GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEdito
 
 func (c *Client) CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCompleteTodoRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AssignTagToTodoWithBody(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAssignTagToTodoRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AssignTagToTodo(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAssignTagToTodoRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -432,6 +498,30 @@ func (c *Client) OnboardWorkspace(ctx context.Context, params *OnboardWorkspaceP
 
 func (c *Client) DeleteWorkspace(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteWorkspaceRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddWorkspaceMemberWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddWorkspaceMemberRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, body AddWorkspaceMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddWorkspaceMemberRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -636,6 +726,68 @@ func NewCompleteTodoRequest(server string, id todoDomain.TodoID, params *Complet
 	if err != nil {
 		return nil, err
 	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewAssignTagToTodoRequest calls the generic AssignTagToTodo builder with application/json body
+func NewAssignTagToTodoRequest(server string, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAssignTagToTodoRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewAssignTagToTodoRequestWithBody generates requests for AssignTagToTodo with any type of body
+func NewAssignTagToTodoRequestWithBody(server string, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/todos/%s/tags", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -894,6 +1046,68 @@ func NewDeleteWorkspaceRequest(server string, id workspaceDomain.WorkspaceID) (*
 	return req, nil
 }
 
+// NewAddWorkspaceMemberRequest calls the generic AddWorkspaceMember builder with application/json body
+func NewAddWorkspaceMemberRequest(server string, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, body AddWorkspaceMemberJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddWorkspaceMemberRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewAddWorkspaceMemberRequestWithBody generates requests for AddWorkspaceMember with any type of body
+func NewAddWorkspaceMemberRequestWithBody(server string, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/members", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewRemoveWorkspaceMemberRequest generates requests for RemoveWorkspaceMember
 func NewRemoveWorkspaceMemberRequest(server string, id workspaceDomain.WorkspaceID, userId userDomain.UserID) (*http.Request, error) {
 	var err error
@@ -1088,6 +1302,11 @@ type ClientWithResponsesInterface interface {
 	// CompleteTodoWithResponse request
 	CompleteTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error)
 
+	// AssignTagToTodoWithBodyWithResponse request with any body
+	AssignTagToTodoWithBodyWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error)
+
+	AssignTagToTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error)
+
 	// RegisterUserWithBodyWithResponse request with any body
 	RegisterUserWithBodyWithResponse(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
 
@@ -1109,6 +1328,11 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteWorkspaceWithResponse request
 	DeleteWorkspaceWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
+
+	// AddWorkspaceMemberWithBodyWithResponse request with any body
+	AddWorkspaceMemberWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddWorkspaceMemberResponse, error)
+
+	AddWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, body AddWorkspaceMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddWorkspaceMemberResponse, error)
 
 	// RemoveWorkspaceMemberWithResponse request
 	RemoveWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*RemoveWorkspaceMemberResponse, error)
@@ -1208,6 +1432,28 @@ func (r CompleteTodoResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CompleteTodoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AssignTagToTodoResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AssignTagToTodoResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AssignTagToTodoResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1352,6 +1598,28 @@ func (r DeleteWorkspaceResponse) StatusCode() int {
 	return 0
 }
 
+type AddWorkspaceMemberResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AddWorkspaceMemberResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddWorkspaceMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type RemoveWorkspaceMemberResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1465,6 +1733,23 @@ func (c *ClientWithResponses) CompleteTodoWithResponse(ctx context.Context, id t
 	return ParseCompleteTodoResponse(rsp)
 }
 
+// AssignTagToTodoWithBodyWithResponse request with arbitrary body returning *AssignTagToTodoResponse
+func (c *ClientWithResponses) AssignTagToTodoWithBodyWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error) {
+	rsp, err := c.AssignTagToTodoWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAssignTagToTodoResponse(rsp)
+}
+
+func (c *ClientWithResponses) AssignTagToTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error) {
+	rsp, err := c.AssignTagToTodo(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAssignTagToTodoResponse(rsp)
+}
+
 // RegisterUserWithBodyWithResponse request with arbitrary body returning *RegisterUserResponse
 func (c *ClientWithResponses) RegisterUserWithBodyWithResponse(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error) {
 	rsp, err := c.RegisterUserWithBody(ctx, params, contentType, body, reqEditors...)
@@ -1533,6 +1818,23 @@ func (c *ClientWithResponses) DeleteWorkspaceWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseDeleteWorkspaceResponse(rsp)
+}
+
+// AddWorkspaceMemberWithBodyWithResponse request with arbitrary body returning *AddWorkspaceMemberResponse
+func (c *ClientWithResponses) AddWorkspaceMemberWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddWorkspaceMemberResponse, error) {
+	rsp, err := c.AddWorkspaceMemberWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddWorkspaceMemberResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *AddWorkspaceMemberParams, body AddWorkspaceMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*AddWorkspaceMemberResponse, error) {
+	rsp, err := c.AddWorkspaceMember(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddWorkspaceMemberResponse(rsp)
 }
 
 // RemoveWorkspaceMemberWithResponse request returning *RemoveWorkspaceMemberResponse
@@ -1673,6 +1975,32 @@ func ParseCompleteTodoResponse(rsp *http.Response) (*CompleteTodoResponse, error
 	}
 
 	response := &CompleteTodoResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAssignTagToTodoResponse parses an HTTP response from a AssignTagToTodoWithResponse call
+func ParseAssignTagToTodoResponse(rsp *http.Response) (*AssignTagToTodoResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AssignTagToTodoResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1847,6 +2175,32 @@ func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse,
 	}
 
 	response := &DeleteWorkspaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddWorkspaceMemberResponse parses an HTTP response from a AddWorkspaceMemberWithResponse call
+func ParseAddWorkspaceMemberResponse(rsp *http.Response) (*AddWorkspaceMemberResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddWorkspaceMemberResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

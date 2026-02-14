@@ -146,6 +146,27 @@ paths:
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
+  /todos/{id}/tags:
+    post:
+      summary: Assign a tag to a todo
+      operationId: assignTagToTodo
+      tags:
+        - todo
+      parameters:
+        - *x-todoIDParameter
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTagToTodoRequest'
+      responses:
+        '204':
+          description: Tag assigned
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+
   /users:
     post:
       operationId: registerUser
@@ -252,6 +273,33 @@ paths:
       responses:
         '204':
           description: Workspace deleted
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+  /workspaces/{id}/members:
+    post:
+      summary: Add a member to a workspace
+      operationId: addWorkspaceMember
+      tags:
+        - workspace
+      parameters:
+        - *x-workspaceIDParameter
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, role]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                role:
+                  $ref: '#/components/schemas/WorkspaceRole'
+      responses:
+        '204':
+          description: Member added
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
   /workspaces/{id}/members/{userId}:
@@ -407,6 +455,13 @@ components:
           *x-workspaceIDSchema
         name: { type: string }
         description: { type: string }
+
+    AssignTagToTodoRequest:
+      type: object
+      required: [tagId]
+      properties:
+        tagId:
+          *x-tagIDSchema
 
     Todo:
       type: object

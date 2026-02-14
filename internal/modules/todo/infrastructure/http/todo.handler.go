@@ -18,6 +18,7 @@ type TodoHandler struct {
 	createHandler    sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID]
 	completeHandler  sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void]
 	createTagHandler sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID]
+	assignTagHandler sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void]
 
 	// keeping queries nontransactional
 	queryService application.TodoQueryService
@@ -29,6 +30,7 @@ func NewTodoHandler(
 	c sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID],
 	comp sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void],
 	ct sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID],
+	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void],
 	qs application.TodoQueryService,
 	hub *ws.TodoHub,
 ) *TodoHandler {
@@ -36,6 +38,7 @@ func NewTodoHandler(
 		createHandler:    c,
 		completeHandler:  comp,
 		createTagHandler: ct,
+		assignTagHandler: at,
 		queryService:     qs,
 		hub:              hub,
 	}
@@ -88,6 +91,24 @@ func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (h *TodoHandler) AssignTagToTodo(c *gin.Context, id domain.TodoID, params api.AssignTagToTodoParams) {
+	var req api.AssignTagToTodoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+		return
+	}
+
+	if _, err := h.assignTagHandler.Handle(c.Request.Context(), application.AssignTagToTodoCommand{
+		TodoID: id,
+		TagID:  req.TagId,
+	}); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params api.CreateTagParams) {

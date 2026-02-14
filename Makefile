@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -107,6 +107,10 @@ gen-oapi:
 		go tool oapi-codegen -config internal/oapi-codegen-client.yaml openapi.yaml || { rm -f $(CACHE_DIR)/oapi_hash; exit 1; }; \
 		$(call update_cache,$(OAPI_DEPS),oapi_hash); \
 	fi
+
+gen-cli:
+	go generate ./cmd/cli
+	go build -o todo-cli ./cmd/cli
 
 run-gen-schema:
 	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \

@@ -71,6 +71,16 @@ func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 		return fmt.Errorf("could not update todo: %w", sharedPg.ParseDBError(err))
 	}
 
+	for _, tagID := range t.Tags() {
+		err := r.q.AddTagToTodo(ctx, dbtx, db.AddTagToTodoParams{
+			TodoID: t.ID(),
+			TagID:  tagID,
+		})
+		if err != nil {
+			return fmt.Errorf("could not add tag to todo: %w", sharedPg.ParseDBError(err))
+		}
+	}
+
 	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, t)
 }
 
