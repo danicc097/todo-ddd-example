@@ -20,85 +20,6 @@ var _ = workspaceDomain.WorkspaceID{}
 
 func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client.ClientWithResponses, context.Context)) {
 
-	cmdDeleteWorkspace := &cobra.Command{
-		Use:   "delete-workspace [id]",
-		Short: "Delete a workspace",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
-
-			resp, err := c.DeleteWorkspaceWithResponse(ctx, paramid)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
-			return nil
-		},
-	}
-
-	rootCmd.AddCommand(cmdDeleteWorkspace)
-
-	cmdGetWorkspaceTags := &cobra.Command{
-		Use:   "get-workspace-tags [id]",
-		Short: "Get all tags for a workspace",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
-
-			resp, err := c.GetWorkspaceTagsWithResponse(ctx, paramid)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
-			return nil
-		},
-	}
-
-	rootCmd.AddCommand(cmdGetWorkspaceTags)
-
-	cmdCreateTag := &cobra.Command{
-		Use:   "create-tag [id]",
-		Short: "Create a new tag",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
-
-			params := &client.CreateTagParams{}
-			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
-				u := uuid.MustParse(val)
-				params.IdempotencyKey = &u
-			}
-
-			bodyStr, _ := cmd.Flags().GetString("payload")
-			var reqBody client.CreateTagJSONRequestBody
-			if bodyStr != "" {
-				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
-					return fmt.Errorf("invalid json payload: %w", err)
-				}
-			}
-
-			resp, err := c.CreateTagWithResponse(ctx, paramid, params, reqBody)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
-			return nil
-		},
-	}
-	cmdCreateTag.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdCreateTag.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
-
-	rootCmd.AddCommand(cmdCreateTag)
-
 	cmdGetAllTodos := &cobra.Command{
 		Use:   "get-all-todos",
 		Short: "List all todos",
@@ -202,6 +123,78 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdCompleteTodo)
 
+	cmdAssignTagToTodo := &cobra.Command{
+		Use:   "assign-tag-to-todo [id]",
+		Short: "Assign a tag to a todo",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
+
+			params := &client.AssignTagToTodoParams{}
+			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
+				u := uuid.MustParse(val)
+				params.IdempotencyKey = &u
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.AssignTagToTodoJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.AssignTagToTodoWithResponse(ctx, paramid, params, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdAssignTagToTodo.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdAssignTagToTodo.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+
+	rootCmd.AddCommand(cmdAssignTagToTodo)
+
+	cmdRegisterUser := &cobra.Command{
+		Use:   "register-user",
+		Short: "",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			params := &client.RegisterUserParams{}
+			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
+				u := uuid.MustParse(val)
+				params.IdempotencyKey = &u
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.RegisterUserJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.RegisterUserWithResponse(ctx, params, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdRegisterUser.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdRegisterUser.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+
+	rootCmd.AddCommand(cmdRegisterUser)
+
 	cmdGetUserByID := &cobra.Command{
 		Use:   "get-user-by-id [id]",
 		Short: "",
@@ -244,28 +237,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdGetUserWorkspaces)
 
-	cmdRegisterUser := &cobra.Command{
-		Use:   "register-user",
-		Short: "",
+	cmdListWorkspaces := &cobra.Command{
+		Use:   "list-workspaces",
+		Short: "List all workspaces",
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
-			params := &client.RegisterUserParams{}
-			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
-				u := uuid.MustParse(val)
-				params.IdempotencyKey = &u
-			}
-
-			bodyStr, _ := cmd.Flags().GetString("payload")
-			var reqBody client.RegisterUserJSONRequestBody
-			if bodyStr != "" {
-				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
-					return fmt.Errorf("invalid json payload: %w", err)
-				}
-			}
-
-			resp, err := c.RegisterUserWithResponse(ctx, params, reqBody)
+			resp, err := c.ListWorkspacesWithResponse(ctx)
 			if err != nil {
 				return err
 			}
@@ -274,10 +253,64 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			return nil
 		},
 	}
-	cmdRegisterUser.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdRegisterUser.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
 
-	rootCmd.AddCommand(cmdRegisterUser)
+	rootCmd.AddCommand(cmdListWorkspaces)
+
+	cmdOnboardWorkspace := &cobra.Command{
+		Use:   "onboard-workspace",
+		Short: "Onboard a new workspace with initial members",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			params := &client.OnboardWorkspaceParams{}
+			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
+				u := uuid.MustParse(val)
+				params.IdempotencyKey = &u
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.OnboardWorkspaceJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.OnboardWorkspaceWithResponse(ctx, params, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdOnboardWorkspace.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdOnboardWorkspace.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+
+	rootCmd.AddCommand(cmdOnboardWorkspace)
+
+	cmdDeleteWorkspace := &cobra.Command{
+		Use:   "delete-workspace [id]",
+		Short: "Delete a workspace",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+
+			resp, err := c.DeleteWorkspaceWithResponse(ctx, paramid)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdDeleteWorkspace)
 
 	cmdAddWorkspaceMember := &cobra.Command{
 		Use:   "add-workspace-member [id]",
@@ -339,30 +372,51 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdRemoveWorkspaceMember)
 
-	cmdAssignTagToTodo := &cobra.Command{
-		Use:   "assign-tag-to-todo [id]",
-		Short: "Assign a tag to a todo",
+	cmdGetWorkspaceTags := &cobra.Command{
+		Use:   "get-workspace-tags [id]",
+		Short: "Get all tags for a workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
-			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
-			params := &client.AssignTagToTodoParams{}
+			resp, err := c.GetWorkspaceTagsWithResponse(ctx, paramid)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdGetWorkspaceTags)
+
+	cmdCreateTag := &cobra.Command{
+		Use:   "create-tag [id]",
+		Short: "Create a new tag",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+
+			params := &client.CreateTagParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
 				u := uuid.MustParse(val)
 				params.IdempotencyKey = &u
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
-			var reqBody client.AssignTagToTodoJSONRequestBody
+			var reqBody client.CreateTagJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
 					return fmt.Errorf("invalid json payload: %w", err)
 				}
 			}
 
-			resp, err := c.AssignTagToTodoWithResponse(ctx, paramid, params, reqBody)
+			resp, err := c.CreateTagWithResponse(ctx, paramid, params, reqBody)
 			if err != nil {
 				return err
 			}
@@ -371,63 +425,9 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			return nil
 		},
 	}
-	cmdAssignTagToTodo.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdAssignTagToTodo.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+	cmdCreateTag.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdCreateTag.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
 
-	rootCmd.AddCommand(cmdAssignTagToTodo)
-
-	cmdListWorkspaces := &cobra.Command{
-		Use:   "list-workspaces",
-		Short: "List all workspaces",
-
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			resp, err := c.ListWorkspacesWithResponse(ctx)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
-			return nil
-		},
-	}
-
-	rootCmd.AddCommand(cmdListWorkspaces)
-
-	cmdOnboardWorkspace := &cobra.Command{
-		Use:   "onboard-workspace",
-		Short: "Onboard a new workspace with initial members",
-
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			params := &client.OnboardWorkspaceParams{}
-			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
-				u := uuid.MustParse(val)
-				params.IdempotencyKey = &u
-			}
-
-			bodyStr, _ := cmd.Flags().GetString("payload")
-			var reqBody client.OnboardWorkspaceJSONRequestBody
-			if bodyStr != "" {
-				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
-					return fmt.Errorf("invalid json payload: %w", err)
-				}
-			}
-
-			resp, err := c.OnboardWorkspaceWithResponse(ctx, params, reqBody)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
-			return nil
-		},
-	}
-	cmdOnboardWorkspace.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdOnboardWorkspace.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
-
-	rootCmd.AddCommand(cmdOnboardWorkspace)
+	rootCmd.AddCommand(cmdCreateTag)
 
 }

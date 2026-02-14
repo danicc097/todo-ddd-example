@@ -7,6 +7,7 @@ import (
 	"go/format"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -50,8 +51,26 @@ func main() {
 
 	var commands []CommandData
 
-	for _, pathItem := range doc.Paths.Map() {
-		for _, op := range pathItem.Operations() {
+	paths := make([]string, 0, len(doc.Paths.Map()))
+	for p := range doc.Paths.Map() {
+		paths = append(paths, p)
+	}
+
+	sort.Strings(paths) // ensure idempotent gen
+
+	for _, path := range paths {
+		pathItem := doc.Paths.Find(path)
+		ops := pathItem.Operations()
+
+		methods := make([]string, 0, len(ops))
+		for m := range ops {
+			methods = append(methods, m)
+		}
+
+		sort.Strings(methods) // ensure idempotent gen
+
+		for _, method := range methods {
+			op := ops[method]
 			if op.OperationID == "" {
 				continue
 			}
@@ -143,5 +162,5 @@ func main() {
 		log.Fatalf("Failed to write file: %v", err)
 	}
 
-	log.Println("Successfully generated dynamic commands.gen.go")
+	log.Println("Successfully generated dynamic idempotent commands.gen.go")
 }
