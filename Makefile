@@ -47,6 +47,7 @@ deps:
 
 lint:
 	go build ./... >/dev/null
+	go test -c ./tests/e2e/... -tags e2e -o /dev/null
 	$(GOLINT) run ./... --allow-parallel-runners --fix --config=.golangci.yml --issues-exit-code=0 >/dev/null
 
 dev:

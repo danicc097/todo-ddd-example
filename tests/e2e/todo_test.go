@@ -30,7 +30,7 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 	require.Equal(t, http.StatusCreated, createResp.StatusCode())
 	require.NotNil(t, createResp.JSON201)
 
-	todoID := domain.TodoID{UUID: *createResp.JSON201.Id}
+	todoID := domain.TodoID{UUID: createResp.JSON201.Id}
 
 	listResp, err := c.GetAllTodosWithResponse(ctx)
 	require.NoError(t, err)
