@@ -28,6 +28,9 @@ jobs:
             sleep 2
           done
 
+      - name: Lint
+        run: make lint
+
       - name: Generate
         run: make gen
 

@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 type UserRepo struct {
@@ -35,9 +37,13 @@ func NewUserRepoFromTx(tx pgx.Tx) *UserRepo {
 
 func (r *UserRepo) Save(ctx context.Context, u *domain.User) error {
 	p := r.mapper.ToPersistence(u)
-	_, err := r.q.CreateUser(ctx, r.db, db.CreateUserParams(p))
 
-	return err
+	_, err := r.q.CreateUser(ctx, r.db, db.CreateUserParams(p))
+	if err != nil {
+		return fmt.Errorf("could not save user: %w", sharedPg.ParseDBError(err))
+	}
+
+	return nil
 }
 
 func (r *UserRepo) FindByID(ctx context.Context, id domain.UserID) (*domain.User, error) {
@@ -47,7 +53,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id domain.UserID) (*domain.User
 			return nil, domain.ErrUserNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("could not get user: %w", sharedPg.ParseDBError(err))
 	}
 
 	return r.mapper.ToDomain(row), nil

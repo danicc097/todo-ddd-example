@@ -2,14 +2,27 @@ package apperrors
 
 import (
 	"fmt"
+
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+)
+
+type ErrorCode string
+
+const (
+	NotFound      ErrorCode = "RESOURCE_NOT_FOUND"
+	InvalidInput  ErrorCode = "INVALID_INPUT"
+	Internal      ErrorCode = "INTERNAL_ERROR"
+	Conflict      ErrorCode = "RESOURCE_CONFLICT"
+	Unprocessable ErrorCode = "UNPROCESSABLE_ENTITY"
+	Unauthorized  ErrorCode = "UNAUTHORIZED"
 )
 
 type AppError struct {
-	Code    string
-	Message string
-	Op      string
-	Err     error
-	Status  int
+	Code       ErrorCode
+	Message    string
+	Op         string
+	Err        error
+	Validation *api.HTTPValidationError
 }
 
 func (e *AppError) Error() string {
@@ -24,27 +37,17 @@ func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
-func New(code string, message string, status int) *AppError {
+func New(code ErrorCode, message string) *AppError {
 	return &AppError{
 		Code:    code,
 		Message: message,
-		Status:  status,
 	}
 }
 
-func Wrap(err error, code string, message string, status int) *AppError {
+func Wrap(err error, code ErrorCode, message string) *AppError {
 	return &AppError{
 		Code:    code,
 		Message: message,
-		Status:  status,
 		Err:     err,
 	}
 }
-
-const (
-	ErrCodeNotFound      = "RESOURCE_NOT_FOUND"
-	ErrCodeInvalidInput  = "INVALID_INPUT"
-	ErrCodeInternal      = "INTERNAL_ERROR"
-	ErrCodeConflict      = "RESOURCE_CONFLICT"
-	ErrCodeUnprocessable = "UNPROCESSABLE_ENTITY"
-)

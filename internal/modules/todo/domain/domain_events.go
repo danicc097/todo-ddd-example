@@ -3,8 +3,9 @@ package domain
 import (
 	"time"
 
-	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/google/uuid"
+
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var (

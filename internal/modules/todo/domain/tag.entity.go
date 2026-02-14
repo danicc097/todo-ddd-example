@@ -26,5 +26,5 @@ func ReconstituteTag(id TagID, name TagName) *Tag {
 	return &Tag{id: id, name: name}
 }
 
-func (t *Tag) ID() TagID   { return t.id }
+func (t *Tag) ID() TagID     { return t.id }
 func (t *Tag) Name() TagName { return t.name }

@@ -47,7 +47,7 @@ func (h *TodoHandler) WS(c *gin.Context) {
 func (h *TodoHandler) CreateTodo(c *gin.Context, params api.CreateTodoParams) {
 	var req api.CreateTodoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.
 func (h *TodoHandler) CreateTag(c *gin.Context, params api.CreateTagParams) {
 	var req api.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 

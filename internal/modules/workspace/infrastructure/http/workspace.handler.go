@@ -38,7 +38,7 @@ func NewWorkspaceHandler(
 func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWorkspaceParams) {
 	var req api.OnboardWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 

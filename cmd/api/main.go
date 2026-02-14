@@ -272,7 +272,7 @@ func main() {
 	r.Use(middleware.ETag()) // HTTP Caching
 	r.Use(middleware.ErrorHandler())
 
-	if internal.Config.Env != "production" {
+	if internal.Config.Env != internal.AppEnvProd {
 		validator := createOpenAPIValidatorMw()
 
 		r.Use(func(c *gin.Context) {

@@ -3,11 +3,12 @@ package http
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
@@ -23,7 +24,7 @@ func NewUserHandler(r *application.RegisterUserUseCase, g *application.GetUserUs
 func (h *UserHandler) RegisterUser(c *gin.Context, params api.RegisterUserParams) {
 	var req api.RegisterUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
+		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 

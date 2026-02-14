@@ -105,6 +105,7 @@ paths:
           content:
             application/json:
               schema:
+                required: [id]
                 properties:
                   id:
                     type: string
@@ -165,6 +166,7 @@ paths:
           content:
             application/json:
               schema:
+                required: [id]
                 properties:
                   id:
                     type: string
@@ -188,6 +190,7 @@ paths:
           content:
             application/json:
               schema:
+                required: [id]
                 properties:
                   id:
                     type: string
@@ -239,6 +242,7 @@ paths:
           content:
             application/json:
               schema:
+                required: [id]
                 properties:
                   id:
                     type: string
@@ -290,12 +294,60 @@ components:
         format: uuid
 
   schemas:
+    HTTPValidationError:
+      title: HTTPValidationError
+      type: object
+      required:
+        - messages
+      properties:
+        detail:
+          title: Detail
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        messages:
+          title: Messages
+          type: array
+          items:
+            type: string
+    ValidationError:
+      title: ValidationError
+      required:
+        - loc
+        - msg
+        - detail
+      type: object
+      properties:
+        loc:
+          title: Location
+          type: array
+          items:
+            type: string
+        msg:
+          title: Message
+          type: string
+        detail:
+          $ref: '#/components/schemas/ValidationErrorDetail'
+        ctx:
+          title: Contextual information
+          type: object
+    ValidationErrorDetail:
+      title: ValidationErrorDetail
+      description: Details of the error
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          description: The actual value that failed validation
     WorkspaceRole:
       type: string
       x-go-type: "workspaceDomain.WorkspaceRole"
       x-go-type-import:
         path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
         name: "workspaceDomain"
+
     OnboardWorkspaceRequest:
       type: object
       required: [name]
@@ -312,6 +364,7 @@ components:
           x-go-type-import:
             path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
             name: "workspaceDomain"
+
     Workspace:
       type: object
       required: [id, name, description]
@@ -320,6 +373,7 @@ components:
           *x-workspaceIDSchema
         name: { type: string }
         description: { type: string }
+
     Todo:
       type: object
       required: [id, title, status, createdAt]
@@ -329,19 +383,23 @@ components:
         title: { type: string }
         status: { $ref: '#/components/schemas/TodoStatus' }
         createdAt: { type: string, format: date-time }
+
     CreateTodoRequest:
       type: object
       required: [title]
       properties:
         title: { type: string }
+
     CreateTagRequest:
       type: object
       required: [name]
       properties:
         name: { type: string }
+
     TodoStatus:
       type: string
       enum: [PENDING, COMPLETED, ARCHIVED]
+
     User:
       type: object
       required: [id, email, name]
@@ -350,18 +408,30 @@ components:
           *x-userIDSchema
         email: { type: string }
         name: { type: string }
+
     RegisterUserRequest:
       type: object
       required: [email, name]
       properties:
         email: { type: string }
         name: { type: string }
+
   responses:
     ErrorResponse:
       description: General error response
       content:
         application/json:
           schema:
+            type: object
             properties:
               error:
-                type: string
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  trace_id:
+                    type: string
+                  validation:
+                    $ref: '#/components/schemas/HTTPValidationError'

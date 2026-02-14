@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
-	"github.com/google/uuid"
 )
 
 type MemberInitialState struct {

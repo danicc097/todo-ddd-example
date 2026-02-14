@@ -39,6 +39,12 @@ type CreateTodoRequest struct {
 	Title string `json:"title"`
 }
 
+// HTTPValidationError defines model for HTTPValidationError.
+type HTTPValidationError struct {
+	Detail   *[]ValidationError `json:"detail,omitempty"`
+	Messages []string           `json:"messages"`
+}
+
 // OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
 type OnboardWorkspaceRequest struct {
 	// Description A brief description of the workspace purpose.
@@ -75,6 +81,22 @@ type User struct {
 	Name  string            `json:"name"`
 }
 
+// ValidationError defines model for ValidationError.
+type ValidationError struct {
+	Ctx *map[string]interface{} `json:"ctx,omitempty"`
+
+	// Detail Details of the error
+	Detail ValidationErrorDetail `json:"detail"`
+	Loc    []string              `json:"loc"`
+	Msg    string                `json:"msg"`
+}
+
+// ValidationErrorDetail Details of the error
+type ValidationErrorDetail struct {
+	// Value The actual value that failed validation
+	Value string `json:"value"`
+}
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Description string                      `json:"description"`
@@ -87,7 +109,12 @@ type IdempotencyKey = openapi_types.UUID
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
-	Error *string `json:"error,omitempty"`
+	Error *struct {
+		Code       *string              `json:"code,omitempty"`
+		Message    *string              `json:"message,omitempty"`
+		TraceId    *string              `json:"trace_id,omitempty"`
+		Validation *HTTPValidationError `json:"validation,omitempty"`
+	} `json:"error,omitempty"`
 }
 
 // CreateTagParams defines parameters for CreateTag.
@@ -982,7 +1009,7 @@ type CreateTagResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *struct {
-		Id *openapi_types.UUID `json:"id,omitempty"`
+		Id openapi_types.UUID `json:"id"`
 	}
 	JSON4XX *ErrorResponse
 }
@@ -1029,7 +1056,7 @@ type CreateTodoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *struct {
-		Id *openapi_types.UUID `json:"id,omitempty"`
+		Id openapi_types.UUID `json:"id"`
 	}
 	JSON4XX *ErrorResponse
 }
@@ -1099,7 +1126,7 @@ type RegisterUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *struct {
-		Id *openapi_types.UUID `json:"id,omitempty"`
+		Id openapi_types.UUID `json:"id"`
 	}
 }
 
@@ -1167,7 +1194,7 @@ type OnboardWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *struct {
-		Id *openapi_types.UUID `json:"id,omitempty"`
+		Id openapi_types.UUID `json:"id"`
 	}
 	JSON400 *ErrorResponse
 	JSON4XX *ErrorResponse
@@ -1380,7 +1407,7 @@ func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			Id *openapi_types.UUID `json:"id,omitempty"`
+			Id openapi_types.UUID `json:"id"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -1441,7 +1468,7 @@ func ParseCreateTodoResponse(rsp *http.Response) (*CreateTodoResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			Id *openapi_types.UUID `json:"id,omitempty"`
+			Id openapi_types.UUID `json:"id"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -1535,7 +1562,7 @@ func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			Id *openapi_types.UUID `json:"id,omitempty"`
+			Id openapi_types.UUID `json:"id"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -1615,7 +1642,7 @@ func ParseOnboardWorkspaceResponse(rsp *http.Response) (*OnboardWorkspaceRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest struct {
-			Id *openapi_types.UUID `json:"id,omitempty"`
+			Id openapi_types.UUID `json:"id"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err

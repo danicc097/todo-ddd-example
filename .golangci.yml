@@ -53,6 +53,9 @@ linters:
     staticcheck:
       checks:
         - all
+    exhaustive:
+      explicit-exhaustive-switch: true
+      default-signifies-exhaustive: false
     tagliatelle:
       case:
         rules:
@@ -159,6 +162,7 @@ formatters:
   enable:
     - gci
     - gofmt
+    - gofumpt
     - goimports
   settings:
     gci:
@@ -177,4 +181,3 @@ formatters:
       - third_party$
       - builtin$
       - examples$
-      - .

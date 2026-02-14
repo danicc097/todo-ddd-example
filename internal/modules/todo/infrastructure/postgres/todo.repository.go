@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,7 +42,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 
 	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams(p))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create todo: %w", sharedPg.ParseDBError(err))
 	}
 
 	for _, tagID := range t.Tags() {
@@ -50,7 +51,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 			TagID:  tagID,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("could not add tag to todo: %w", sharedPg.ParseDBError(err))
 		}
 	}
 
@@ -67,7 +68,7 @@ func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
 		Status: p.Status,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("could not update todo: %w", sharedPg.ParseDBError(err))
 	}
 
 	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, t)
@@ -80,7 +81,7 @@ func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo
 			return nil, domain.ErrTodoNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("failed to get todo: %w", sharedPg.ParseDBError(err))
 	}
 
 	return r.mapper.ToDomain(row), nil
@@ -89,7 +90,7 @@ func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo
 func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
 	rows, err := r.q.ListTodos(ctx, r.getDB(ctx))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list todos: %w", sharedPg.ParseDBError(err))
 	}
 
 	todos := make([]*domain.Todo, len(rows))

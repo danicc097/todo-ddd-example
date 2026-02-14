@@ -6,8 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/danicc097/todo-ddd-example/internal/generated/client"
 	"github.com/spf13/cobra"
+
+	"github.com/danicc097/todo-ddd-example/internal/generated/client"
 )
 
 func main() {

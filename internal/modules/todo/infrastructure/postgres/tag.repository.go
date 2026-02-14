@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 type TagRepo struct {
@@ -37,8 +39,11 @@ func (r *TagRepo) Save(ctx context.Context, t *domain.Tag) error {
 	p := r.mapper.ToPersistence(t)
 
 	_, err := r.q.CreateTag(ctx, r.db, db.CreateTagParams(p))
+	if err != nil {
+		return fmt.Errorf("could not save tag: %w", sharedPg.ParseDBError(err))
+	}
 
-	return err
+	return nil
 }
 
 func (r *TagRepo) FindByID(ctx context.Context, id domain.TagID) (*domain.Tag, error) {
@@ -48,7 +53,7 @@ func (r *TagRepo) FindByID(ctx context.Context, id domain.TagID) (*domain.Tag, e
 			return nil, domain.ErrTagNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("could not get tag: %w", sharedPg.ParseDBError(err))
 	}
 
 	return r.mapper.ToDomain(row), nil
@@ -61,7 +66,7 @@ func (r *TagRepo) FindByName(ctx context.Context, name string) (*domain.Tag, err
 			return nil, domain.ErrTagNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("could not get tag by name: %w", sharedPg.ParseDBError(err))
 	}
 
 	return r.mapper.ToDomain(row), nil

@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps dev gen gen-sqlc gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -45,6 +45,10 @@ deps:
 	$(SQLC) version
 	$(PGROLL) --version
 
+lint:
+	go build ./... >/dev/null
+	$(GOLINT) run ./... --allow-parallel-runners --fix --config=.golangci.yml --issues-exit-code=0 >/dev/null
+
 dev:
 	$(AIR) -c .air.toml
 
@@ -57,9 +61,6 @@ test-e2e:
 
 clean:
 	rm -f $(SERVICE)
-
-lint:
-	$(GOLINT) run --allow-parallel-runners --fix
 
 gen:
 	$(MAKE) gen-sqlc

@@ -48,12 +48,12 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 		CreatedAt:   w.CreatedAt(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to upsert workspace: %w", err)
+		return fmt.Errorf("failed to upsert workspace: %w", sharedPg.ParseDBError(err))
 	}
 
 	// diffing not worth it
 	if err := r.q.DeleteWorkspaceMembers(ctx, dbtx, w.ID()); err != nil {
-		return fmt.Errorf("failed to clear members: %w", err)
+		return fmt.Errorf("failed to clear members: %w", sharedPg.ParseDBError(err))
 	}
 
 	for userID, role := range w.Members() {
@@ -63,7 +63,7 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 			Role:        string(role),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to add member %s: %w", userID, err)
+			return fmt.Errorf("failed to add member %s: %w", userID, sharedPg.ParseDBError(err))
 		}
 	}
 
@@ -79,12 +79,12 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*d
 			return nil, domain.ErrWorkspaceNotFound
 		}
 
-		return nil, fmt.Errorf("failed to get workspace: %w", err)
+		return nil, fmt.Errorf("failed to get workspace: %w", sharedPg.ParseDBError(err))
 	}
 
 	members, err := r.q.GetWorkspaceMembers(ctx, dbtx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get workspace members: %w", err)
+		return nil, fmt.Errorf("failed to get workspace members: %w", sharedPg.ParseDBError(err))
 	}
 
 	memberMap, err := toMemberMap(members)
@@ -125,7 +125,7 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 
 	rows, err := r.q.ListWorkspaces(ctx, dbtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list workspaces: %w", err)
+		return nil, fmt.Errorf("failed to list workspaces: %w", sharedPg.ParseDBError(err))
 	}
 
 	workspaces := make([]*domain.Workspace, 0, len(rows))
@@ -134,7 +134,7 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 		// N+1 for now, should batch
 		members, err := r.q.GetWorkspaceMembers(ctx, dbtx, row.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch members for workspace %s: %w", row.ID, err)
+			return nil, fmt.Errorf("failed to fetch members for workspace %s: %w", row.ID, sharedPg.ParseDBError(err))
 		}
 
 		memberMap, _ := toMemberMap(members)
@@ -160,7 +160,7 @@ func (r *WorkspaceRepo) Delete(ctx context.Context, id domain.WorkspaceID) error
 	dbtx := r.getDB(ctx)
 
 	if err := r.q.DeleteWorkspace(ctx, dbtx, id); err != nil {
-		return fmt.Errorf("failed to delete workspace: %w", err)
+		return fmt.Errorf("failed to delete workspace: %w", sharedPg.ParseDBError(err))
 	}
 
 	return nil

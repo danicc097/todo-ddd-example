@@ -21,7 +21,9 @@ func (g *WorkspaceUserGateway) Exists(ctx context.Context, userID userDomain.Use
 		if errors.Is(err, userDomain.ErrUserNotFound) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return true, nil
 }

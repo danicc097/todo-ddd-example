@@ -13,6 +13,58 @@ import (
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
+var errorRegistry = []struct {
+	Code   apperrors.ErrorCode
+	Errors []error
+}{
+	{
+		Code: apperrors.NotFound,
+		Errors: []error{
+			todoDomain.ErrTodoNotFound,
+			todoDomain.ErrTagNotFound,
+			userDomain.ErrUserNotFound,
+			wsDomain.ErrWorkspaceNotFound,
+			wsDomain.ErrMemberNotFound,
+		},
+	},
+	{
+		Code: apperrors.InvalidInput,
+		Errors: []error{
+			todoDomain.ErrTitleEmpty,
+			todoDomain.ErrTitleTooLong,
+			userDomain.ErrInvalidEmail,
+			wsDomain.ErrAtLeastOneOwner,
+			wsDomain.ErrUserAlreadyMember,
+		},
+	},
+	{
+		Code: apperrors.Unprocessable,
+		Errors: []error{
+			todoDomain.ErrInvalidStatus,
+		},
+	},
+}
+
+func errorCodeToHTTP(code apperrors.ErrorCode) int {
+	//exhaustive:enforce
+	switch code {
+	case apperrors.NotFound:
+		return http.StatusNotFound
+	case apperrors.InvalidInput:
+		return http.StatusBadRequest
+	case apperrors.Conflict:
+		return http.StatusConflict
+	case apperrors.Unprocessable:
+		return http.StatusUnprocessableEntity
+	case apperrors.Unauthorized:
+		return http.StatusUnauthorized
+	case apperrors.Internal:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
@@ -25,31 +77,50 @@ func ErrorHandler() gin.HandlerFunc {
 
 		var appErr *apperrors.AppError
 
-		switch {
-		case errors.Is(err, todoDomain.ErrTodoNotFound), errors.Is(err, todoDomain.ErrTagNotFound), errors.Is(err, userDomain.ErrUserNotFound), errors.Is(err, wsDomain.ErrWorkspaceNotFound), errors.Is(err, wsDomain.ErrMemberNotFound):
-			appErr = apperrors.New(apperrors.ErrCodeNotFound, "Resource not found", http.StatusNotFound)
-		case errors.Is(err, todoDomain.ErrInvalidStatus):
-			appErr = apperrors.New(apperrors.ErrCodeUnprocessable, err.Error(), http.StatusUnprocessableEntity)
-		case errors.Is(err, todoDomain.ErrTitleEmpty), errors.Is(err, todoDomain.ErrTitleTooLong), errors.Is(err, userDomain.ErrInvalidEmail), errors.Is(err, wsDomain.ErrAtLeastOneOwner), errors.Is(err, wsDomain.ErrUserAlreadyMember):
-			appErr = apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest)
-		default:
-			asAppErr := &apperrors.AppError{}
-			if errors.As(err, &asAppErr) {
-				appErr = asAppErr
-			} else {
-				appErr = apperrors.New(apperrors.ErrCodeInternal, "Internal Server Error", http.StatusInternalServerError)
+		if errors.As(err, &appErr) {
+			if !errors.Is(err, appErr) {
+				// if we wrapped it (repos), override inner string to keep the repo's context
+				// else just use apperror's message, likely from handler
+				appErr.Message = err.Error()
+			}
+		} else {
+			matched := false
+
+			for _, group := range errorRegistry {
+				for _, targetErr := range group.Errors {
+					if errors.Is(err, targetErr) {
+						// capture the repo's wrapper context
+						appErr = apperrors.New(group.Code, err.Error())
+						matched = true
+
+						break
+					}
+				}
+
+				if matched {
+					break
+				}
+			}
+
+			if !matched {
+				// don't leak internal issues
+				appErr = apperrors.New(apperrors.Internal, "Internal Server Error")
 			}
 		}
 
+		httpStatus := errorCodeToHTTP(appErr.Code)
 		span := trace.SpanFromContext(c.Request.Context())
-		traceID := span.SpanContext().TraceID().String()
 
-		c.JSON(appErr.Status, gin.H{
-			"error": gin.H{
-				"code":     appErr.Code,
-				"message":  appErr.Message,
-				"trace_id": traceID,
-			},
-		})
+		errPayload := gin.H{
+			"code":     appErr.Code,
+			"message":  appErr.Message,
+			"trace_id": span.SpanContext().TraceID().String(),
+		}
+
+		if appErr.Validation != nil {
+			errPayload["validation"] = appErr.Validation
+		}
+
+		c.JSON(httpStatus, gin.H{"error": errPayload})
 	}
 }

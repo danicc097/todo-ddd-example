@@ -14,6 +14,25 @@ var (
 	Config     *AppConfig
 )
 
+type AppEnv string
+
+const (
+	AppEnvDev  AppEnv = "development"
+	AppEnvProd AppEnv = "production"
+	AppEnvCI   AppEnv = "ci"
+)
+
+func (e *AppEnv) Decode(value string) error {
+	switch value {
+	case string(AppEnvDev), string(AppEnvProd), string(AppEnvCI):
+		*e = AppEnv(value)
+	default:
+		return fmt.Errorf("invalid value for AppEnv: %v", value)
+	}
+
+	return nil
+}
+
 type PostgresConfig struct {
 	User     string `env:"DB_USER"`
 	Password string `env:"DB_PASS"`
@@ -40,7 +59,7 @@ type AppConfig struct {
 	RabbitMQ RabbitMQConfig
 	OTEL     OTELConfig
 	LogLevel string `env:"LOG_LEVEL,INFO"`
-	Env      string `env:"ENV,development"`
+	Env      AppEnv `env:"ENV,development"`
 	Port     string `env:"PORT"`
 }
 

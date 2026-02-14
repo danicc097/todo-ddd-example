@@ -3,8 +3,10 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -13,8 +15,13 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
+	"github.com/danicc097/todo-ddd-example/internal"
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 )
 
 type ErrorH func(c *gin.Context, message string, statusCode int)
@@ -37,22 +44,24 @@ func NewOpenapiMiddleware(spec *openapi3.T) *openapiMiddleware {
 		panic(fmt.Sprintf("gorillamux.NewRouter: %v", err))
 	}
 
-	return &openapiMiddleware{
-		router: router,
-	}
+	return &openapiMiddleware{router: router}
 }
 
 func (m *openapiMiddleware) RequestValidatorWithOptions(options *OAValidatorOptions) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		rbw := &responseBodyWriter{body: &bytes.Buffer{}, ResponseWriter: c.Writer}
-		c.Writer = rbw
+	if options != nil {
+		options.Options.MultiError = true
+	}
 
-		err := validateRequest(c, m.router, options)
-		if err != nil {
+	return func(c *gin.Context) {
+		if err := validateRequest(c, m.router, options); err != nil {
 			if options != nil && options.ErrorHandler != nil {
 				options.ErrorHandler(c, err.Error(), http.StatusBadRequest)
 			} else {
-				c.Error(apperrors.New(apperrors.ErrCodeInvalidInput, err.Error(), http.StatusBadRequest))
+				valErrs := parseValidationErrors(err)
+				appErr := apperrors.New(apperrors.InvalidInput, "OpenAPI request validation failed")
+				appErr.Validation = &valErrs
+
+				c.Error(appErr)
 			}
 
 			c.Abort()
@@ -60,29 +69,203 @@ func (m *openapiMiddleware) RequestValidatorWithOptions(options *OAValidatorOpti
 			return
 		}
 
+		if options == nil || !options.ValidateResponse || (internal.Config != nil && internal.Config.Env == internal.AppEnvProd) {
+			c.Next()
+			return
+		}
+
+		rbw := &responseBodyWriter{
+			ResponseWriter: c.Writer,
+			body:           &bytes.Buffer{},
+		}
+		c.Writer = rbw
+
 		c.Next()
 
-		if options == nil || !options.ValidateResponse {
+		c.Writer = rbw.ResponseWriter
+
+		if len(c.Errors) > 0 {
 			return
 		}
 
 		if err := validateResponse(c, m.router, rbw, options); err != nil {
-			// In a real app, you might log this error but still return the response,
-			// or fail completely in dev environments.
-			c.Error(apperrors.New(apperrors.ErrCodeInternal, fmt.Sprintf("response validation failed: %v", err), http.StatusInternalServerError))
+			slog.InfoContext(c.Request.Context(), "response validation failed")
+
+			span := trace.SpanFromContext(c.Request.Context())
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "response validation failed")
+			span.SetAttributes(
+				attribute.Bool("response.validation.failed", true),
+				attribute.String("response.validation.error", err.Error()),
+			)
+
+			valErrs := parseValidationErrors(err)
+			appErr := apperrors.New(apperrors.Internal, "OpenAPI response validation failed")
+			appErr.Validation = &valErrs
+
+			c.Error(appErr)
+			c.Abort()
+
+			return
 		}
+
+		if rbw.status > 0 {
+			c.Writer.WriteHeader(rbw.status)
+		} else {
+			c.Writer.WriteHeader(rbw.ResponseWriter.Status())
+		}
+
+		c.Writer.Write(rbw.body.Bytes())
+	}
+}
+
+func parseValidationErrors(err error) api.HTTPValidationError {
+	var (
+		detail   []api.ValidationError
+		messages []string
+	)
+
+	extractKinOpenApiError(err, nil, &detail, &messages)
+
+	return api.HTTPValidationError{
+		Detail:   &detail,
+		Messages: messages,
+	}
+}
+
+func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.ValidationError, messages *[]string) {
+	if err == nil {
+		return
+	}
+
+	if baseLoc == nil {
+		baseLoc = []string{}
+	}
+
+	var reqErr *openapi3filter.RequestError
+	if errors.As(err, &reqErr) {
+		loc := append([]string{}, baseLoc...)
+		if reqErr.Parameter != nil {
+			loc = append(loc, reqErr.Parameter.In, reqErr.Parameter.Name)
+		} else {
+			loc = append(loc, "body")
+		}
+
+		extractKinOpenApiError(reqErr.Err, loc, detail, messages)
+
+		return
+	}
+
+	var respErr *openapi3filter.ResponseError
+	if errors.As(err, &respErr) {
+		loc := append([]string{}, baseLoc...)
+		loc = append(loc, "response")
+		extractKinOpenApiError(respErr.Err, loc, detail, messages)
+
+		return
+	}
+
+	var me openapi3.MultiError
+	if errors.As(err, &me) {
+		for _, errItem := range me {
+			extractKinOpenApiError(errItem, baseLoc, detail, messages)
+		}
+
+		return
+	}
+
+	var secErr *openapi3filter.SecurityRequirementsError
+	if errors.As(err, &secErr) {
+		*messages = append(*messages, "Security requirements failed")
+		return
+	}
+
+	var parseErr *openapi3filter.ParseError
+	if errors.As(err, &parseErr) {
+		msg := parseErr.Error()
+		if parseErr.Cause != nil {
+			msg = parseErr.Cause.Error()
+		}
+
+		if strings.Contains(msg, "EOF") {
+			msg = "failed to decode request body"
+		}
+
+		*detail = append(*detail, api.ValidationError{
+			Loc: append([]string{}, baseLoc...),
+			Msg: msg,
+			Detail: api.ValidationErrorDetail{
+				Value: fmt.Sprintf("%v", parseErr.Value),
+			},
+		})
+
+		return
+	}
+
+	var schemaErr *openapi3.SchemaError
+	if errors.As(err, &schemaErr) {
+		loc := append([]string{}, baseLoc...)
+		loc = append(loc, schemaErr.JSONPointer()...)
+
+		var valStr string
+		if b, jsonErr := json.Marshal(schemaErr.Value); jsonErr == nil {
+			valStr = string(b)
+		} else {
+			valStr = fmt.Sprintf("%v", schemaErr.Value)
+		}
+
+		*detail = append(*detail, api.ValidationError{
+			Loc: loc,
+			Msg: schemaErr.Reason,
+			Detail: api.ValidationErrorDetail{
+				Value: valStr,
+			},
+		})
+
+		return
+	}
+
+	if unwrapped := errors.Unwrap(err); unwrapped != nil {
+		extractKinOpenApiError(unwrapped, baseLoc, detail, messages)
+		return
+	}
+
+	if len(baseLoc) > 0 {
+		*detail = append(*detail, api.ValidationError{
+			Loc:    append([]string{}, baseLoc...),
+			Msg:    err.Error(),
+			Detail: api.ValidationErrorDetail{Value: ""},
+		})
+	} else {
+		*messages = append(*messages, err.Error())
 	}
 }
 
 type responseBodyWriter struct {
 	gin.ResponseWriter
 
-	body *bytes.Buffer
+	body   *bytes.Buffer
+	status int
 }
 
 func (r *responseBodyWriter) Write(b []byte) (int, error) {
-	r.body.Write(b)
-	return r.ResponseWriter.Write(b)
+	return r.body.Write(b)
+}
+
+func (r *responseBodyWriter) WriteString(s string) (int, error) {
+	return r.body.WriteString(s)
+}
+
+func (r *responseBodyWriter) WriteHeader(statusCode int) {
+	r.status = statusCode
+}
+
+func (r *responseBodyWriter) Status() int {
+	if r.status > 0 {
+		return r.status
+	}
+
+	return r.ResponseWriter.Status()
 }
 
 func validateRequest(c *gin.Context, router routers.Router, options *OAValidatorOptions) error {
@@ -105,26 +288,7 @@ func validateRequest(c *gin.Context, router routers.Router, options *OAValidator
 		ctx = context.WithValue(ctx, "userData", options.UserData)
 	}
 
-	err = openapi3filter.ValidateRequest(ctx, validationInput)
-	if err != nil {
-		{
-			var (
-				e  *openapi3filter.RequestError
-				e1 *openapi3filter.SecurityRequirementsError
-			)
-
-			switch {
-			case errors.As(err, &e):
-				return errors.New(strings.Split(e.Error(), "\n")[0])
-			case errors.As(err, &e1):
-				return fmt.Errorf("security requirements failed: %w", e1)
-			default:
-				return err
-			}
-		}
-	}
-
-	return nil
+	return openapi3filter.ValidateRequest(ctx, validationInput)
 }
 
 func validateResponse(c *gin.Context, router routers.Router, rbw *responseBodyWriter, options *OAValidatorOptions) error {
@@ -133,16 +297,21 @@ func validateResponse(c *gin.Context, router routers.Router, rbw *responseBodyWr
 		return err
 	}
 
+	var opts *openapi3filter.Options
+	if options != nil {
+		opts = &options.Options
+	}
+
 	input := &openapi3filter.ResponseValidationInput{
 		RequestValidationInput: &openapi3filter.RequestValidationInput{
 			Request:    c.Request,
 			PathParams: pathParams,
 			Route:      route,
-			Options:    &options.Options,
+			Options:    opts,
 		},
 		Status:  rbw.Status(),
 		Header:  rbw.Header(),
-		Options: &options.Options,
+		Options: opts,
 	}
 
 	input.SetBodyBytes(rbw.body.Bytes())

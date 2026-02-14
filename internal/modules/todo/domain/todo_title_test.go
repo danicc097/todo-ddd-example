@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"testing"
 	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
