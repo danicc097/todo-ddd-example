@@ -40,7 +40,7 @@ func (d {{$decorator}}) key(id string) string {
 
 {{range $method := .Interface.Methods}}
 func (d {{$decorator}}) {{$method.Declaration}} {
-	{{- if eq $method.Name "FindByID"}}
+	{{- if or (eq $method.Name "FindByID") (eq $method.Name "GetByID")}}
 		{{ $retEntity := (index $method.Results 0).Name }}
 		{{ $retErr := (index $method.Results 1).Name }}
 		var cacheVal []byte

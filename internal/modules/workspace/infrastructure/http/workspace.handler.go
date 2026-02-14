@@ -107,3 +107,13 @@ func (h *WorkspaceHandler) RemoveWorkspaceMember(c *gin.Context, id domain.Works
 
 	c.Status(http.StatusNoContent)
 }
+
+func (h *WorkspaceHandler) GetWorkspaceTags(c *gin.Context, id domain.WorkspaceID) {
+	tags, err := h.queryService.ListTagsByWorkspaceID(c.Request.Context(), id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, tags)
+}

@@ -163,6 +163,43 @@ func (q *Queries) ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, er
 	return items, nil
 }
 
+const ListWorkspacesByUserID = `-- name: ListWorkspacesByUserID :many
+SELECT
+  w.id, w.name, w.description, w.created_at
+FROM
+  workspaces w
+  JOIN workspace_members wm ON w.id = wm.workspace_id
+WHERE
+  wm.user_id = $1
+ORDER BY
+  w.created_at DESC
+`
+
+func (q *Queries) ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error) {
+	rows, err := db.Query(ctx, ListWorkspacesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Workspaces{}
+	for rows.Next() {
+		var i Workspaces
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpsertWorkspace = `-- name: UpsertWorkspace :one
 INSERT INTO workspaces(id, name, description, created_at)
   VALUES ($1, $2, $3, $4)

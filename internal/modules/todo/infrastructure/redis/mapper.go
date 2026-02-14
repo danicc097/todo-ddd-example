@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 type TodoCacheDTO struct {
@@ -49,18 +50,20 @@ func FromTodoCacheDTO(dto TodoCacheDTO) *domain.Todo {
 }
 
 type TagCacheDTO struct {
-	ID   uuid.UUID `msgpack:"id"`
-	Name string    `msgpack:"name"`
+	ID          uuid.UUID `msgpack:"id"`
+	Name        string    `msgpack:"name"`
+	WorkspaceID uuid.UUID `msgpack:"workspace_id"`
 }
 
 func ToTagCacheDTO(t *domain.Tag) TagCacheDTO {
 	return TagCacheDTO{
-		ID:   t.ID().UUID,
-		Name: t.Name().String(),
+		ID:          t.ID().UUID,
+		Name:        t.Name().String(),
+		WorkspaceID: t.WorkspaceID().UUID,
 	}
 }
 
 func FromTagCacheDTO(dto TagCacheDTO) *domain.Tag {
 	name, _ := domain.NewTagName(dto.Name)
-	return domain.ReconstituteTag(domain.TagID{UUID: dto.ID}, name)
+	return domain.ReconstituteTag(domain.TagID{UUID: dto.ID}, name, wsDomain.WorkspaceID{UUID: dto.WorkspaceID})
 }

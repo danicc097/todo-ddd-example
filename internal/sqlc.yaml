@@ -61,6 +61,10 @@ sql:
             go_type:
               import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
               type: "UserID"
+          - column: "tags.workspace_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "WorkspaceID"
           - db_type: pg_catalog.timestamptz
             go_type:
               type: time.Time

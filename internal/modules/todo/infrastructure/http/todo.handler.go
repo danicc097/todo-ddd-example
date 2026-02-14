@@ -10,6 +10,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
@@ -89,18 +90,21 @@ func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.
 	c.Status(http.StatusOK)
 }
 
-func (h *TodoHandler) CreateTag(c *gin.Context, params api.CreateTagParams) {
+func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params api.CreateTagParams) {
 	var req api.CreateTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 
-	id, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{Name: req.Name})
+	tagID, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{
+		Name:        req.Name,
+		WorkspaceID: id,
+	})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
+	c.JSON(http.StatusCreated, gin.H{"id": tagID.UUID})
 }

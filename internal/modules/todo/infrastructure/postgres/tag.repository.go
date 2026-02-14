@@ -10,6 +10,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
@@ -59,8 +60,11 @@ func (r *TagRepo) FindByID(ctx context.Context, id domain.TagID) (*domain.Tag, e
 	return r.mapper.ToDomain(row), nil
 }
 
-func (r *TagRepo) FindByName(ctx context.Context, name string) (*domain.Tag, error) {
-	row, err := r.q.GetTagByName(ctx, r.db, name)
+func (r *TagRepo) FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (*domain.Tag, error) {
+	row, err := r.q.GetTagByName(ctx, r.db, db.GetTagByNameParams{
+		WorkspaceID: workspaceID,
+		Name:        name,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTagNotFound

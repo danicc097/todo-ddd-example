@@ -89,22 +89,22 @@ update_cache = $(call get_hash,$(1)) > $(CACHE_DIR)/$(2)
 gen-schema:
 	if $(call is_changed,$(MIG_DEPS),mig_hash); then \
 		echo "Migrations changed. Re-generating..."; \
-		$(MAKE) run-gen-schema; \
+		$(MAKE) run-gen-schema || { rm -f $(CACHE_DIR)/mig_hash; exit 1; }; \
 		$(call update_cache,$(MIG_DEPS),mig_hash); \
 	fi
 
 gen-sqlc: gen-schema
 	if $(call is_changed,$(SQLC_DEPS),sqlc_hash); then \
 		echo "SQL changed. Updating SQLC..."; \
-		$(SQLC) generate -f internal/sqlc.yaml; \
+		$(SQLC) generate -f internal/sqlc.yaml || { rm -f $(CACHE_DIR)/sqlc_hash; exit 1; }; \
 		$(call update_cache,$(SQLC_DEPS),sqlc_hash); \
 	fi
 
 gen-oapi:
 	if $(call is_changed,$(OAPI_DEPS),oapi_hash); then \
 		echo "OpenAPI spec/config changed. Updating..."; \
-		go tool oapi-codegen -config internal/oapi-codegen.yaml openapi.yaml; \
-		go tool oapi-codegen -config internal/oapi-codegen-client.yaml openapi.yaml; \
+		go tool oapi-codegen -config internal/oapi-codegen.yaml openapi.yaml || { rm -f $(CACHE_DIR)/oapi_hash; exit 1; }; \
+		go tool oapi-codegen -config internal/oapi-codegen-client.yaml openapi.yaml || { rm -f $(CACHE_DIR)/oapi_hash; exit 1; }; \
 		$(call update_cache,$(OAPI_DEPS),oapi_hash); \
 	fi
 

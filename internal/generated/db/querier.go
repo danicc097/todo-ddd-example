@@ -22,15 +22,17 @@ type Querier interface {
 	DeleteWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) error
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error)
-	GetTagByName(ctx context.Context, db DBTX, name string) (Tags, error)
+	GetTagByName(ctx context.Context, db DBTX, arg GetTagByNameParams) (Tags, error)
 	GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error)
 	// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 	GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error)
 	GetUserByID(ctx context.Context, db DBTX, id types.UserID) (Users, error)
 	GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error)
 	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error)
+	ListTagsByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]Tags, error)
 	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
 	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)
+	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error

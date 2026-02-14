@@ -218,7 +218,15 @@ func main() {
 
 	// queries bypass tx
 	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
-	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(baseTodoQueryService, "todo-ddd-api")
+	apiTodoCodec := todoRedis.NewAPITodoCacheCodec()
+	cachedTodoQueryService := todoDecorator.NewTodoQueryServiceWithCache(
+		baseTodoQueryService,
+		redisClient,
+		5*time.Minute,
+		apiTodoCodec,
+	)
+
+	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, "todo-ddd-api")
 
 	registerUserUC := userApp.NewRegisterUserUseCase(userRepo)
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
@@ -248,6 +256,7 @@ func main() {
 	uh := userHttp.NewUserHandler(
 		registerUserUC,
 		getUserUC,
+		workspaceQueryService,
 	)
 
 	wh := wsHttp.NewWorkspaceHandler(

@@ -10,28 +10,29 @@ import (
 	"log/slog"
 	"time"
 
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
-	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
-type TagRepositoryWithCache struct {
-	base   _sourceDomain.TagRepository
+type TodoQueryServiceWithCache struct {
+	base   _sourceApplication.TodoQueryService
 	client *redis.Client
 	ttl    time.Duration
-	codec  cache.Codec[*_sourceDomain.Tag]
+	codec  cache.Codec[*api.Todo]
 }
 
-func NewTagRepositoryWithCache(
-	base _sourceDomain.TagRepository,
+func NewTodoQueryServiceWithCache(
+	base _sourceApplication.TodoQueryService,
 	client *redis.Client,
 	ttl time.Duration,
-	codec cache.Codec[*_sourceDomain.Tag],
-) TagRepositoryWithCache {
-	return TagRepositoryWithCache{
+	codec cache.Codec[*api.Todo],
+) TodoQueryServiceWithCache {
+	return TodoQueryServiceWithCache{
 		base:   base,
 		client: client,
 		ttl:    ttl,
@@ -39,11 +40,15 @@ func NewTagRepositoryWithCache(
 	}
 }
 
-func (d TagRepositoryWithCache) key(id string) string {
-	return fmt.Sprintf("tag:%s", id)
+func (d TodoQueryServiceWithCache) key(id string) string {
+	return fmt.Sprintf("todo_query:%s", id)
 }
 
-func (d TagRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.TagID) (tp1 *_sourceDomain.Tag, err error) {
+func (d TodoQueryServiceWithCache) GetAll(ctx context.Context) (ta1 []api.Todo, err error) {
+	return d.base.GetAll(ctx)
+}
+
+func (d TodoQueryServiceWithCache) GetByID(ctx context.Context, id domain.TodoID) (tp1 *api.Todo, err error) {
 
 	var cacheVal []byte
 	var unmarshalErr error
@@ -67,7 +72,7 @@ func (d TagRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.T
 	span.SetAttributes(attribute.Bool("cache.hit", false))
 	slog.DebugContext(ctx, "cache miss", slog.String("key", key))
 
-	tp1, err = d.base.FindByID(ctx, id)
+	tp1, err = d.base.GetByID(ctx, id)
 	if err != nil {
 		return tp1, err
 	}
@@ -77,24 +82,4 @@ func (d TagRepositoryWithCache) FindByID(ctx context.Context, id _sourceDomain.T
 	}
 
 	return tp1, nil
-}
-
-func (d TagRepositoryWithCache) FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (tp1 *_sourceDomain.Tag, err error) {
-	return d.base.FindByName(ctx, workspaceID, name)
-}
-
-func (d TagRepositoryWithCache) Save(ctx context.Context, tag *_sourceDomain.Tag) (err error) {
-
-	err = d.base.Save(ctx, tag)
-	if err != nil {
-		return err
-	}
-
-	entity := tag
-	key := d.key(entity.ID().String())
-	d.client.Del(ctx, key)
-
-	slog.DebugContext(ctx, "cache invalidated", slog.String("key", key))
-
-	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -61,13 +62,14 @@ func (_d TagRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomai
 }
 
 // FindByName implements TagRepository
-func (_d TagRepositoryWithTracing) FindByName(ctx context.Context, name string) (tp1 *_sourceDomain.Tag, err error) {
+func (_d TagRepositoryWithTracing) FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (tp1 *_sourceDomain.Tag, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.FindByName")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":  ctx,
-				"name": name}, map[string]interface{}{
+				"ctx":         ctx,
+				"workspaceID": workspaceID,
+				"name":        name}, map[string]interface{}{
 				"tp1": tp1,
 				"err": err})
 		} else if err != nil {
@@ -81,7 +83,7 @@ func (_d TagRepositoryWithTracing) FindByName(ctx context.Context, name string) 
 
 		_span.End()
 	}()
-	return _d.TagRepository.FindByName(ctx, name)
+	return _d.TagRepository.FindByName(ctx, workspaceID, name)
 }
 
 // Save implements TagRepository

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	domaina "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 type FakeTagRepository struct {
@@ -23,11 +24,12 @@ type FakeTagRepository struct {
 		result1 *domain.Tag
 		result2 error
 	}
-	FindByNameStub        func(context.Context, string) (*domain.Tag, error)
+	FindByNameStub        func(context.Context, domaina.WorkspaceID, string) (*domain.Tag, error)
 	findByNameMutex       sync.RWMutex
 	findByNameArgsForCall []struct {
 		arg1 context.Context
-		arg2 string
+		arg2 domaina.WorkspaceID
+		arg3 string
 	}
 	findByNameReturns struct {
 		result1 *domain.Tag
@@ -118,19 +120,20 @@ func (fake *FakeTagRepository) FindByIDReturnsOnCall(i int, result1 *domain.Tag,
 	}{result1, result2}
 }
 
-func (fake *FakeTagRepository) FindByName(arg1 context.Context, arg2 string) (*domain.Tag, error) {
+func (fake *FakeTagRepository) FindByName(arg1 context.Context, arg2 domaina.WorkspaceID, arg3 string) (*domain.Tag, error) {
 	fake.findByNameMutex.Lock()
 	ret, specificReturn := fake.findByNameReturnsOnCall[len(fake.findByNameArgsForCall)]
 	fake.findByNameArgsForCall = append(fake.findByNameArgsForCall, struct {
 		arg1 context.Context
-		arg2 string
-	}{arg1, arg2})
+		arg2 domaina.WorkspaceID
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.FindByNameStub
 	fakeReturns := fake.findByNameReturns
-	fake.recordInvocation("FindByName", []interface{}{arg1, arg2})
+	fake.recordInvocation("FindByName", []interface{}{arg1, arg2, arg3})
 	fake.findByNameMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -144,17 +147,17 @@ func (fake *FakeTagRepository) FindByNameCallCount() int {
 	return len(fake.findByNameArgsForCall)
 }
 
-func (fake *FakeTagRepository) FindByNameCalls(stub func(context.Context, string) (*domain.Tag, error)) {
+func (fake *FakeTagRepository) FindByNameCalls(stub func(context.Context, domaina.WorkspaceID, string) (*domain.Tag, error)) {
 	fake.findByNameMutex.Lock()
 	defer fake.findByNameMutex.Unlock()
 	fake.FindByNameStub = stub
 }
 
-func (fake *FakeTagRepository) FindByNameArgsForCall(i int) (context.Context, string) {
+func (fake *FakeTagRepository) FindByNameArgsForCall(i int) (context.Context, domaina.WorkspaceID, string) {
 	fake.findByNameMutex.RLock()
 	defer fake.findByNameMutex.RUnlock()
 	argsForCall := fake.findByNameArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeTagRepository) FindByNameReturns(result1 *domain.Tag, result2 error) {

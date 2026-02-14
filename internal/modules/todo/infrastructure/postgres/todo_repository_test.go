@@ -9,6 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -32,6 +36,15 @@ func TestTodoRepo_Integration(t *testing.T) {
 
 	repo := NewTodoRepo(pool)
 	tagRepo := NewTagRepo(pool)
+	userRepo := userPg.NewUserRepo(pool)
+	wsRepo := wsPg.NewWorkspaceRepo(pool)
+
+	uEmail, _ := userDomain.NewUserEmail("test@mail.com")
+	u := userDomain.CreateUser(uEmail, "test")
+	require.NoError(t, userRepo.Save(ctx, u))
+
+	ws := wsDomain.NewWorkspace("WS", "Desc", u.ID())
+	require.NoError(t, wsRepo.Save(ctx, ws))
 
 	todo := mustCreateTodo(t, "Test Todo")
 
@@ -79,11 +92,11 @@ func TestTodoRepo_Integration(t *testing.T) {
 		taggedTodo := mustCreateTodo(t, "Todo with tags")
 
 		tn1, _ := domain.NewTagName("tag-1")
-		tag1 := domain.NewTag(tn1)
+		tag1 := domain.NewTag(tn1, ws.ID())
 		require.NoError(t, tagRepo.Save(ctx, tag1))
 
 		tn2, _ := domain.NewTagName("tag-2")
-		tag2 := domain.NewTag(tn2)
+		tag2 := domain.NewTag(tn2, ws.ID())
 		require.NoError(t, tagRepo.Save(ctx, tag2))
 
 		taggedTodo.AddTag(tag1.ID())

@@ -146,34 +146,6 @@ paths:
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
-  /tags:
-    post:
-      summary: Create a new tag
-      operationId: createTag
-      tags:
-        - tag
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTagRequest'
-      responses:
-        '201':
-          description: Tag created
-          content:
-            application/json:
-              schema:
-                required: [id]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-        '4XX':
-          $ref: '#/components/responses/ErrorResponse'
-
   /users:
     post:
       operationId: registerUser
@@ -208,6 +180,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+
+  /users/{id}/workspaces:
+    get:
+      summary: Get all workspaces for a user
+      operationId: getUserWorkspaces
+      tags:
+        - user
+      parameters:
+        - *x-userIDParameter
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
   /workspaces:
     get:
       summary: List all workspaces
@@ -277,6 +267,50 @@ paths:
       responses:
         '204':
           description: Member removed
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+  /workspaces/{id}/tags:
+    get:
+      summary: Get all tags for a workspace
+      operationId: getWorkspaceTags
+      tags:
+        - workspace
+      parameters:
+        - *x-workspaceIDParameter
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+    post:
+      summary: Create a new tag
+      operationId: createTag
+      tags:
+        - tag
+      parameters:
+        - *x-workspaceIDParameter
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '201':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                required: [id]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
@@ -416,6 +450,13 @@ components:
         email: { type: string }
         name: { type: string }
 
+    Tag:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          *x-tagIDSchema
+        name: { type: string }
   responses:
     ErrorResponse:
       description: General error response

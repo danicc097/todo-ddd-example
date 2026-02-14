@@ -2,6 +2,8 @@ package domain
 
 import (
 	"context"
+
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 //counterfeiter:generate . TodoRepository
@@ -20,5 +22,5 @@ type TodoRepository interface {
 type TagRepository interface {
 	Save(ctx context.Context, tag *Tag) error
 	FindByID(ctx context.Context, id TagID) (*Tag, error)
-	FindByName(ctx context.Context, name string) (*Tag, error)
+	FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (*Tag, error)
 }

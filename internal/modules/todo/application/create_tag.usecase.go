@@ -4,11 +4,13 @@ import (
 	"context"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type CreateTagCommand struct {
-	Name string
+	Name        string
+	WorkspaceID wsDomain.WorkspaceID
 }
 
 type CreateTagHandler struct {
@@ -27,7 +29,7 @@ func (h *CreateTagHandler) Handle(ctx context.Context, cmd CreateTagCommand) (do
 		return domain.TagID{}, err
 	}
 
-	tag := domain.NewTag(tn)
+	tag := domain.NewTag(tn, cmd.WorkspaceID)
 
 	if err := h.repo.Save(ctx, tag); err != nil {
 		return domain.TagID{}, err

@@ -8,7 +8,9 @@ import (
 	"context"
 
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
+	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -58,4 +60,52 @@ func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.
 		_span.End()
 	}()
 	return _d.WorkspaceQueryService.List(ctx)
+}
+
+// ListByUserID implements WorkspaceQueryService
+func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, userID userDomain.UserID) (wa1 []api.Workspace, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListByUserID")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":    ctx,
+				"userID": userID}, map[string]interface{}{
+				"wa1": wa1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WorkspaceQueryService.ListByUserID(ctx, userID)
+}
+
+// ListTagsByWorkspaceID implements WorkspaceQueryService
+func (_d WorkspaceQueryServiceWithTracing) ListTagsByWorkspaceID(ctx context.Context, workspaceID domain.WorkspaceID) (ta1 []api.Tag, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListTagsByWorkspaceID")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":         ctx,
+				"workspaceID": workspaceID}, map[string]interface{}{
+				"ta1": ta1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WorkspaceQueryService.ListTagsByWorkspaceID(ctx, workspaceID)
 }

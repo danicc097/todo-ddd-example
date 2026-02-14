@@ -63,6 +63,12 @@ type RegisterUserRequest struct {
 	Name  string `json:"name"`
 }
 
+// Tag defines model for Tag.
+type Tag struct {
+	Id   todoDomain.TagID `json:"id"`
+	Name string           `json:"name"`
+}
+
 // Todo defines model for Todo.
 type Todo struct {
 	CreatedAt time.Time         `json:"createdAt"`
@@ -117,12 +123,6 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// CreateTagParams defines parameters for CreateTag.
-type CreateTagParams struct {
-	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
-	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
-}
-
 // CreateTodoParams defines parameters for CreateTodo.
 type CreateTodoParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -147,8 +147,11 @@ type OnboardWorkspaceParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
-// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
-type CreateTagJSONRequestBody = CreateTagRequest
+// CreateTagParams defines parameters for CreateTag.
+type CreateTagParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
 
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
@@ -158,6 +161,9 @@ type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
+
+// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
+type CreateTagJSONRequestBody = CreateTagRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -232,11 +238,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// CreateTagWithBody request with any body
-	CreateTagWithBody(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateTag(ctx context.Context, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetAllTodos request
 	GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -259,6 +260,9 @@ type ClientInterface interface {
 	// GetUserByID request
 	GetUserByID(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetUserWorkspaces request
+	GetUserWorkspaces(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -272,30 +276,14 @@ type ClientInterface interface {
 
 	// RemoveWorkspaceMember request
 	RemoveWorkspaceMember(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
 
-func (c *Client) CreateTagWithBody(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTagRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
+	// GetWorkspaceTags request
+	GetWorkspaceTags(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-func (c *Client) CreateTag(ctx context.Context, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTagRequest(c.Server, params, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
+	// CreateTagWithBody request with any body
+	CreateTagWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -394,6 +382,18 @@ func (c *Client) GetUserByID(ctx context.Context, id userDomain.UserID, reqEdito
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetUserWorkspaces(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserWorkspacesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListWorkspacesRequest(c.Server)
 	if err != nil {
@@ -454,59 +454,40 @@ func (c *Client) RemoveWorkspaceMember(ctx context.Context, id workspaceDomain.W
 	return c.Client.Do(req)
 }
 
-// NewCreateTagRequest calls the generic CreateTag builder with application/json body
-func NewCreateTagRequest(server string, params *CreateTagParams, body CreateTagJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
+func (c *Client) GetWorkspaceTags(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkspaceTagsRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateTagRequestWithBody(server, params, "application/json", bodyReader)
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
-// NewCreateTagRequestWithBody generates requests for CreateTag with any type of body
-func NewCreateTagRequestWithBody(server string, params *CreateTagParams, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
+func (c *Client) CreateTagWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTagRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
-
-	operationPath := fmt.Sprintf("/tags")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
 	}
+	return c.Client.Do(req)
+}
 
-	queryURL, err := serverURL.Parse(operationPath)
+func (c *Client) CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTagRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		if params.IdempotencyKey != nil {
-			var headerParam0 string
-
-			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("Idempotency-Key", headerParam0)
-		}
-
-	}
-
-	return req, nil
+	return c.Client.Do(req)
 }
 
 // NewGetAllTodosRequest generates requests for GetAllTodos
@@ -763,6 +744,40 @@ func NewGetUserByIDRequest(server string, id userDomain.UserID) (*http.Request, 
 	return req, nil
 }
 
+// NewGetUserWorkspacesRequest generates requests for GetUserWorkspaces
+func NewGetUserWorkspacesRequest(server string, id userDomain.UserID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/users/%s/workspaces", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListWorkspacesRequest generates requests for ListWorkspaces
 func NewListWorkspacesRequest(server string) (*http.Request, error) {
 	var err error
@@ -920,6 +935,102 @@ func NewRemoveWorkspaceMemberRequest(server string, id workspaceDomain.Workspace
 	return req, nil
 }
 
+// NewGetWorkspaceTagsRequest generates requests for GetWorkspaceTags
+func NewGetWorkspaceTagsRequest(server string, id workspaceDomain.WorkspaceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/tags", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTagRequest calls the generic CreateTag builder with application/json body
+func NewCreateTagRequest(server string, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTagRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCreateTagRequestWithBody generates requests for CreateTag with any type of body
+func NewCreateTagRequestWithBody(server string, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/tags", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -963,11 +1074,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// CreateTagWithBodyWithResponse request with any body
-	CreateTagWithBodyWithResponse(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
-
-	CreateTagWithResponse(ctx context.Context, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
-
 	// GetAllTodosWithResponse request
 	GetAllTodosWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllTodosResponse, error)
 
@@ -990,6 +1096,9 @@ type ClientWithResponsesInterface interface {
 	// GetUserByIDWithResponse request
 	GetUserByIDWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error)
 
+	// GetUserWorkspacesWithResponse request
+	GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error)
+
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
 
@@ -1003,31 +1112,14 @@ type ClientWithResponsesInterface interface {
 
 	// RemoveWorkspaceMemberWithResponse request
 	RemoveWorkspaceMemberWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID, reqEditors ...RequestEditorFn) (*RemoveWorkspaceMemberResponse, error)
-}
 
-type CreateTagResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *struct {
-		Id openapi_types.UUID `json:"id"`
-	}
-	JSON4XX *ErrorResponse
-}
+	// GetWorkspaceTagsWithResponse request
+	GetWorkspaceTagsWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTagsResponse, error)
 
-// Status returns HTTPResponse.Status
-func (r CreateTagResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
+	// CreateTagWithBodyWithResponse request with any body
+	CreateTagWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
 
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateTagResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
+	CreateTagWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
 }
 
 type GetAllTodosResponse struct {
@@ -1168,6 +1260,28 @@ func (r GetUserByIDResponse) StatusCode() int {
 	return 0
 }
 
+type GetUserWorkspacesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Workspace
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserWorkspacesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserWorkspacesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListWorkspacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1260,21 +1374,51 @@ func (r RemoveWorkspaceMemberResponse) StatusCode() int {
 	return 0
 }
 
-// CreateTagWithBodyWithResponse request with arbitrary body returning *CreateTagResponse
-func (c *ClientWithResponses) CreateTagWithBodyWithResponse(ctx context.Context, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
-	rsp, err := c.CreateTagWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateTagResponse(rsp)
+type GetWorkspaceTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Tag
 }
 
-func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
-	rsp, err := c.CreateTag(ctx, params, body, reqEditors...)
-	if err != nil {
-		return nil, err
+// Status returns HTTPResponse.Status
+func (r GetWorkspaceTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
 	}
-	return ParseCreateTagResponse(rsp)
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkspaceTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *struct {
+		Id openapi_types.UUID `json:"id"`
+	}
+	JSON4XX *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 // GetAllTodosWithResponse request returning *GetAllTodosResponse
@@ -1347,6 +1491,15 @@ func (c *ClientWithResponses) GetUserByIDWithResponse(ctx context.Context, id us
 	return ParseGetUserByIDResponse(rsp)
 }
 
+// GetUserWorkspacesWithResponse request returning *GetUserWorkspacesResponse
+func (c *ClientWithResponses) GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error) {
+	rsp, err := c.GetUserWorkspaces(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserWorkspacesResponse(rsp)
+}
+
 // ListWorkspacesWithResponse request returning *ListWorkspacesResponse
 func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
 	rsp, err := c.ListWorkspaces(ctx, reqEditors...)
@@ -1391,39 +1544,30 @@ func (c *ClientWithResponses) RemoveWorkspaceMemberWithResponse(ctx context.Cont
 	return ParseRemoveWorkspaceMemberResponse(rsp)
 }
 
-// ParseCreateTagResponse parses an HTTP response from a CreateTagWithResponse call
-func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
+// GetWorkspaceTagsWithResponse request returning *GetWorkspaceTagsResponse
+func (c *ClientWithResponses) GetWorkspaceTagsWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTagsResponse, error) {
+	rsp, err := c.GetWorkspaceTags(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
+	return ParseGetWorkspaceTagsResponse(rsp)
+}
 
-	response := &CreateTagResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
+// CreateTagWithBodyWithResponse request with arbitrary body returning *CreateTagResponse
+func (c *ClientWithResponses) CreateTagWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
+	rsp, err := c.CreateTagWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
 	}
+	return ParseCreateTagResponse(rsp)
+}
 
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Id openapi_types.UUID `json:"id"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
+func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
+	rsp, err := c.CreateTag(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
 	}
-
-	return response, nil
+	return ParseCreateTagResponse(rsp)
 }
 
 // ParseGetAllTodosResponse parses an HTTP response from a GetAllTodosWithResponse call
@@ -1600,6 +1744,32 @@ func ParseGetUserByIDResponse(rsp *http.Response) (*GetUserByIDResponse, error) 
 	return response, nil
 }
 
+// ParseGetUserWorkspacesResponse parses an HTTP response from a GetUserWorkspacesWithResponse call
+func ParseGetUserWorkspacesResponse(rsp *http.Response) (*GetUserWorkspacesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserWorkspacesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Workspace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListWorkspacesResponse parses an HTTP response from a ListWorkspacesWithResponse call
 func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1708,6 +1878,67 @@ func ParseRemoveWorkspaceMemberResponse(rsp *http.Response) (*RemoveWorkspaceMem
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkspaceTagsResponse parses an HTTP response from a GetWorkspaceTagsWithResponse call
+func ParseGetWorkspaceTagsResponse(rsp *http.Response) (*GetWorkspaceTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkspaceTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Tag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTagResponse parses an HTTP response from a CreateTagWithResponse call
+func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Id openapi_types.UUID `json:"id"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

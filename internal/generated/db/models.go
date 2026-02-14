@@ -22,8 +22,9 @@ type Outbox struct {
 }
 
 type Tags struct {
-	ID   types.TagID `db:"id" json:"id"`
-	Name string      `db:"name" json:"name"`
+	ID          types.TagID       `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
 }
 
 type TodoTags struct {

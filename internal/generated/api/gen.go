@@ -58,6 +58,12 @@ type RegisterUserRequest struct {
 	Name  string `json:"name"`
 }
 
+// Tag defines model for Tag.
+type Tag struct {
+	Id   todoDomain.TagID `json:"id"`
+	Name string           `json:"name"`
+}
+
 // Todo defines model for Todo.
 type Todo struct {
 	CreatedAt time.Time         `json:"createdAt"`
@@ -112,12 +118,6 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// CreateTagParams defines parameters for CreateTag.
-type CreateTagParams struct {
-	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
-	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
-}
-
 // CreateTodoParams defines parameters for CreateTodo.
 type CreateTodoParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -142,8 +142,11 @@ type OnboardWorkspaceParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
-// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
-type CreateTagJSONRequestBody = CreateTagRequest
+// CreateTagParams defines parameters for CreateTag.
+type CreateTagParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
 
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
@@ -154,11 +157,11 @@ type RegisterUserJSONRequestBody = RegisterUserRequest
 // OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
 
+// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
+type CreateTagJSONRequestBody = CreateTagRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Create a new tag
-	// (POST /tags)
-	CreateTag(c *gin.Context, params CreateTagParams)
 	// List all todos
 	// (GET /todos)
 	GetAllTodos(c *gin.Context)
@@ -177,6 +180,9 @@ type ServerInterface interface {
 
 	// (GET /users/{id})
 	GetUserByID(c *gin.Context, id userDomain.UserID)
+	// Get all workspaces for a user
+	// (GET /users/{id}/workspaces)
+	GetUserWorkspaces(c *gin.Context, id userDomain.UserID)
 	// List all workspaces
 	// (GET /workspaces)
 	ListWorkspaces(c *gin.Context)
@@ -189,6 +195,12 @@ type ServerInterface interface {
 	// Remove a member from a workspace
 	// (DELETE /workspaces/{id}/members/{userId})
 	RemoveWorkspaceMember(c *gin.Context, id workspaceDomain.WorkspaceID, userId userDomain.UserID)
+	// Get all tags for a workspace
+	// (GET /workspaces/{id}/tags)
+	GetWorkspaceTags(c *gin.Context, id workspaceDomain.WorkspaceID)
+	// Create a new tag
+	// (POST /workspaces/{id}/tags)
+	CreateTag(c *gin.Context, id workspaceDomain.WorkspaceID, params CreateTagParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -199,45 +211,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
-
-// CreateTag operation middleware
-func (siw *ServerInterfaceWrapper) CreateTag(c *gin.Context) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateTagParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "Idempotency-Key" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
-		var IdempotencyKey IdempotencyKey
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.IdempotencyKey = &IdempotencyKey
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.CreateTag(c, params)
-}
 
 // GetAllTodos operation middleware
 func (siw *ServerInterfaceWrapper) GetAllTodos(c *gin.Context) {
@@ -426,6 +399,30 @@ func (siw *ServerInterfaceWrapper) GetUserByID(c *gin.Context) {
 	siw.Handler.GetUserByID(c, id)
 }
 
+// GetUserWorkspaces operation middleware
+func (siw *ServerInterfaceWrapper) GetUserWorkspaces(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id userDomain.UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetUserWorkspaces(c, id)
+}
+
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
 
@@ -535,6 +532,78 @@ func (siw *ServerInterfaceWrapper) RemoveWorkspaceMember(c *gin.Context) {
 	siw.Handler.RemoveWorkspaceMember(c, id, userId)
 }
 
+// GetWorkspaceTags operation middleware
+func (siw *ServerInterfaceWrapper) GetWorkspaceTags(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id workspaceDomain.WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetWorkspaceTags(c, id)
+}
+
+// CreateTag operation middleware
+func (siw *ServerInterfaceWrapper) CreateTag(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id workspaceDomain.WorkspaceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTagParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateTag(c, id, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -562,15 +631,17 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.POST(options.BaseURL+"/tags", wrapper.CreateTag)
 	router.GET(options.BaseURL+"/todos", wrapper.GetAllTodos)
 	router.POST(options.BaseURL+"/todos", wrapper.CreateTodo)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)
 	router.POST(options.BaseURL+"/users", wrapper.RegisterUser)
 	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
+	router.GET(options.BaseURL+"/users/:id/workspaces", wrapper.GetUserWorkspaces)
 	router.GET(options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 	router.POST(options.BaseURL+"/workspaces", wrapper.OnboardWorkspace)
 	router.DELETE(options.BaseURL+"/workspaces/:id", wrapper.DeleteWorkspace)
 	router.DELETE(options.BaseURL+"/workspaces/:id/members/:userId", wrapper.RemoveWorkspaceMember)
+	router.GET(options.BaseURL+"/workspaces/:id/tags", wrapper.GetWorkspaceTags)
+	router.POST(options.BaseURL+"/workspaces/:id/tags", wrapper.CreateTag)
 }

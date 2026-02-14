@@ -1,13 +1,12 @@
 -- name: CreateTag :one
-INSERT INTO tags(id, name)
-  VALUES ($1, $2)
+INSERT INTO tags(id, name, workspace_id)
+  VALUES ($1, $2, $3)
 RETURNING
-  id, name;
+  *;
 
 -- name: GetTagByID :one
 SELECT
-  id,
-  name
+  *
 FROM
   tags
 WHERE
@@ -15,10 +14,20 @@ WHERE
 
 -- name: GetTagByName :one
 SELECT
-  id,
-  name
+  *
 FROM
   tags
 WHERE
-  name = $1;
+  workspace_id = $1
+  AND name = $2;
+
+-- name: ListTagsByWorkspaceID :many
+SELECT
+  *
+FROM
+  tags
+WHERE
+  workspace_id = $1
+ORDER BY
+  name ASC;
 

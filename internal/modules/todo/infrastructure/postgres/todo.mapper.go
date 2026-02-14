@@ -69,14 +69,15 @@ type TagMapper struct{}
 
 func (m *TagMapper) ToDomain(row db.Tags) *domain.Tag {
 	name, _ := domain.NewTagName(row.Name)
-	return domain.ReconstituteTag(row.ID, name)
+	return domain.ReconstituteTag(row.ID, name, row.WorkspaceID)
 }
 
 // ToPersistence maps Domain to the primary table struct.
 func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
 	return db.Tags{
-		ID:   t.ID(),
-		Name: t.Name().String(),
+		ID:          t.ID(),
+		Name:        t.Name().String(),
+		WorkspaceID: t.WorkspaceID(),
 	}
 }
 

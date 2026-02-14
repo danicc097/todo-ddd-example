@@ -12,28 +12,28 @@ import (
 )
 
 const CreateTag = `-- name: CreateTag :one
-INSERT INTO tags(id, name)
-  VALUES ($1, $2)
+INSERT INTO tags(id, name, workspace_id)
+  VALUES ($1, $2, $3)
 RETURNING
-  id, name
+  id, name, workspace_id
 `
 
 type CreateTagParams struct {
-	ID   types.TagID `db:"id" json:"id"`
-	Name string      `db:"name" json:"name"`
+	ID          types.TagID       `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
 }
 
 func (q *Queries) CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error) {
-	row := db.QueryRow(ctx, CreateTag, arg.ID, arg.Name)
+	row := db.QueryRow(ctx, CreateTag, arg.ID, arg.Name, arg.WorkspaceID)
 	var i Tags
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(&i.ID, &i.Name, &i.WorkspaceID)
 	return i, err
 }
 
 const GetTagByID = `-- name: GetTagByID :one
 SELECT
-  id,
-  name
+  id, name, workspace_id
 FROM
   tags
 WHERE
@@ -43,23 +43,59 @@ WHERE
 func (q *Queries) GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error) {
 	row := db.QueryRow(ctx, GetTagByID, id)
 	var i Tags
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(&i.ID, &i.Name, &i.WorkspaceID)
 	return i, err
 }
 
 const GetTagByName = `-- name: GetTagByName :one
 SELECT
-  id,
-  name
+  id, name, workspace_id
 FROM
   tags
 WHERE
-  name = $1
+  workspace_id = $1
+  AND name = $2
 `
 
-func (q *Queries) GetTagByName(ctx context.Context, db DBTX, name string) (Tags, error) {
-	row := db.QueryRow(ctx, GetTagByName, name)
+type GetTagByNameParams struct {
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	Name        string            `db:"name" json:"name"`
+}
+
+func (q *Queries) GetTagByName(ctx context.Context, db DBTX, arg GetTagByNameParams) (Tags, error) {
+	row := db.QueryRow(ctx, GetTagByName, arg.WorkspaceID, arg.Name)
 	var i Tags
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(&i.ID, &i.Name, &i.WorkspaceID)
 	return i, err
+}
+
+const ListTagsByWorkspaceID = `-- name: ListTagsByWorkspaceID :many
+SELECT
+  id, name, workspace_id
+FROM
+  tags
+WHERE
+  workspace_id = $1
+ORDER BY
+  name ASC
+`
+
+func (q *Queries) ListTagsByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]Tags, error) {
+	rows, err := db.Query(ctx, ListTagsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tags{}
+	for rows.Next() {
+		var i Tags
+		if err := rows.Scan(&i.ID, &i.Name, &i.WorkspaceID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -25,7 +25,8 @@ CREATE TABLE public.outbox (
 ALTER TABLE public.outbox OWNER TO postgres;
 CREATE TABLE public.tags (
     id uuid NOT NULL,
-    name text NOT NULL
+    name text NOT NULL,
+    workspace_id uuid NOT NULL
 );
 ALTER TABLE public.tags OWNER TO postgres;
 CREATE TABLE public.todo_tags (
@@ -63,9 +64,9 @@ ALTER TABLE public.workspaces OWNER TO postgres;
 ALTER TABLE ONLY public.outbox
     ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.tags
-    ADD CONSTRAINT tags_name_key UNIQUE (name);
-ALTER TABLE ONLY public.tags
     ADD CONSTRAINT tags_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.tags
+    ADD CONSTRAINT tags_workspace_id_name_key UNIQUE (workspace_id, name);
 ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT todo_tags_pkey PRIMARY KEY (todo_id, tag_id);
 ALTER TABLE ONLY public.todos
@@ -79,6 +80,8 @@ ALTER TABLE ONLY public.workspace_members
 ALTER TABLE ONLY public.workspaces
     ADD CONSTRAINT workspaces_pkey PRIMARY KEY (id);
 CREATE INDEX idx_outbox_unprocessed ON public.outbox USING btree (created_at) WHERE (processed_at IS NULL);
+ALTER TABLE ONLY public.tags
+    ADD CONSTRAINT fk_tags_workspace_id FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT fk_todo_tags_tag_id FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.todo_tags
