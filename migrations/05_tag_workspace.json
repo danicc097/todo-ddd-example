@@ -3,7 +3,7 @@
     {
       "add_column": {
         "table": "tags",
-        "up": "(SELECT id FROM workspaces LIMIT 1)",
+        "up": "(SELECT workspaces.id FROM workspaces LIMIT 1)",
         "column": {
           "name": "workspace_id",
           "type": "uuid",
