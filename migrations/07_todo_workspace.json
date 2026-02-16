@@ -1,0 +1,32 @@
+{
+  "operations": [
+    {
+      "add_column": {
+        "table": "todos",
+        "up": "(SELECT workspaces.id FROM workspaces LIMIT 1)",
+        "column": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "nullable": false,
+          "references": {
+            "name": "fk_todos_workspace_id",
+            "table": "workspaces",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        }
+      }
+    },
+    {
+      "create_index": {
+        "name": "idx_todos_workspace_id",
+        "table": "todos",
+        "columns": [
+          {
+            "column": "workspace_id"
+          }
+        ]
+      }
+    }
+  ]
+}

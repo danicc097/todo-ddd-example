@@ -31,10 +31,11 @@ func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
 		domain.TodoStatus(row.Status),
 		row.CreatedAt,
 		tagIDs,
+		row.WorkspaceID,
 	)
 }
 
-func (m *TodoMapper) ListRowToDomain(row db.ListTodosRow) *domain.Todo {
+func (m *TodoMapper) ListRowToDomain(row db.ListTodosByWorkspaceIDRow) *domain.Todo {
 	title, _ := domain.NewTodoTitle(row.Title)
 
 	tagIDs := make([]domain.TagID, len(row.Tags))
@@ -48,16 +49,18 @@ func (m *TodoMapper) ListRowToDomain(row db.ListTodosRow) *domain.Todo {
 		domain.TodoStatus(row.Status),
 		row.CreatedAt,
 		tagIDs,
+		row.WorkspaceID,
 	)
 }
 
 // ToPersistence maps Domain to the primary table struct.
 func (m *TodoMapper) ToPersistence(t *domain.Todo) db.Todos {
 	return db.Todos{
-		ID:        t.ID(),
-		Title:     t.Title().String(),
-		Status:    t.Status().String(),
-		CreatedAt: t.CreatedAt(),
+		ID:          t.ID(),
+		Title:       t.Title().String(),
+		Status:      t.Status().String(),
+		CreatedAt:   t.CreatedAt(),
+		WorkspaceID: t.WorkspaceID(),
 	}
 }
 
@@ -86,10 +89,11 @@ func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
  */
 
 type todoOutboxDTO struct {
-	ID        uuid.UUID `json:"id"`
-	Title     string    `json:"title"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Title       string    `json:"title"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type tagAddedOutboxDTO struct {
@@ -103,17 +107,19 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (string, []byte, error) {
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
 		payload = todoOutboxDTO{
-			ID:        evt.ID.UUID,
-			Title:     evt.Title,
-			Status:    evt.Status,
-			CreatedAt: evt.CreatedAt,
+			ID:          evt.ID.UUID,
+			WorkspaceID: evt.WorkspaceID.UUID,
+			Title:       evt.Title,
+			Status:      evt.Status,
+			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
 		payload = todoOutboxDTO{
-			ID:        evt.ID.UUID,
-			Title:     evt.Title,
-			Status:    evt.Status,
-			CreatedAt: evt.CreatedAt,
+			ID:          evt.ID.UUID,
+			WorkspaceID: evt.WorkspaceID.UUID,
+			Title:       evt.Title,
+			Status:      evt.Status,
+			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
 		payload = tagAddedOutboxDTO{

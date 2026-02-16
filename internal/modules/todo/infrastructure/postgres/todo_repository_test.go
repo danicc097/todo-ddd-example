@@ -16,13 +16,13 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
-func mustCreateTodo(t *testing.T, title string) *domain.Todo {
+func mustCreateTodo(t *testing.T, title string, wsID wsDomain.WorkspaceID) *domain.Todo {
 	t.Helper()
 
 	tt, err := domain.NewTodoTitle(title)
 	require.NoError(t, err)
 
-	return domain.NewTodo(tt)
+	return domain.NewTodo(tt, wsID)
 }
 
 func TestTodoRepo_Integration(t *testing.T) {
@@ -46,7 +46,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 	ws := wsDomain.NewWorkspace("WS", "Desc", u.ID())
 	require.NoError(t, wsRepo.Save(ctx, ws))
 
-	todo := mustCreateTodo(t, "Test Todo")
+	todo := mustCreateTodo(t, "Test Todo", ws.ID())
 
 	t.Run("save and find", func(t *testing.T) {
 		err := repo.Save(ctx, todo)
@@ -68,7 +68,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("find all", func(t *testing.T) {
-		todos, err := repo.FindAll(ctx)
+		todos, err := repo.FindAllByWorkspace(ctx, ws.ID())
 		require.NoError(t, err)
 
 		var found bool
@@ -89,7 +89,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("tags", func(t *testing.T) {
-		taggedTodo := mustCreateTodo(t, "Todo with tags")
+		taggedTodo := mustCreateTodo(t, "Todo with tags", ws.ID())
 
 		tn1, _ := domain.NewTagName("tag-1")
 		tag1 := domain.NewTag(tn1, ws.ID())

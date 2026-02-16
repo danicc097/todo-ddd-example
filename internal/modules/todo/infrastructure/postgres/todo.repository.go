@@ -11,6 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
@@ -97,8 +98,8 @@ func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo
 	return r.mapper.ToDomain(row), nil
 }
 
-func (r *TodoRepo) FindAll(ctx context.Context) ([]*domain.Todo, error) {
-	rows, err := r.q.ListTodos(ctx, r.getDB(ctx))
+func (r *TodoRepo) FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]*domain.Todo, error) {
+	rows, err := r.q.ListTodosByWorkspaceID(ctx, r.getDB(ctx), wsID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list todos: %w", sharedPg.ParseDBError(err))
 	}

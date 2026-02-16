@@ -60,6 +60,22 @@ type IdResponse struct {
 	Id openapi_types.UUID `json:"id"`
 }
 
+// InitiateTOTPResponseBody defines model for InitiateTOTPResponseBody.
+type InitiateTOTPResponseBody struct {
+	ProvisioningUri string `json:"provisioningUri"`
+}
+
+// LoginRequestBody defines model for LoginRequestBody.
+type LoginRequestBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Password secrecy.Secret[string] `json:"password"`
+}
+
+// LoginResponseBody defines model for LoginResponseBody.
+type LoginResponseBody struct {
+	AccessToken string `json:"accessToken"`
+}
+
 // OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
 type OnboardWorkspaceRequest struct {
 	// Description A brief description of the workspace purpose.
@@ -72,10 +88,11 @@ type OnboardWorkspaceRequest struct {
 	Name string `json:"name"`
 }
 
-// RegisterUserRequest defines model for RegisterUserRequest.
-type RegisterUserRequest struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
+// RegisterUserRequestBody defines model for RegisterUserRequestBody.
+type RegisterUserRequestBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Name     string                 `json:"name"`
+	Password secrecy.Secret[string] `json:"password"`
 }
 
 // Tag defines model for Tag.
@@ -86,10 +103,11 @@ type Tag struct {
 
 // Todo defines model for Todo.
 type Todo struct {
-	CreatedAt time.Time         `json:"createdAt"`
-	Id        todoDomain.TodoID `json:"id"`
-	Status    TodoStatus        `json:"status"`
-	Title     string            `json:"title"`
+	CreatedAt   time.Time                   `json:"createdAt"`
+	Id          todoDomain.TodoID           `json:"id"`
+	Status      TodoStatus                  `json:"status"`
+	Title       string                      `json:"title"`
+	WorkspaceId workspaceDomain.WorkspaceID `json:"workspaceId"`
 }
 
 // TodoStatus defines model for TodoStatus.
@@ -118,6 +136,11 @@ type ValidationErrorDetail struct {
 	Value string `json:"value"`
 }
 
+// VerifyTOTPRequestBody defines model for VerifyTOTPRequestBody.
+type VerifyTOTPRequestBody struct {
+	Code string `json:"code"`
+}
+
 // Workspace defines model for Workspace.
 type Workspace struct {
 	Description string                      `json:"description"`
@@ -141,32 +164,8 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// LoginJSONBody defines parameters for Login.
-type LoginJSONBody struct {
-	Email    openapi_types.Email    `json:"email"`
-	Password secrecy.Secret[string] `json:"password"`
-}
-
-// RegisterJSONBody defines parameters for Register.
-type RegisterJSONBody struct {
-	Email    openapi_types.Email    `json:"email"`
-	Name     string                 `json:"name"`
-	Password secrecy.Secret[string] `json:"password"`
-}
-
 // RegisterParams defines parameters for Register.
 type RegisterParams struct {
-	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
-	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
-}
-
-// VerifyTOTPJSONBody defines parameters for VerifyTOTP.
-type VerifyTOTPJSONBody struct {
-	Code string `json:"code"`
-}
-
-// CreateTodoParams defines parameters for CreateTodo.
-type CreateTodoParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -179,12 +178,6 @@ type CompleteTodoParams struct {
 
 // AssignTagToTodoParams defines parameters for AssignTagToTodo.
 type AssignTagToTodoParams struct {
-	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
-	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
-}
-
-// RegisterUserParams defines parameters for RegisterUser.
-type RegisterUserParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
@@ -213,23 +206,23 @@ type CreateTagParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// CreateTodoParams defines parameters for CreateTodo.
+type CreateTodoParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody LoginJSONBody
+type LoginJSONRequestBody = LoginRequestBody
 
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
-type RegisterJSONRequestBody RegisterJSONBody
+type RegisterJSONRequestBody = RegisterUserRequestBody
 
 // VerifyTOTPJSONRequestBody defines body for VerifyTOTP for application/json ContentType.
-type VerifyTOTPJSONRequestBody VerifyTOTPJSONBody
-
-// CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
-type CreateTodoJSONRequestBody = CreateTodoRequest
+type VerifyTOTPJSONRequestBody = VerifyTOTPRequestBody
 
 // AssignTagToTodoJSONRequestBody defines body for AssignTagToTodo for application/json ContentType.
 type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
-
-// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
-type RegisterUserJSONRequestBody = RegisterUserRequest
 
 // OnboardWorkspaceJSONRequestBody defines body for OnboardWorkspace for application/json ContentType.
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
@@ -239,6 +232,9 @@ type AddWorkspaceMemberJSONRequestBody AddWorkspaceMemberJSONBody
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
+
+// CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
+type CreateTodoJSONRequestBody = CreateTodoRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -331,13 +327,8 @@ type ClientInterface interface {
 
 	VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetAllTodos request
-	GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateTodoWithBody request with any body
-	CreateTodoWithBody(ctx context.Context, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateTodo(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Ping request
+	Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTodoByID request
 	GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -349,11 +340,6 @@ type ClientInterface interface {
 	AssignTagToTodoWithBody(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AssignTagToTodo(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RegisterUserWithBody request with any body
-	RegisterUserWithBody(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RegisterUser(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserByID request
 	GetUserByID(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -387,6 +373,14 @@ type ClientInterface interface {
 	CreateTagWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkspaceTodos request
+	GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTodoWithBody request with any body
+	CreateTodoWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateTodo(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -473,32 +467,8 @@ func (c *Client) VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAllTodosRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateTodoWithBody(ctx context.Context, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTodoRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateTodo(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTodoRequest(c.Server, params, body)
+func (c *Client) Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPingRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -547,30 +517,6 @@ func (c *Client) AssignTagToTodoWithBody(ctx context.Context, id todoDomain.Todo
 
 func (c *Client) AssignTagToTodo(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAssignTagToTodoRequest(c.Server, id, params, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterUserWithBody(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterUserRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterUser(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterUserRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -715,6 +661,42 @@ func (c *Client) CreateTagWithBody(ctx context.Context, id workspaceDomain.Works
 
 func (c *Client) CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateTagRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkspaceTodosRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTodoWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTodoRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTodo(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTodoRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -887,8 +869,8 @@ func NewVerifyTOTPRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
-// NewGetAllTodosRequest generates requests for GetAllTodos
-func NewGetAllTodosRequest(server string) (*http.Request, error) {
+// NewPingRequest generates requests for Ping
+func NewPingRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -896,7 +878,7 @@ func NewGetAllTodosRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/todos")
+	operationPath := fmt.Sprintf("/ping")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -909,61 +891,6 @@ func NewGetAllTodosRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateTodoRequest calls the generic CreateTodo builder with application/json body
-func NewCreateTodoRequest(server string, params *CreateTodoParams, body CreateTodoJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateTodoRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewCreateTodoRequestWithBody generates requests for CreateTodo with any type of body
-func NewCreateTodoRequestWithBody(server string, params *CreateTodoParams, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/todos")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		if params.IdempotencyKey != nil {
-			var headerParam0 string
-
-			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("Idempotency-Key", headerParam0)
-		}
-
 	}
 
 	return req, nil
@@ -1080,61 +1007,6 @@ func NewAssignTagToTodoRequestWithBody(server string, id todoDomain.TodoID, para
 	}
 
 	operationPath := fmt.Sprintf("/todos/%s/tags", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		if params.IdempotencyKey != nil {
-			var headerParam0 string
-
-			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("Idempotency-Key", headerParam0)
-		}
-
-	}
-
-	return req, nil
-}
-
-// NewRegisterUserRequest calls the generic RegisterUser builder with application/json body
-func NewRegisterUserRequest(server string, params *RegisterUserParams, body RegisterUserJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRegisterUserRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewRegisterUserRequestWithBody generates requests for RegisterUser with any type of body
-func NewRegisterUserRequestWithBody(server string, params *RegisterUserParams, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/users")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1552,6 +1424,102 @@ func NewCreateTagRequestWithBody(server string, id workspaceDomain.WorkspaceID, 
 	return req, nil
 }
 
+// NewGetWorkspaceTodosRequest generates requests for GetWorkspaceTodos
+func NewGetWorkspaceTodosRequest(server string, id workspaceDomain.WorkspaceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/todos", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTodoRequest calls the generic CreateTodo builder with application/json body
+func NewCreateTodoRequest(server string, id workspaceDomain.WorkspaceID, params *CreateTodoParams, body CreateTodoJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTodoRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCreateTodoRequestWithBody generates requests for CreateTodo with any type of body
+func NewCreateTodoRequestWithBody(server string, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/%s/todos", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1613,13 +1581,8 @@ type ClientWithResponsesInterface interface {
 
 	VerifyTOTPWithResponse(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error)
 
-	// GetAllTodosWithResponse request
-	GetAllTodosWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllTodosResponse, error)
-
-	// CreateTodoWithBodyWithResponse request with any body
-	CreateTodoWithBodyWithResponse(ctx context.Context, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
-
-	CreateTodoWithResponse(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
+	// PingWithResponse request
+	PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error)
 
 	// GetTodoByIDWithResponse request
 	GetTodoByIDWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error)
@@ -1631,11 +1594,6 @@ type ClientWithResponsesInterface interface {
 	AssignTagToTodoWithBodyWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error)
 
 	AssignTagToTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, body AssignTagToTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error)
-
-	// RegisterUserWithBodyWithResponse request with any body
-	RegisterUserWithBodyWithResponse(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
-
-	RegisterUserWithResponse(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
 
 	// GetUserByIDWithResponse request
 	GetUserByIDWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error)
@@ -1669,14 +1627,20 @@ type ClientWithResponsesInterface interface {
 	CreateTagWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
 
 	CreateTagWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
+
+	// GetWorkspaceTodosWithResponse request
+	GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error)
+
+	// CreateTodoWithBodyWithResponse request with any body
+	CreateTodoWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
+
+	CreateTodoWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
 }
 
 type LoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		AccessToken string `json:"accessToken"`
-	}
+	JSON200      *LoginResponseBody
 }
 
 // Status returns HTTPResponse.Status
@@ -1720,9 +1684,7 @@ func (r RegisterResponse) StatusCode() int {
 type InitiateTOTPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		ProvisioningUri string `json:"provisioningUri"`
-	}
+	JSON200      *InitiateTOTPResponseBody
 }
 
 // Status returns HTTPResponse.Status
@@ -1744,9 +1706,7 @@ func (r InitiateTOTPResponse) StatusCode() int {
 type VerifyTOTPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		AccessToken string `json:"accessToken"`
-	}
+	JSON200      *LoginResponseBody
 }
 
 // Status returns HTTPResponse.Status
@@ -1765,14 +1725,13 @@ func (r VerifyTOTPResponse) StatusCode() int {
 	return 0
 }
 
-type GetAllTodosResponse struct {
+type PingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]Todo
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAllTodosResponse) Status() string {
+func (r PingResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1780,30 +1739,7 @@ func (r GetAllTodosResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAllTodosResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateTodoResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *IdResponse
-	JSON4XX      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateTodoResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateTodoResponse) StatusCode() int {
+func (r PingResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1871,28 +1807,6 @@ func (r AssignTagToTodoResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AssignTagToTodoResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RegisterUserResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *IdResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r RegisterUserResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RegisterUserResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2100,6 +2014,51 @@ func (r CreateTagResponse) StatusCode() int {
 	return 0
 }
 
+type GetWorkspaceTodosResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Todo
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkspaceTodosResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkspaceTodosResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateTodoResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *IdResponse
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTodoResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTodoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
 func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
 	rsp, err := c.LoginWithBody(ctx, contentType, body, reqEditors...)
@@ -2160,30 +2119,13 @@ func (c *ClientWithResponses) VerifyTOTPWithResponse(ctx context.Context, body V
 	return ParseVerifyTOTPResponse(rsp)
 }
 
-// GetAllTodosWithResponse request returning *GetAllTodosResponse
-func (c *ClientWithResponses) GetAllTodosWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllTodosResponse, error) {
-	rsp, err := c.GetAllTodos(ctx, reqEditors...)
+// PingWithResponse request returning *PingResponse
+func (c *ClientWithResponses) PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error) {
+	rsp, err := c.Ping(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAllTodosResponse(rsp)
-}
-
-// CreateTodoWithBodyWithResponse request with arbitrary body returning *CreateTodoResponse
-func (c *ClientWithResponses) CreateTodoWithBodyWithResponse(ctx context.Context, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error) {
-	rsp, err := c.CreateTodoWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateTodoResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateTodoWithResponse(ctx context.Context, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error) {
-	rsp, err := c.CreateTodo(ctx, params, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateTodoResponse(rsp)
+	return ParsePingResponse(rsp)
 }
 
 // GetTodoByIDWithResponse request returning *GetTodoByIDResponse
@@ -2219,23 +2161,6 @@ func (c *ClientWithResponses) AssignTagToTodoWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseAssignTagToTodoResponse(rsp)
-}
-
-// RegisterUserWithBodyWithResponse request with arbitrary body returning *RegisterUserResponse
-func (c *ClientWithResponses) RegisterUserWithBodyWithResponse(ctx context.Context, params *RegisterUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error) {
-	rsp, err := c.RegisterUserWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterUserResponse(rsp)
-}
-
-func (c *ClientWithResponses) RegisterUserWithResponse(ctx context.Context, params *RegisterUserParams, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error) {
-	rsp, err := c.RegisterUser(ctx, params, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterUserResponse(rsp)
 }
 
 // GetUserByIDWithResponse request returning *GetUserByIDResponse
@@ -2343,6 +2268,32 @@ func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, id work
 	return ParseCreateTagResponse(rsp)
 }
 
+// GetWorkspaceTodosWithResponse request returning *GetWorkspaceTodosResponse
+func (c *ClientWithResponses) GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error) {
+	rsp, err := c.GetWorkspaceTodos(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkspaceTodosResponse(rsp)
+}
+
+// CreateTodoWithBodyWithResponse request with arbitrary body returning *CreateTodoResponse
+func (c *ClientWithResponses) CreateTodoWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error) {
+	rsp, err := c.CreateTodoWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTodoResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateTodoWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, body CreateTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error) {
+	rsp, err := c.CreateTodo(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTodoResponse(rsp)
+}
+
 // ParseLoginResponse parses an HTTP response from a LoginWithResponse call
 func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2358,9 +2309,7 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			AccessToken string `json:"accessToken"`
-		}
+		var dest LoginResponseBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2412,9 +2361,7 @@ func ParseInitiateTOTPResponse(rsp *http.Response) (*InitiateTOTPResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			ProvisioningUri string `json:"provisioningUri"`
-		}
+		var dest InitiateTOTPResponseBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2440,9 +2387,7 @@ func ParseVerifyTOTPResponse(rsp *http.Response) (*VerifyTOTPResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			AccessToken string `json:"accessToken"`
-		}
+		var dest LoginResponseBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2453,60 +2398,17 @@ func ParseVerifyTOTPResponse(rsp *http.Response) (*VerifyTOTPResponse, error) {
 	return response, nil
 }
 
-// ParseGetAllTodosResponse parses an HTTP response from a GetAllTodosWithResponse call
-func ParseGetAllTodosResponse(rsp *http.Response) (*GetAllTodosResponse, error) {
+// ParsePingResponse parses an HTTP response from a PingWithResponse call
+func ParsePingResponse(rsp *http.Response) (*PingResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAllTodosResponse{
+	response := &PingResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []Todo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateTodoResponse parses an HTTP response from a CreateTodoWithResponse call
-func ParseCreateTodoResponse(rsp *http.Response) (*CreateTodoResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateTodoResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest IdResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
 	}
 
 	return response, nil
@@ -2591,32 +2493,6 @@ func ParseAssignTagToTodoResponse(rsp *http.Response) (*AssignTagToTodoResponse,
 			return nil, err
 		}
 		response.JSON4XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRegisterUserResponse parses an HTTP response from a RegisterUserWithResponse call
-func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RegisterUserResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest IdResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
 
 	}
 
@@ -2854,6 +2730,65 @@ func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
 	}
 
 	response := &CreateTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest IdResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkspaceTodosResponse parses an HTTP response from a GetWorkspaceTodosWithResponse call
+func ParseGetWorkspaceTodosResponse(rsp *http.Response) (*GetWorkspaceTodosResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkspaceTodosResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Todo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTodoResponse parses an HTTP response from a CreateTodoWithResponse call
+func ParseCreateTodoResponse(rsp *http.Response) (*CreateTodoResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTodoResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -6,19 +6,21 @@ import (
 	"sync"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	domaina "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 type FakeTodoRepository struct {
-	FindAllStub        func(context.Context) ([]*domain.Todo, error)
-	findAllMutex       sync.RWMutex
-	findAllArgsForCall []struct {
+	FindAllByWorkspaceStub        func(context.Context, domaina.WorkspaceID) ([]*domain.Todo, error)
+	findAllByWorkspaceMutex       sync.RWMutex
+	findAllByWorkspaceArgsForCall []struct {
 		arg1 context.Context
+		arg2 domaina.WorkspaceID
 	}
-	findAllReturns struct {
+	findAllByWorkspaceReturns struct {
 		result1 []*domain.Todo
 		result2 error
 	}
-	findAllReturnsOnCall map[int]struct {
+	findAllByWorkspaceReturnsOnCall map[int]struct {
 		result1 []*domain.Todo
 		result2 error
 	}
@@ -64,18 +66,19 @@ type FakeTodoRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeTodoRepository) FindAll(arg1 context.Context) ([]*domain.Todo, error) {
-	fake.findAllMutex.Lock()
-	ret, specificReturn := fake.findAllReturnsOnCall[len(fake.findAllArgsForCall)]
-	fake.findAllArgsForCall = append(fake.findAllArgsForCall, struct {
+func (fake *FakeTodoRepository) FindAllByWorkspace(arg1 context.Context, arg2 domaina.WorkspaceID) ([]*domain.Todo, error) {
+	fake.findAllByWorkspaceMutex.Lock()
+	ret, specificReturn := fake.findAllByWorkspaceReturnsOnCall[len(fake.findAllByWorkspaceArgsForCall)]
+	fake.findAllByWorkspaceArgsForCall = append(fake.findAllByWorkspaceArgsForCall, struct {
 		arg1 context.Context
-	}{arg1})
-	stub := fake.FindAllStub
-	fakeReturns := fake.findAllReturns
-	fake.recordInvocation("FindAll", []interface{}{arg1})
-	fake.findAllMutex.Unlock()
+		arg2 domaina.WorkspaceID
+	}{arg1, arg2})
+	stub := fake.FindAllByWorkspaceStub
+	fakeReturns := fake.findAllByWorkspaceReturns
+	fake.recordInvocation("FindAllByWorkspace", []interface{}{arg1, arg2})
+	fake.findAllByWorkspaceMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -83,46 +86,46 @@ func (fake *FakeTodoRepository) FindAll(arg1 context.Context) ([]*domain.Todo, e
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTodoRepository) FindAllCallCount() int {
-	fake.findAllMutex.RLock()
-	defer fake.findAllMutex.RUnlock()
-	return len(fake.findAllArgsForCall)
+func (fake *FakeTodoRepository) FindAllByWorkspaceCallCount() int {
+	fake.findAllByWorkspaceMutex.RLock()
+	defer fake.findAllByWorkspaceMutex.RUnlock()
+	return len(fake.findAllByWorkspaceArgsForCall)
 }
 
-func (fake *FakeTodoRepository) FindAllCalls(stub func(context.Context) ([]*domain.Todo, error)) {
-	fake.findAllMutex.Lock()
-	defer fake.findAllMutex.Unlock()
-	fake.FindAllStub = stub
+func (fake *FakeTodoRepository) FindAllByWorkspaceCalls(stub func(context.Context, domaina.WorkspaceID) ([]*domain.Todo, error)) {
+	fake.findAllByWorkspaceMutex.Lock()
+	defer fake.findAllByWorkspaceMutex.Unlock()
+	fake.FindAllByWorkspaceStub = stub
 }
 
-func (fake *FakeTodoRepository) FindAllArgsForCall(i int) context.Context {
-	fake.findAllMutex.RLock()
-	defer fake.findAllMutex.RUnlock()
-	argsForCall := fake.findAllArgsForCall[i]
-	return argsForCall.arg1
+func (fake *FakeTodoRepository) FindAllByWorkspaceArgsForCall(i int) (context.Context, domaina.WorkspaceID) {
+	fake.findAllByWorkspaceMutex.RLock()
+	defer fake.findAllByWorkspaceMutex.RUnlock()
+	argsForCall := fake.findAllByWorkspaceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeTodoRepository) FindAllReturns(result1 []*domain.Todo, result2 error) {
-	fake.findAllMutex.Lock()
-	defer fake.findAllMutex.Unlock()
-	fake.FindAllStub = nil
-	fake.findAllReturns = struct {
+func (fake *FakeTodoRepository) FindAllByWorkspaceReturns(result1 []*domain.Todo, result2 error) {
+	fake.findAllByWorkspaceMutex.Lock()
+	defer fake.findAllByWorkspaceMutex.Unlock()
+	fake.FindAllByWorkspaceStub = nil
+	fake.findAllByWorkspaceReturns = struct {
 		result1 []*domain.Todo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeTodoRepository) FindAllReturnsOnCall(i int, result1 []*domain.Todo, result2 error) {
-	fake.findAllMutex.Lock()
-	defer fake.findAllMutex.Unlock()
-	fake.FindAllStub = nil
-	if fake.findAllReturnsOnCall == nil {
-		fake.findAllReturnsOnCall = make(map[int]struct {
+func (fake *FakeTodoRepository) FindAllByWorkspaceReturnsOnCall(i int, result1 []*domain.Todo, result2 error) {
+	fake.findAllByWorkspaceMutex.Lock()
+	defer fake.findAllByWorkspaceMutex.Unlock()
+	fake.FindAllByWorkspaceStub = nil
+	if fake.findAllByWorkspaceReturnsOnCall == nil {
+		fake.findAllByWorkspaceReturnsOnCall = make(map[int]struct {
 			result1 []*domain.Todo
 			result2 error
 		})
 	}
-	fake.findAllReturnsOnCall[i] = struct {
+	fake.findAllByWorkspaceReturnsOnCall[i] = struct {
 		result1 []*domain.Todo
 		result2 error
 	}{result1, result2}

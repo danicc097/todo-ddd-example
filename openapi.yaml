@@ -67,9 +67,24 @@ servers:
   - url: http://127.0.0.1:8090/api/v1
     description: Local swarm server
   - url: http://localhost:8099/api/v1
-    description: Local development server
+    description: Local development server (localhost)
+  - url: http://127.0.0.1:8099/api/v1
+    description: Local development server (IP)
 
 paths:
+  /ping:
+    get:
+      summary: Health check
+      operationId: ping
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: pong
+
   /auth/register:
     post:
       summary: Register a new user with password
@@ -86,18 +101,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [email, name, password]
-              properties:
-                email: { type: string, format: email }
-                name: { type: string }
-                password:
-                  type: string
-                  format: password
-                  x-go-type: "secrecy.Secret[string]"
-                  x-go-type-import:
-                    path: "github.com/negrel/secrecy"
-                    name: "secrecy"
+              $ref: '#/components/schemas/RegisterUserRequestBody'
       responses:
         '201':
           description: User registered
@@ -120,26 +124,14 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [email, password]
-              properties:
-                email: { type: string, format: email }
-                password:
-                  type: string
-                  format: password
-                  x-go-type: "secrecy.Secret[string]"
-                  x-go-type-import:
-                    path: "github.com/negrel/secrecy"
-                    name: "secrecy"
+              $ref: '#/components/schemas/LoginRequestBody'
       responses:
         '200':
           description: Login successful
           content:
             application/json:
               schema:
-                required: [accessToken]
-                properties:
-                  accessToken: { type: string }
+                $ref: '#/components/schemas/LoginResponseBody'
 
   /auth/totp/initiate:
     post:
@@ -155,11 +147,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [provisioningUri]
-                properties:
-                  provisioningUri:
-                    type: string
+                $ref: '#/components/schemas/InitiateTOTPResponseBody'
 
   /auth/totp/verify:
     post:
@@ -177,27 +165,23 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [code]
-              properties:
-                code:
-                  type: string
+              $ref: '#/components/schemas/VerifyTOTPRequestBody'
       responses:
         '200':
           description: TOTP verified, returns new JWT with MFA claim
           content:
             application/json:
               schema:
-                required: [accessToken]
-                properties:
-                  accessToken: { type: string }
+                $ref: '#/components/schemas/LoginResponseBody'
 
-  /todos:
+  /workspaces/{id}/todos:
     get:
-      summary: List all todos
-      operationId: getAllTodos
+      summary: List all todos for a workspace
+      operationId: getWorkspaceTodos
       tags:
         - todo
+      parameters:
+        - *x-workspaceIDParameter
       responses:
         '200':
           description: A list of todos
@@ -207,13 +191,13 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Todo'
-
     post:
       summary: Create a new todo
       operationId: createTodo
       tags:
         - todo
       parameters:
+        - *x-workspaceIDParameter
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -284,24 +268,6 @@ paths:
           description: Tag assigned
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
-
-  /users:
-    post:
-      operationId: registerUser
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterUserRequest'
-      responses:
-        '201':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/IdResponse'
 
   /users/{id}:
     get:
@@ -587,10 +553,12 @@ components:
 
     Todo:
       type: object
-      required: [id, title, status, createdAt]
+      required: [id, title, status, createdAt, workspaceId]
       properties:
         id:
           *x-todoIDSchema
+        workspaceId:
+          *x-workspaceIDSchema
         title: { type: string }
         status: { $ref: '#/components/schemas/TodoStatus' }
         createdAt: { type: string, format: date-time }
@@ -611,19 +579,59 @@ components:
       type: string
       enum: [PENDING, COMPLETED, ARCHIVED]
 
+    LoginRequestBody:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password:
+          type: string
+          format: password
+          x-go-type: "secrecy.Secret[string]"
+          x-go-type-import:
+            path: "github.com/negrel/secrecy"
+            name: "secrecy"
+
+    LoginResponseBody:
+      type: object
+      required: [accessToken]
+      properties:
+        accessToken: { type: string }
+
+    InitiateTOTPResponseBody:
+      type: object
+      required: [provisioningUri]
+      properties:
+        provisioningUri:
+          type: string
+
+    VerifyTOTPRequestBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+
+    RegisterUserRequestBody:
+      type: object
+      required: [email, name, password]
+      properties:
+        email: { type: string, format: email }
+        name: { type: string }
+        password:
+          type: string
+          format: password
+          x-go-type: "secrecy.Secret[string]"
+          x-go-type-import:
+            path: "github.com/negrel/secrecy"
+            name: "secrecy"
+
     User:
       type: object
       required: [id, email, name]
       properties:
         id:
           *x-userIDSchema
-        email: { type: string }
-        name: { type: string }
-
-    RegisterUserRequest:
-      type: object
-      required: [email, name]
-      properties:
         email: { type: string }
         name: { type: string }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -44,8 +45,8 @@ func (d TodoQueryServiceWithCache) key(id string) string {
 	return fmt.Sprintf("todo_query:%s", id)
 }
 
-func (d TodoQueryServiceWithCache) GetAll(ctx context.Context) (ta1 []api.Todo, err error) {
-	return d.base.GetAll(ctx)
+func (d TodoQueryServiceWithCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (ta1 []api.Todo, err error) {
+	return d.base.GetAllByWorkspace(ctx, wsID)
 }
 
 func (d TodoQueryServiceWithCache) GetByID(ctx context.Context, id domain.TodoID) (tp1 *api.Todo, err error) {

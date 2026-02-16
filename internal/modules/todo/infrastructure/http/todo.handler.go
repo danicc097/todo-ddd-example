@@ -48,24 +48,27 @@ func (h *TodoHandler) WS(c *gin.Context) {
 	h.hub.HandleWebSocket(c.Writer, c.Request)
 }
 
-func (h *TodoHandler) CreateTodo(c *gin.Context, params api.CreateTodoParams) {
+func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params api.CreateTodoParams) {
 	var req api.CreateTodoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 
-	id, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{Title: req.Title})
+	todoID, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{
+		Title:       req.Title,
+		WorkspaceID: id,
+	})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
+	c.JSON(http.StatusCreated, gin.H{"id": todoID.UUID})
 }
 
-func (h *TodoHandler) GetAllTodos(c *gin.Context) {
-	todos, err := h.queryService.GetAll(c.Request.Context())
+func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID) {
+	todos, err := h.queryService.GetAllByWorkspace(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)
 		return

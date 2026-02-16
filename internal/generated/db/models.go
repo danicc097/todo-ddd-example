@@ -33,10 +33,11 @@ type TodoTags struct {
 }
 
 type Todos struct {
-	ID        types.TodoID `db:"id" json:"id"`
-	Title     string       `db:"title" json:"title"`
-	Status    string       `db:"status" json:"status"`
-	CreatedAt time.Time    `db:"created_at" json:"created_at"`
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
 }
 
 type UserAuth struct {

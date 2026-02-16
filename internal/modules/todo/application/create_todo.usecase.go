@@ -4,12 +4,14 @@ import (
 	"context"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type CreateTodoCommand struct {
-	Title  string
-	TagIDs []domain.TagID
+	Title       string
+	WorkspaceID wsDomain.WorkspaceID
+	TagIDs      []domain.TagID
 }
 
 type CreateTodoHandler struct {
@@ -28,7 +30,7 @@ func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (
 		return domain.TodoID{}, err
 	}
 
-	todo := domain.NewTodo(title)
+	todo := domain.NewTodo(title, cmd.WorkspaceID)
 	for _, tagID := range cmd.TagIDs {
 		todo.AddTag(tagID)
 	}

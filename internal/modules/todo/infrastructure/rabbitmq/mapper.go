@@ -9,18 +9,20 @@ import (
 )
 
 type TodoEventDTO struct {
-	ID        uuid.UUID `json:"id"`
-	Title     string    `json:"title"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Title       string    `json:"title"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 func ToTodoEventDTO(t *domain.Todo) TodoEventDTO {
 	return TodoEventDTO{
-		ID:        t.ID().UUID,
-		Title:     t.Title().String(),
-		Status:    t.Status().String(),
-		CreatedAt: t.CreatedAt(),
+		ID:          t.ID().UUID,
+		WorkspaceID: t.WorkspaceID().UUID,
+		Title:       t.Title().String(),
+		Status:      t.Status().String(),
+		CreatedAt:   t.CreatedAt(),
 	}
 }
 

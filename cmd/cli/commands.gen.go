@@ -23,8 +23,10 @@ var _ = workspaceDomain.WorkspaceID{}
 func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client.ClientWithResponses, context.Context)) {
 
 	cmdLogin := &cobra.Command{
-		Use:   "login",
-		Short: "Login with email and password",
+		Use:           "login",
+		Short:         "Login with email and password",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -57,8 +59,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -67,8 +75,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdLogin)
 
 	cmdRegister := &cobra.Command{
-		Use:   "register",
-		Short: "Register a new user with password",
+		Use:           "register",
+		Short:         "Register a new user with password",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -107,8 +117,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -118,8 +134,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdRegister)
 
 	cmdInitiateTOTP := &cobra.Command{
-		Use:   "initiate-totp",
-		Short: "Initiate TOTP setup for the user",
+		Use:           "initiate-totp",
+		Short:         "Initiate TOTP setup for the user",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -139,8 +157,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -148,8 +172,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdInitiateTOTP)
 
 	cmdVerifyTOTP := &cobra.Command{
-		Use:   "verify-totp",
-		Short: "Verify and activate TOTP",
+		Use:           "verify-totp",
+		Short:         "Verify and activate TOTP",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -182,8 +208,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -191,18 +223,20 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdVerifyTOTP)
 
-	cmdGetAllTodos := &cobra.Command{
-		Use:   "get-all-todos",
-		Short: "List all todos",
+	cmdPing := &cobra.Command{
+		Use:           "ping",
+		Short:         "Health check",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
 			if debug {
-				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetAllTodos"))
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing Ping"))
 			}
 
-			resp, err := c.GetAllTodosWithResponse(ctx)
+			resp, err := c.PingWithResponse(ctx)
 			if err != nil {
 				return err
 			}
@@ -213,69 +247,26 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
-			return nil
-		},
-	}
-
-	rootCmd.AddCommand(cmdGetAllTodos)
-
-	cmdCreateTodo := &cobra.Command{
-		Use:   "create-todo",
-		Short: "Create a new todo",
-
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			if debug {
-				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTodo"))
-			}
-
-			params := &client.CreateTodoParams{}
-			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
-				u := uuid.MustParse(val)
-				params.IdempotencyKey = &u
-			}
-
-			bodyStr, _ := cmd.Flags().GetString("payload")
-
-			if debug && bodyStr != "" {
-				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
-			}
-
-			var reqBody client.CreateTodoJSONRequestBody
-			if bodyStr != "" {
-				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
-					return fmt.Errorf("invalid json payload: %w", err)
-				}
-			}
-
-			resp, err := c.CreateTodoWithResponse(ctx, params, reqBody)
-			if err != nil {
-				return err
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
 			}
 
 			if resp.StatusCode() >= 400 {
-				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
-			} else {
-				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
-	cmdCreateTodo.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdCreateTodo.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
 
-	rootCmd.AddCommand(cmdCreateTodo)
+	rootCmd.AddCommand(cmdPing)
 
 	cmdGetTodoByID := &cobra.Command{
-		Use:   "get-todo-by-id [id]",
-		Short: "Get a todo by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:           "get-todo-by-id [id]",
+		Short:         "Get a todo by ID",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -296,8 +287,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -305,9 +302,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdGetTodoByID)
 
 	cmdCompleteTodo := &cobra.Command{
-		Use:   "complete-todo [id]",
-		Short: "Complete a todo",
-		Args:  cobra.ExactArgs(1),
+		Use:           "complete-todo [id]",
+		Short:         "Complete a todo",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -334,8 +333,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -344,9 +349,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdCompleteTodo)
 
 	cmdAssignTagToTodo := &cobra.Command{
-		Use:   "assign-tag-to-todo [id]",
-		Short: "Assign a tag to a todo",
-		Args:  cobra.ExactArgs(1),
+		Use:           "assign-tag-to-todo [id]",
+		Short:         "Assign a tag to a todo",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -386,8 +393,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -396,61 +409,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdAssignTagToTodo)
 
-	cmdRegisterUser := &cobra.Command{
-		Use:   "register-user",
-		Short: "",
-
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c, ctx := getClient()
-
-			if debug {
-				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing RegisterUser"))
-			}
-
-			params := &client.RegisterUserParams{}
-			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
-				u := uuid.MustParse(val)
-				params.IdempotencyKey = &u
-			}
-
-			bodyStr, _ := cmd.Flags().GetString("payload")
-
-			if debug && bodyStr != "" {
-				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
-			}
-
-			var reqBody client.RegisterUserJSONRequestBody
-			if bodyStr != "" {
-				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
-					return fmt.Errorf("invalid json payload: %w", err)
-				}
-			}
-
-			resp, err := c.RegisterUserWithResponse(ctx, params, reqBody)
-			if err != nil {
-				return err
-			}
-
-			if resp.StatusCode() >= 400 {
-				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
-			} else {
-				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
-			}
-
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
-			return nil
-		},
-	}
-	cmdRegisterUser.Flags().StringP("payload", "p", "", "JSON payload for the request body")
-	cmdRegisterUser.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
-
-	rootCmd.AddCommand(cmdRegisterUser)
-
 	cmdGetUserByID := &cobra.Command{
-		Use:   "get-user-by-id [id]",
-		Short: "",
-		Args:  cobra.ExactArgs(1),
+		Use:           "get-user-by-id [id]",
+		Short:         "",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -471,8 +435,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -480,9 +450,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdGetUserByID)
 
 	cmdGetUserWorkspaces := &cobra.Command{
-		Use:   "get-user-workspaces [id]",
-		Short: "Get all workspaces for a user",
-		Args:  cobra.ExactArgs(1),
+		Use:           "get-user-workspaces [id]",
+		Short:         "Get all workspaces for a user",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -503,8 +475,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -512,8 +490,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdGetUserWorkspaces)
 
 	cmdListWorkspaces := &cobra.Command{
-		Use:   "list-workspaces",
-		Short: "List all workspaces",
+		Use:           "list-workspaces",
+		Short:         "List all workspaces",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -533,8 +513,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -542,8 +528,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdListWorkspaces)
 
 	cmdOnboardWorkspace := &cobra.Command{
-		Use:   "onboard-workspace",
-		Short: "Onboard a new workspace with initial members",
+		Use:           "onboard-workspace",
+		Short:         "Onboard a new workspace with initial members",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
@@ -582,8 +570,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -593,9 +587,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdOnboardWorkspace)
 
 	cmdDeleteWorkspace := &cobra.Command{
-		Use:   "delete-workspace [id]",
-		Short: "Delete a workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:           "delete-workspace [id]",
+		Short:         "Delete a workspace",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -616,8 +612,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -625,9 +627,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdDeleteWorkspace)
 
 	cmdAddWorkspaceMember := &cobra.Command{
-		Use:   "add-workspace-member [id]",
-		Short: "Add a member to a workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:           "add-workspace-member [id]",
+		Short:         "Add a member to a workspace",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -667,8 +671,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -678,9 +688,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdAddWorkspaceMember)
 
 	cmdRemoveWorkspaceMember := &cobra.Command{
-		Use:   "remove-workspace-member [id] [userId]",
-		Short: "Remove a member from a workspace",
-		Args:  cobra.ExactArgs(2),
+		Use:           "remove-workspace-member [id] [userId]",
+		Short:         "Remove a member from a workspace",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -703,8 +715,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -712,9 +730,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdRemoveWorkspaceMember)
 
 	cmdGetWorkspaceTags := &cobra.Command{
-		Use:   "get-workspace-tags [id]",
-		Short: "Get all tags for a workspace",
-		Args:  cobra.ExactArgs(1),
+		Use:           "get-workspace-tags [id]",
+		Short:         "Get all tags for a workspace",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -735,8 +755,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -744,9 +770,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	rootCmd.AddCommand(cmdGetWorkspaceTags)
 
 	cmdCreateTag := &cobra.Command{
-		Use:   "create-tag [id]",
-		Short: "Create a new tag",
-		Args:  cobra.ExactArgs(1),
+		Use:           "create-tag [id]",
+		Short:         "Create a new tag",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
@@ -786,8 +814,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}
@@ -795,5 +829,106 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	cmdCreateTag.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
 
 	rootCmd.AddCommand(cmdCreateTag)
+
+	cmdGetWorkspaceTodos := &cobra.Command{
+		Use:           "get-workspace-todos [id]",
+		Short:         "List all todos for a workspace",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetWorkspaceTodos"))
+			}
+
+			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+
+			resp, err := c.GetWorkspaceTodosWithResponse(ctx, paramid)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdGetWorkspaceTodos)
+
+	cmdCreateTodo := &cobra.Command{
+		Use:           "create-todo [id]",
+		Short:         "Create a new todo",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTodo"))
+			}
+
+			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+
+			params := &client.CreateTodoParams{}
+			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
+				u := uuid.MustParse(val)
+				params.IdempotencyKey = &u
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
+			var reqBody client.CreateTodoJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.CreateTodoWithResponse(ctx, paramid, params, reqBody)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
+			return nil
+		},
+	}
+	cmdCreateTodo.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdCreateTodo.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+
+	rootCmd.AddCommand(cmdCreateTodo)
 
 }

@@ -33,6 +33,10 @@ sql:
             go_type:
               import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
               type: "TodoID"
+          - column: "todos.workspace_id"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+              type: "WorkspaceID"
           - column: "tags.id"
             go_type:
               import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"

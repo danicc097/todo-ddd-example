@@ -10,6 +10,7 @@ import (
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,13 +39,14 @@ func NewTodoQueryServiceWithTracing(base _sourceApplication.TodoQueryService, in
 	return d
 }
 
-// GetAll implements TodoQueryService
-func (_d TodoQueryServiceWithTracing) GetAll(ctx context.Context) (ta1 []api.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAll")
+// GetAllByWorkspace implements TodoQueryService
+func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (ta1 []api.Todo, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAllByWorkspace")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx": ctx}, map[string]interface{}{
+				"ctx":  ctx,
+				"wsID": wsID}, map[string]interface{}{
 				"ta1": ta1,
 				"err": err})
 		} else if err != nil {
@@ -58,7 +60,7 @@ func (_d TodoQueryServiceWithTracing) GetAll(ctx context.Context) (ta1 []api.Tod
 
 		_span.End()
 	}()
-	return _d.TodoQueryService.GetAll(ctx)
+	return _d.TodoQueryService.GetAllByWorkspace(ctx, wsID)
 }
 
 // GetByID implements TodoQueryService

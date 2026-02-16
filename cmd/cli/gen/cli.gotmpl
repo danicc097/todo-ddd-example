@@ -26,6 +26,8 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	cmd{{ $cmd.PascalOperationID }} := &cobra.Command{
 		Use:   "{{ $cmd.Use }}",
 		Short: "{{ $cmd.Short }}",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		{{ if $cmd.PathParams -}}
 		Args:  cobra.ExactArgs({{ len $cmd.PathParams }}),
 		{{- end }}
@@ -102,8 +104,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
-			// Printed directly to stdout so `sed` can reliably grab the JSON
-			fmt.Printf("Response: %s\n", string(resp.Body))
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
 			return nil
 		},
 	}

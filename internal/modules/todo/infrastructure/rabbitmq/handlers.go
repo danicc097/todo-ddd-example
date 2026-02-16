@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
@@ -13,7 +14,7 @@ func (d TodoEventDTO) ToEntity() *domain.Todo {
 	title, _ := domain.NewTodoTitle(d.Title)
 	status := domain.TodoStatus(d.Status)
 
-	return domain.ReconstituteTodo(domain.TodoID{UUID: d.ID}, title, status, d.CreatedAt, nil)
+	return domain.ReconstituteTodo(domain.TodoID{UUID: d.ID}, title, status, d.CreatedAt, nil, wsDomain.WorkspaceID{UUID: d.WorkspaceID})
 }
 
 func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Context, []byte) error {
@@ -30,11 +31,12 @@ func NewEventHandler[T any](fn func(context.Context, T) error) func(context.Cont
 func MakeCreatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
 		evt := domain.TodoCreatedEvent{
-			ID:        domain.TodoID{UUID: p.ID},
-			Title:     p.Title,
-			Status:    p.Status,
-			CreatedAt: p.CreatedAt,
-			Occurred:  time.Now(),
+			ID:          domain.TodoID{UUID: p.ID},
+			WorkspaceID: wsDomain.WorkspaceID{UUID: p.WorkspaceID},
+			Title:       p.Title,
+			Status:      p.Status,
+			CreatedAt:   p.CreatedAt,
+			Occurred:    time.Now(),
 		}
 
 		return pub.Publish(ctx, evt)
@@ -44,11 +46,12 @@ func MakeCreatedHandler(pub shared.EventPublisher) func(context.Context, []byte)
 func MakeUpdatedHandler(pub shared.EventPublisher) func(context.Context, []byte) error {
 	return NewEventHandler(func(ctx context.Context, p TodoEventDTO) error {
 		evt := domain.TodoCompletedEvent{
-			ID:        domain.TodoID{UUID: p.ID},
-			Title:     p.Title,
-			Status:    p.Status,
-			CreatedAt: p.CreatedAt,
-			Occurred:  time.Now(),
+			ID:          domain.TodoID{UUID: p.ID},
+			WorkspaceID: wsDomain.WorkspaceID{UUID: p.WorkspaceID},
+			Title:       p.Title,
+			Status:      p.Status,
+			CreatedAt:   p.CreatedAt,
+			Occurred:    time.Now(),
 		}
 
 		return pub.Publish(ctx, evt)

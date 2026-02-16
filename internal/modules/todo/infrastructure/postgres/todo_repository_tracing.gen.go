@@ -8,6 +8,7 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -36,13 +37,14 @@ func NewTodoRepositoryWithTracing(base _sourceDomain.TodoRepository, instance st
 	return d
 }
 
-// FindAll implements TodoRepository
-func (_d TodoRepositoryWithTracing) FindAll(ctx context.Context) (tpa1 []*_sourceDomain.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindAll")
+// FindAllByWorkspace implements TodoRepository
+func (_d TodoRepositoryWithTracing) FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (tpa1 []*_sourceDomain.Todo, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindAllByWorkspace")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx": ctx}, map[string]interface{}{
+				"ctx":  ctx,
+				"wsID": wsID}, map[string]interface{}{
 				"tpa1": tpa1,
 				"err":  err})
 		} else if err != nil {
@@ -56,7 +58,7 @@ func (_d TodoRepositoryWithTracing) FindAll(ctx context.Context) (tpa1 []*_sourc
 
 		_span.End()
 	}()
-	return _d.TodoRepository.FindAll(ctx)
+	return _d.TodoRepository.FindAllByWorkspace(ctx, wsID)
 }
 
 // FindByID implements TodoRepository

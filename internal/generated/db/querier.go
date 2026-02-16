@@ -32,7 +32,7 @@ type Querier interface {
 	GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error)
 	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error)
 	ListTagsByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]Tags, error)
-	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
+	ListTodosByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]ListTodosByWorkspaceIDRow, error)
 	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)

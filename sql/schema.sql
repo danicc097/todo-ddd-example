@@ -38,7 +38,8 @@ CREATE TABLE public.todos (
     id uuid NOT NULL,
     title text NOT NULL,
     status text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    workspace_id uuid NOT NULL
 );
 ALTER TABLE public.todos OWNER TO postgres;
 CREATE TABLE public.user_auth (
@@ -90,12 +91,15 @@ ALTER TABLE ONLY public.workspace_members
 ALTER TABLE ONLY public.workspaces
     ADD CONSTRAINT workspaces_pkey PRIMARY KEY (id);
 CREATE INDEX idx_outbox_unprocessed ON public.outbox USING btree (created_at) WHERE (processed_at IS NULL);
+CREATE INDEX idx_todos_workspace_id ON public.todos USING btree (workspace_id);
 ALTER TABLE ONLY public.tags
     ADD CONSTRAINT fk_tags_workspace_id FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT fk_todo_tags_tag_id FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT fk_todo_tags_todo_id FOREIGN KEY (todo_id) REFERENCES public.todos(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.todos
+    ADD CONSTRAINT fk_todos_workspace_id FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.user_auth
     ADD CONSTRAINT fk_user_auth_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.workspace_members

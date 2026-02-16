@@ -61,11 +61,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          timeout 30s bash -c 'until make req-create; do echo "Waiting for API..."; sleep 3; done'
-
-          RESPONSE=$(make req-create)
-          echo "Response received: $RESPONSE"
-          test -n "$RESPONSE" || (echo "Failed to find ID in response" && exit 1)
+          timeout 60s bash -c 'until curl -fsS http://localhost:8090/api/v1/ping; do echo "Waiting for API..."; sleep 2; done'
 
       - name: E2E
         run: |

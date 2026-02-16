@@ -32,17 +32,18 @@ func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoPar
 }
 
 const CreateTodo = `-- name: CreateTodo :one
-INSERT INTO todos(id, title, status, created_at)
-  VALUES ($1, $2, $3, $4)
+INSERT INTO todos(id, title, status, created_at, workspace_id)
+  VALUES ($1, $2, $3, $4, $5)
 RETURNING
-  id, title, status, created_at
+  id, title, status, created_at, workspace_id
 `
 
 type CreateTodoParams struct {
-	ID        types.TodoID `db:"id" json:"id"`
-	Title     string       `db:"title" json:"title"`
-	Status    string       `db:"status" json:"status"`
-	CreatedAt time.Time    `db:"created_at" json:"created_at"`
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error) {
@@ -51,6 +52,7 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 		arg.Title,
 		arg.Status,
 		arg.CreatedAt,
+		arg.WorkspaceID,
 	)
 	var i Todos
 	err := row.Scan(
@@ -58,6 +60,7 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 		&i.Title,
 		&i.Status,
 		&i.CreatedAt,
+		&i.WorkspaceID,
 	)
 	return i, err
 }
@@ -68,6 +71,7 @@ SELECT
   t.title,
   t.status,
   t.created_at,
+  t.workspace_id,
   COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
   todos t
@@ -79,11 +83,12 @@ GROUP BY
 `
 
 type GetTodoByIDRow struct {
-	ID        types.TodoID `db:"id" json:"id"`
-	Title     string       `db:"title" json:"title"`
-	Status    string       `db:"status" json:"status"`
-	CreatedAt time.Time    `db:"created_at" json:"created_at"`
-	Tags      []uuid.UUID  `db:"tags" json:"tags"`
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	Tags        []uuid.UUID       `db:"tags" json:"tags"`
 }
 
 func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error) {
@@ -94,49 +99,55 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (Ge
 		&i.Title,
 		&i.Status,
 		&i.CreatedAt,
+		&i.WorkspaceID,
 		&i.Tags,
 	)
 	return i, err
 }
 
-const ListTodos = `-- name: ListTodos :many
+const ListTodosByWorkspaceID = `-- name: ListTodosByWorkspaceID :many
 SELECT
   t.id,
   t.title,
   t.status,
   t.created_at,
+  t.workspace_id,
   COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
   todos t
   LEFT JOIN todo_tags tt ON t.id = tt.todo_id
+WHERE
+  t.workspace_id = $1
 GROUP BY
   t.id
 ORDER BY
   t.created_at DESC
 `
 
-type ListTodosRow struct {
-	ID        types.TodoID `db:"id" json:"id"`
-	Title     string       `db:"title" json:"title"`
-	Status    string       `db:"status" json:"status"`
-	CreatedAt time.Time    `db:"created_at" json:"created_at"`
-	Tags      []uuid.UUID  `db:"tags" json:"tags"`
+type ListTodosByWorkspaceIDRow struct {
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	Tags        []uuid.UUID       `db:"tags" json:"tags"`
 }
 
-func (q *Queries) ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error) {
-	rows, err := db.Query(ctx, ListTodos)
+func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]ListTodosByWorkspaceIDRow, error) {
+	rows, err := db.Query(ctx, ListTodosByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListTodosRow{}
+	items := []ListTodosByWorkspaceIDRow{}
 	for rows.Next() {
-		var i ListTodosRow
+		var i ListTodosByWorkspaceIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Status,
 			&i.CreatedAt,
+			&i.WorkspaceID,
 			&i.Tags,
 		); err != nil {
 			return nil, err

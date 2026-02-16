@@ -50,8 +50,9 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 		const title = "Integration"
 
 		cmd := application.CreateTodoCommand{
-			Title:  title,
-			TagIDs: []domain.TagID{tag.ID()},
+			Title:       title,
+			WorkspaceID: ws.ID(),
+			TagIDs:      []domain.TagID{tag.ID()},
 		}
 
 		id, err := handler.Handle(ctx, cmd)

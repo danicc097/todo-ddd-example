@@ -44,27 +44,40 @@ scripts/example-flow.sh # with local swarm
 API_URL="http://localhost:8099" scripts/example-flow.sh # with make dev
 ```
 
+# Websockets and message queues
+
+First register, login and create a workspace:
+
+```bash
+./todo-cli register -p '{"email": "user@example.com", "name": "User", "password": "Password123!"}'
+export API_TOKEN=$(./todo-cli login -p '{"email": "user@example.com", "password": "Password123!"}' | jq -r .accessToken)
+
+export WS_ID=$(./todo-cli onboard-workspace -p '{"name": "My Workspace"}' | jq -r .id)
+```
+
+## Websockets:
+
 ```bash
 $ make ws-listen
 >>> Connected (press CTRL+C to quit)
 # < {"event":"todo.created","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"PENDING","title":"New todo 1770748039"}
 # < {"event":"todo.updated","id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8","status":"COMPLETED","title":"New todo 1770748039"}
-$ make req-create
-"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8"
+$ ./todo-cli create-todo $WS_ID -p '{"title": "New todo"}'
+{"id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8"}
 ...
-$ make req-complete ID=ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8
+$ ./todo-cli complete-todo ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8
 ...
-$ make req-list
->>> [{"ID":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8",...}]
+$ ./todo-cli get-workspace-todos $WS_ID
+>>> [{"id":"ae1e2ddc-5880-4f9a-8c3f-1d1fae16fbd8",...}]
 ```
 
-Rabbitmq messages:
+## Rabbitmq messages:
 
 ```bash
 $ make rabbitmq-watch
 >>> Tailing live events on 'todo_events'...
 ...
 
-$ make req-complete ID=$(make req-create)
-# ...will show "todo.created" and "todo.updated" messages in watcher
+$ ./todo-cli complete-todo $(./todo-cli create-todo $WS_ID -p '{"title": "New todo"}' | jq -r .id)
+# ...will show "todo.created" and "todo.completed" messages in watcher
 ```

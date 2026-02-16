@@ -62,6 +62,10 @@ type CompositeHandler struct {
 	*authHttp.AuthHandler
 }
 
+func (h *CompositeHandler) Ping(c *gin.Context) {
+	c.String(http.StatusOK, "pong")
+}
+
 func swaggerUIHandler(url string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		html := fmt.Sprintf(`<!DOCTYPE html>
@@ -277,7 +281,6 @@ func main() {
 
 	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, "todo-ddd-api")
 
-	registerUserUC := userApp.NewRegisterUserUseCase(userRepo)
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
 	wsUserGateway := userAdapters.NewWorkspaceUserGateway(userRepo)
@@ -314,7 +317,6 @@ func main() {
 	)
 
 	uh := userHttp.NewUserHandler(
-		registerUserUC,
 		getUserUC,
 		workspaceQueryService,
 	)
@@ -375,6 +377,7 @@ func main() {
 		r.Use(func(c *gin.Context) {
 			p := c.Request.URL.Path
 			if p == "/ws" ||
+				p == "/api/v1/ping" ||
 				p == "/api/v1/docs" ||
 				p == "/favicon.ico" ||
 				p == "/openapi.yaml" {

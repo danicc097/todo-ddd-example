@@ -1,8 +1,8 @@
 -- name: CreateTodo :one
-INSERT INTO todos(id, title, status, created_at)
-  VALUES ($1, $2, $3, $4)
+INSERT INTO todos(id, title, status, created_at, workspace_id)
+  VALUES ($1, $2, $3, $4, $5)
 RETURNING
-  id, title, status, created_at;
+  id, title, status, created_at, workspace_id;
 
 -- name: GetTodoByID :one
 SELECT
@@ -10,6 +10,7 @@ SELECT
   t.title,
   t.status,
   t.created_at,
+  t.workspace_id,
   COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
   todos t
@@ -19,16 +20,19 @@ WHERE
 GROUP BY
   t.id;
 
--- name: ListTodos :many
+-- name: ListTodosByWorkspaceID :many
 SELECT
   t.id,
   t.title,
   t.status,
   t.created_at,
+  t.workspace_id,
   COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
 FROM
   todos t
   LEFT JOIN todo_tags tt ON t.id = tt.todo_id
+WHERE
+  t.workspace_id = $1
 GROUP BY
   t.id
 ORDER BY
@@ -49,4 +53,3 @@ INSERT INTO todo_tags(todo_id, tag_id)
   /* we blindly add tags */
 ON CONFLICT
   DO NOTHING;
-

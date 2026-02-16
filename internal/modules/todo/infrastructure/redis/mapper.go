@@ -10,11 +10,12 @@ import (
 )
 
 type TodoCacheDTO struct {
-	ID        uuid.UUID   `msgpack:"id"`
-	Title     string      `msgpack:"title"`
-	Status    string      `msgpack:"status"`
-	CreatedAt time.Time   `msgpack:"created_at"`
-	Tags      []uuid.UUID `msgpack:"tags"`
+	ID          uuid.UUID   `msgpack:"id"`
+	WorkspaceID uuid.UUID   `msgpack:"workspace_id"`
+	Title       string      `msgpack:"title"`
+	Status      string      `msgpack:"status"`
+	CreatedAt   time.Time   `msgpack:"created_at"`
+	Tags        []uuid.UUID `msgpack:"tags"`
 }
 
 func ToTodoCacheDTO(t *domain.Todo) TodoCacheDTO {
@@ -24,11 +25,12 @@ func ToTodoCacheDTO(t *domain.Todo) TodoCacheDTO {
 	}
 
 	return TodoCacheDTO{
-		ID:        t.ID().UUID,
-		Title:     t.Title().String(),
-		Status:    t.Status().String(),
-		CreatedAt: t.CreatedAt(),
-		Tags:      tagUUIDs,
+		ID:          t.ID().UUID,
+		WorkspaceID: t.WorkspaceID().UUID,
+		Title:       t.Title().String(),
+		Status:      t.Status().String(),
+		CreatedAt:   t.CreatedAt(),
+		Tags:        tagUUIDs,
 	}
 }
 
@@ -46,6 +48,7 @@ func FromTodoCacheDTO(dto TodoCacheDTO) *domain.Todo {
 		domain.TodoStatus(dto.Status),
 		dto.CreatedAt,
 		tagIDs,
+		wsDomain.WorkspaceID{UUID: dto.WorkspaceID},
 	)
 }
 

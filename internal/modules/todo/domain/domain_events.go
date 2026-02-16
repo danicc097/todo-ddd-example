@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
@@ -15,11 +16,12 @@ var (
 )
 
 type TodoCreatedEvent struct {
-	ID        TodoID
-	Title     string
-	Status    string
-	CreatedAt time.Time
-	Occurred  time.Time
+	ID          TodoID
+	WorkspaceID wsDomain.WorkspaceID
+	Title       string
+	Status      string
+	CreatedAt   time.Time
+	Occurred    time.Time
 }
 
 func (e TodoCreatedEvent) EventName() string      { return "todo.created" }
@@ -27,11 +29,12 @@ func (e TodoCreatedEvent) OccurredAt() time.Time  { return e.Occurred }
 func (e TodoCreatedEvent) AggregateID() uuid.UUID { return e.ID.UUID }
 
 type TodoCompletedEvent struct {
-	ID        TodoID
-	Title     string
-	Status    string
-	CreatedAt time.Time
-	Occurred  time.Time
+	ID          TodoID
+	WorkspaceID wsDomain.WorkspaceID
+	Title       string
+	Status      string
+	CreatedAt   time.Time
+	Occurred    time.Time
 }
 
 func (e TodoCompletedEvent) EventName() string      { return "todo.completed" }

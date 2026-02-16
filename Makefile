@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm req-create req-list req-complete req-byid ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -168,31 +168,6 @@ else
     CURL_FLAGS :=
 endif
 
-req-create:
-	curl $(CURL_FLAGS) -sS -X POST $(API_URL)/api/v1/todos \
-		-H "Content-Type: application/json" \
-		-d '{"title": "New todo $(shell date +%s)"}' | \
-	jq -e .id
-
-req-list:
-	curl $(CURL_FLAGS) -sS -X GET $(API_URL)/api/v1/todos \
-		-H "Content-Type: application/json" | \
-		jq -e .
-
-req-complete:
-ifndef ID
-	$(error ID is undefined. Usage: make req-complete ID=...)
-endif
-	curl $(CURL_FLAGS) -sS -X PATCH $(API_URL)/api/v1/todos/$(ID)/complete \
-		-H "Content-Type: application/json"
-
-req-byid:
-ifndef ID
-	$(error ID is undefined. Usage: make req-complete ID=...)
-endif
-	curl $(CURL_FLAGS) -sS -X GET $(API_URL)/api/v1/todos/$(ID) \
-		-H "Content-Type: application/json"
-
 ws-listen:
 	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \
 	wscat -c "$${WS_URL}/ws"
@@ -204,7 +179,7 @@ rabbitmq-messages:
 	docker exec myapp-rabbitmq rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json | jq 'reverse'
 
 rabbitmq-watch:
-	docker exec myapp-rabbitmq rabbitmqadmin delete queue name=debug_tap > /dev/null 2>&1
+	docker exec myapp-rabbitmq rabbitmqadmin delete queue name=debug_tap > /dev/null 2>&1 || true
 	docker exec myapp-rabbitmq rabbitmqadmin declare queue name=debug_tap auto_delete=true > /dev/null
 	docker exec myapp-rabbitmq rabbitmqadmin declare binding source=$(QUEUE) destination=debug_tap routing_key="#" > /dev/null
 

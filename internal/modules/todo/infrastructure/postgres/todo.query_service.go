@@ -11,6 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 type todoQueryService struct {
@@ -25,8 +26,8 @@ func NewTodoQueryService(pool *pgxpool.Pool) application.TodoQueryService {
 	}
 }
 
-func (s *todoQueryService) GetAll(ctx context.Context) ([]api.Todo, error) {
-	rows, err := s.q.ListTodos(ctx, s.pool)
+func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]api.Todo, error) {
+	rows, err := s.q.ListTodosByWorkspaceID(ctx, s.pool, wsID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,10 +35,11 @@ func (s *todoQueryService) GetAll(ctx context.Context) ([]api.Todo, error) {
 	todos := make([]api.Todo, len(rows))
 	for i, r := range rows {
 		todos[i] = api.Todo{
-			Id:        r.ID,
-			Title:     r.Title,
-			Status:    api.TodoStatus(r.Status),
-			CreatedAt: r.CreatedAt,
+			Id:          r.ID,
+			WorkspaceId: r.WorkspaceID,
+			Title:       r.Title,
+			Status:      api.TodoStatus(r.Status),
+			CreatedAt:   r.CreatedAt,
 		}
 	}
 

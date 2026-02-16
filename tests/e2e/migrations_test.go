@@ -22,6 +22,7 @@ import (
 )
 
 func runPgroll(t *testing.T, pgURL string, command string, file string) {
+	t.Helper()
 	args := []string{"tool", "pgroll", "--postgres-url", pgURL, command}
 	if file != "" {
 		args = append(args, "--complete", file)
@@ -50,7 +51,12 @@ func getSortedMigrations(t *testing.T) []string {
 	return normalized
 }
 
-func TestMigration_05_Backfill(t *testing.T) {
+type migrationHook struct {
+	Before func(t *testing.T, ctx context.Context, db *sql.DB)
+	After  func(t *testing.T, ctx context.Context, db *sql.DB)
+}
+
+func TestMigrations_E2E(t *testing.T) {
 	ctx := context.Background()
 
 	container, err := postgres.Run(ctx,
@@ -76,39 +82,71 @@ func TestMigration_05_Backfill(t *testing.T) {
 
 	runPgroll(t, pgURL, "init", "")
 
-	targetMigration := "migrations/05_tag_workspace.json"
-	allMigrations := getSortedMigrations(t)
+	var (
+		testWorkspaceID = uuid.New()
+		testUserID      = uuid.New()
+		testTagID       = uuid.New()
+		testTodoID      = uuid.New()
+	)
 
-	targetFound := false
-	for _, mig := range allMigrations {
-		if mig == targetMigration {
-			targetFound = true
-			break
-		}
-		runPgroll(t, pgURL, "start", mig)
+	hooks := map[string]migrationHook{
+		"05_tag_workspace.json": { // tags now are assigned to workspaces
+
+			Before: func(t *testing.T, ctx context.Context, db *sql.DB) {
+				_, err := db.ExecContext(ctx, `INSERT INTO users (id, email, name) VALUES ($1, 'test@test.com', 'test')`, testUserID)
+				require.NoError(t, err)
+
+				_, err = db.ExecContext(ctx, `INSERT INTO workspaces (id, name, description) VALUES ($1, 'Test Workspace', 'Desc')`, testWorkspaceID)
+				require.NoError(t, err)
+
+				_, err = db.ExecContext(ctx, `INSERT INTO tags (id, name) VALUES ($1, 'Urgent')`, testTagID)
+				require.NoError(t, err)
+			},
+			After: func(t *testing.T, ctx context.Context, db *sql.DB) {
+				var wID uuid.UUID
+				err := db.QueryRowContext(ctx, `SELECT workspace_id FROM tags WHERE id = $1`, testTagID).Scan(&wID)
+				require.NoError(t, err)
+
+				assert.Equal(t, testWorkspaceID, wID)
+			},
+		},
+		"07_todo_workspace.json": { // todos now belong to workspaces
+			Before: func(t *testing.T, ctx context.Context, db *sql.DB) {
+				_, err := db.ExecContext(ctx, `INSERT INTO todos (id, title, status) VALUES ($1, 'Legacy Todo', 'PENDING')`, testTodoID)
+				require.NoError(t, err)
+			},
+			After: func(t *testing.T, ctx context.Context, db *sql.DB) {
+				var wID uuid.UUID
+				err := db.QueryRowContext(ctx, `SELECT workspace_id FROM todos WHERE id = $1`, testTodoID).Scan(&wID)
+				require.NoError(t, err)
+
+				assert.Equal(t, testWorkspaceID, wID)
+			},
+		},
 	}
-	require.True(t, targetFound, "Target migration %s not found in migrations directory", targetMigration)
 
-	userID := uuid.New()
-	workspaceID := uuid.New()
-	tagID := uuid.New()
+	allMigrations := getSortedMigrations(t)
+	require.NotEmpty(t, allMigrations)
 
-	_, err = db.ExecContext(ctx, `INSERT INTO users (id, email, name) VALUES ($1, 'test@test.com', 'test')`, userID)
-	require.NoError(t, err)
+	for _, mig := range allMigrations {
+		baseName := filepath.Base(mig)
 
-	_, err = db.ExecContext(ctx, `INSERT INTO workspaces (id, name, description) VALUES ($1, 'Test Workspace', 'Desc')`, workspaceID)
-	require.NoError(t, err)
+		success := t.Run(baseName, func(t *testing.T) {
+			hook, hasHook := hooks[baseName]
 
-	_, err = db.ExecContext(ctx, `INSERT INTO tags (id, name) VALUES ($1, 'Urgent')`, tagID)
-	require.NoError(t, err)
+			if hasHook && hook.Before != nil {
+				hook.Before(t, ctx, db)
+			}
 
-	runPgroll(t, pgURL, "start", targetMigration)
+			runPgroll(t, pgURL, "start", mig)
 
-	// note this backfilling is nonsensical (grabs ID of first workspace and assigns all tags),
-	// but serves as a baseline for other backfilling tests.
-	var wID uuid.UUID
-	err = db.QueryRowContext(ctx, `SELECT workspace_id FROM tags WHERE id = $1`, tagID).Scan(&wID)
-	require.NoError(t, err)
+			if hasHook && hook.After != nil {
+				hook.After(t, ctx, db)
+			}
+		})
 
-	assert.Equal(t, workspaceID, wID)
+		if !success {
+			t.Fatalf("migration %s failed", baseName)
+		}
+	}
 }

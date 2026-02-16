@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/negrel/secrecy"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
@@ -35,49 +34,42 @@ func NewAuthHandler(
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+	var req api.LoginRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 
 	resp, err := h.loginHandler.Handle(c.Request.Context(), application.LoginCommand{
-		Email:    req.Email,
-		Password: *secrecy.NewSecret(req.Password),
+		Email:    string(req.Email),
+		Password: req.Password,
 	})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"accessToken": resp.AccessToken})
+	c.JSON(http.StatusOK, api.LoginResponseBody{AccessToken: resp.AccessToken})
 }
 
 func (h *AuthHandler) Register(c *gin.Context, params api.RegisterParams) {
-	var req struct {
-		Email    string `json:"email"`
-		Name     string `json:"name"`
-		Password string `json:"password"`
-	}
+	var req api.RegisterUserRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
 	}
 
 	id, err := h.registerHandler.Handle(c.Request.Context(), application.RegisterCommand{
-		Email:    req.Email,
+		Email:    string(req.Email),
 		Name:     req.Name,
-		Password: *secrecy.NewSecret(req.Password),
+		Password: req.Password,
 	})
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: id.UUID})
 }
 
 func (h *AuthHandler) InitiateTOTP(c *gin.Context) {
@@ -87,13 +79,11 @@ func (h *AuthHandler) InitiateTOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"provisioningUri": uri})
+	c.JSON(http.StatusOK, api.InitiateTOTPResponseBody{ProvisioningUri: uri})
 }
 
 func (h *AuthHandler) VerifyTOTP(c *gin.Context) {
-	var req struct {
-		Code string `json:"code"`
-	}
+	var req api.VerifyTOTPRequestBody
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
@@ -105,5 +95,5 @@ func (h *AuthHandler) VerifyTOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"accessToken": resp.AccessToken})
+	c.JSON(http.StatusOK, api.LoginResponseBody{AccessToken: resp.AccessToken})
 }

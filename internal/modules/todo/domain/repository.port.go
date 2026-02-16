@@ -12,7 +12,7 @@ import (
 type TodoRepository interface {
 	Save(ctx context.Context, todo *Todo) error
 	FindByID(ctx context.Context, id TodoID) (*Todo, error)
-	FindAll(ctx context.Context) ([]*Todo, error)
+	FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]*Todo, error)
 	Update(ctx context.Context, todo *Todo) error
 }
 
