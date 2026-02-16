@@ -58,3 +58,16 @@ func (r *UserRepo) FindByID(ctx context.Context, id domain.UserID) (*domain.User
 
 	return r.mapper.ToDomain(row), nil
 }
+
+func (r *UserRepo) FindByEmail(ctx context.Context, email domain.UserEmail) (*domain.User, error) {
+	row, err := r.q.GetUserByEmail(ctx, r.db, email.String())
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("could not get user by email: %w", sharedPg.ParseDBError(err))
+	}
+
+	return r.mapper.ToDomain(row), nil
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
@@ -87,5 +88,32 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		found, err := repo.FindByID(ctx, ws.ID())
 		require.NoError(t, err)
 		assert.NotContains(t, found.Members(), userDomain.UserID{UUID: member.ID().UUID})
+	})
+
+	t.Run("delete workspace requiring MFA", func(t *testing.T) {
+		ws := wsDomain.NewWorkspace("Sensitive", "Desc", owner.ID())
+		require.NoError(t, repo.Save(ctx, ws))
+
+		baseHandler := application.NewDeleteWorkspaceHandler(repo)
+		handler := middleware.Transactional(pool, baseHandler)
+
+		cmd := application.DeleteWorkspaceCommand{ID: ws.ID()}
+
+		// without MFA
+		ctxNoMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID, MFAVerified: false})
+		_, err := handler.Handle(ctxNoMFA, cmd)
+		require.Error(t, err)
+
+		var appErr *apperrors.AppError
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperrors.MFARequired, appErr.Code)
+
+		// with MFA
+		ctxWithMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID, MFAVerified: true})
+		_, err = handler.Handle(ctxWithMFA, cmd)
+		require.NoError(t, err)
+
+		_, err = repo.FindByID(ctx, ws.ID())
+		assert.ErrorIs(t, err, wsDomain.ErrWorkspaceNotFound)
 	})
 }

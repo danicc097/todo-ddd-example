@@ -4,9 +4,11 @@ services:
     image: myapp-go:latest
     build:
       context: .
-      target: dev
+      target: prod
     volumes:
-      - .:/app
+      - ./private.pem:/root/private.pem
+      - ./public.pem:/root/public.pem
+      - ./openapi.yaml:/root/openapi.yaml
     env_file:
       - .env
     deploy:

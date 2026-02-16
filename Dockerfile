@@ -12,6 +12,5 @@ FROM alpine:latest AS prod
 RUN apk add --no-cache ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/api .
-COPY --from=builder /app/openapi.yaml .
 EXPOSE 8080
 CMD ["./api"]

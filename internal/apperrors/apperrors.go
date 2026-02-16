@@ -15,6 +15,7 @@ const (
 	Conflict      ErrorCode = "RESOURCE_CONFLICT"
 	Unprocessable ErrorCode = "UNPROCESSABLE_ENTITY"
 	Unauthorized  ErrorCode = "UNAUTHORIZED"
+	MFARequired   ErrorCode = "MFA_REQUIRED"
 )
 
 type AppError struct {

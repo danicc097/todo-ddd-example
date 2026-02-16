@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -123,7 +124,7 @@ func toMemberMap(members []db.WorkspaceMembers) (map[uuid.UUID]domain.WorkspaceR
 func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error) {
 	dbtx := r.getDB(ctx)
 
-	rows, err := r.q.ListWorkspaces(ctx, dbtx)
+	rows, err := r.q.ListWorkspacesWithMembers(ctx, dbtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workspaces: %w", sharedPg.ParseDBError(err))
 	}
@@ -131,17 +132,18 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 	workspaces := make([]*domain.Workspace, 0, len(rows))
 
 	for _, row := range rows {
-		// N+1 for now, should batch
-		members, err := r.q.GetWorkspaceMembers(ctx, dbtx, row.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch members for workspace %s: %w", row.ID, sharedPg.ParseDBError(err))
+		var mm []struct {
+			UserID uuid.UUID `json:"user_id"`
+			Role   string    `json:"role"`
 		}
 
-		memberMap, _ := toMemberMap(members)
+		_ = json.Unmarshal(row.Members, &mm)
 
-		domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole, len(memberMap))
-		for uid, role := range memberMap {
-			domainMemberMap[userDomain.UserID{UUID: uid}] = role
+		domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole)
+
+		for _, m := range mm {
+			role, _ := domain.NewWorkspaceRole(m.Role)
+			domainMemberMap[userDomain.UserID{UUID: m.UserID}] = role
 		}
 
 		workspaces = append(workspaces, domain.ReconstituteWorkspace(

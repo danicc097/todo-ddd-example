@@ -13,8 +13,13 @@ import (
 	workspaceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	secrecy "github.com/negrel/secrecy"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
 // Defines values for TodoStatus.
@@ -43,6 +48,11 @@ type CreateTodoRequest struct {
 type HTTPValidationError struct {
 	Detail   *[]ValidationError `json:"detail,omitempty"`
 	Messages []string           `json:"messages"`
+}
+
+// IdResponse defines model for IdResponse.
+type IdResponse struct {
+	Id openapi_types.UUID `json:"id"`
 }
 
 // OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
@@ -126,6 +136,30 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// LoginJSONBody defines parameters for Login.
+type LoginJSONBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Password secrecy.Secret[string] `json:"password"`
+}
+
+// RegisterJSONBody defines parameters for Register.
+type RegisterJSONBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Name     string                 `json:"name"`
+	Password secrecy.Secret[string] `json:"password"`
+}
+
+// RegisterParams defines parameters for Register.
+type RegisterParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// VerifyTOTPJSONBody defines parameters for VerifyTOTP.
+type VerifyTOTPJSONBody struct {
+	Code string `json:"code"`
+}
+
 // CreateTodoParams defines parameters for CreateTodo.
 type CreateTodoParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -174,6 +208,15 @@ type CreateTagParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody LoginJSONBody
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody RegisterJSONBody
+
+// VerifyTOTPJSONRequestBody defines body for VerifyTOTP for application/json ContentType.
+type VerifyTOTPJSONRequestBody VerifyTOTPJSONBody
+
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
 
@@ -194,6 +237,18 @@ type CreateTagJSONRequestBody = CreateTagRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login with email and password
+	// (POST /auth/login)
+	Login(c *gin.Context)
+	// Register a new user with password
+	// (POST /auth/register)
+	Register(c *gin.Context, params RegisterParams)
+	// Initiate TOTP setup for the user
+	// (POST /auth/totp/initiate)
+	InitiateTOTP(c *gin.Context)
+	// Verify and activate TOTP
+	// (POST /auth/totp/verify)
+	VerifyTOTP(c *gin.Context)
 	// List all todos
 	// (GET /todos)
 	GetAllTodos(c *gin.Context)
@@ -249,6 +304,88 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Login(c)
+}
+
+// Register operation middleware
+func (siw *ServerInterfaceWrapper) Register(c *gin.Context) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RegisterParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for Idempotency-Key, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter Idempotency-Key: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Register(c, params)
+}
+
+// InitiateTOTP operation middleware
+func (siw *ServerInterfaceWrapper) InitiateTOTP(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.InitiateTOTP(c)
+}
+
+// VerifyTOTP operation middleware
+func (siw *ServerInterfaceWrapper) VerifyTOTP(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.VerifyTOTP(c)
+}
 
 // GetAllTodos operation middleware
 func (siw *ServerInterfaceWrapper) GetAllTodos(c *gin.Context) {
@@ -575,6 +712,8 @@ func (siw *ServerInterfaceWrapper) DeleteWorkspace(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -765,6 +904,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/auth/register", wrapper.Register)
+	router.POST(options.BaseURL+"/auth/totp/initiate", wrapper.InitiateTOTP)
+	router.POST(options.BaseURL+"/auth/totp/verify", wrapper.VerifyTOTP)
 	router.GET(options.BaseURL+"/todos", wrapper.GetAllTodos)
 	router.POST(options.BaseURL+"/todos", wrapper.CreateTodo)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)

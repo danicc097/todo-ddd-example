@@ -208,7 +208,11 @@ func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.Validatio
 		loc = append(loc, schemaErr.JSONPointer()...)
 
 		var valStr string
-		if b, jsonErr := json.Marshal(schemaErr.Value); jsonErr == nil {
+
+		// redact sensitive fields
+		if len(loc) > 0 && (loc[len(loc)-1] == "password" || loc[len(loc)-1] == "code") {
+			valStr = "***REDACTED***"
+		} else if b, jsonErr := json.Marshal(schemaErr.Value); jsonErr == nil {
 			valStr = string(b)
 		} else {
 			valStr = fmt.Sprintf("%v", schemaErr.Value)

@@ -36,6 +36,30 @@ func NewUserRepositoryWithTracing(base _sourceDomain.UserRepository, instance st
 	return d
 }
 
+// FindByEmail implements UserRepository
+func (_d UserRepositoryWithTracing) FindByEmail(ctx context.Context, email _sourceDomain.UserEmail) (up1 *_sourceDomain.User, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.FindByEmail")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":   ctx,
+				"email": email}, map[string]interface{}{
+				"up1": up1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.UserRepository.FindByEmail(ctx, email)
+}
+
 // FindByID implements UserRepository
 func (_d UserRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.UserID) (up1 *_sourceDomain.User, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.FindByID")

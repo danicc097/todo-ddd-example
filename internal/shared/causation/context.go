@@ -20,6 +20,7 @@ type Metadata struct {
 	UserID        uuid.UUID // who
 	UserIP        string    // where
 	UserAgent     string    // how
+	MFAVerified   bool
 }
 
 func (m Metadata) IsUser() bool {

@@ -20,6 +20,116 @@ var _ = workspaceDomain.WorkspaceID{}
 
 func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client.ClientWithResponses, context.Context)) {
 
+	cmdLogin := &cobra.Command{
+		Use:   "login",
+		Short: "Login with email and password",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.LoginJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.LoginWithResponse(ctx, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdLogin.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+
+	rootCmd.AddCommand(cmdLogin)
+
+	cmdRegister := &cobra.Command{
+		Use:   "register",
+		Short: "Register a new user with password",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			params := &client.RegisterParams{}
+			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
+				u := uuid.MustParse(val)
+				params.IdempotencyKey = &u
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.RegisterJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.RegisterWithResponse(ctx, params, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdRegister.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+	cmdRegister.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
+
+	rootCmd.AddCommand(cmdRegister)
+
+	cmdInitiateTOTP := &cobra.Command{
+		Use:   "initiate-totp",
+		Short: "Initiate TOTP setup for the user",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			resp, err := c.InitiateTOTPWithResponse(ctx)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdInitiateTOTP)
+
+	cmdVerifyTOTP := &cobra.Command{
+		Use:   "verify-totp",
+		Short: "Verify and activate TOTP",
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+			var reqBody client.VerifyTOTPJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.VerifyTOTPWithResponse(ctx, reqBody)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			return nil
+		},
+	}
+	cmdVerifyTOTP.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+
+	rootCmd.AddCommand(cmdVerifyTOTP)
+
 	cmdGetAllTodos := &cobra.Command{
 		Use:   "get-all-todos",
 		Short: "List all todos",

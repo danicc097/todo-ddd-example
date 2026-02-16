@@ -41,6 +41,14 @@ CREATE TABLE public.todos (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.todos OWNER TO postgres;
+CREATE TABLE public.user_auth (
+    user_id uuid NOT NULL,
+    password_hash text,
+    totp_status text DEFAULT 'DISABLED'::text NOT NULL,
+    totp_secret_cipher bytea,
+    totp_secret_nonce bytea
+);
+ALTER TABLE public.user_auth OWNER TO postgres;
 CREATE TABLE public.users (
     id uuid NOT NULL,
     email text NOT NULL,
@@ -71,6 +79,8 @@ ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT todo_tags_pkey PRIMARY KEY (todo_id, tag_id);
 ALTER TABLE ONLY public.todos
     ADD CONSTRAINT todos_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.user_auth
+    ADD CONSTRAINT user_auth_pkey PRIMARY KEY (user_id);
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_email_key UNIQUE (email);
 ALTER TABLE ONLY public.users
@@ -86,6 +96,8 @@ ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT fk_todo_tags_tag_id FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.todo_tags
     ADD CONSTRAINT fk_todo_tags_todo_id FOREIGN KEY (todo_id) REFERENCES public.todos(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.user_auth
+    ADD CONSTRAINT fk_user_auth_user_id FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.workspace_members
     ADD CONSTRAINT fk_wm_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.workspace_members

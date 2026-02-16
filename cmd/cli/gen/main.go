@@ -27,6 +27,7 @@ type ApiParam struct {
 	IsString    bool
 	IsInt       bool
 	IsUUID      bool
+	Required    bool
 }
 
 type CommandData struct {
@@ -108,10 +109,20 @@ func main() {
 					cmd.Use += fmt.Sprintf(" [%s]", param.Name)
 				} else {
 					cmd.HasParams = true
+
+					// adhoc initialism fixes to match oapi-codegen
+					goName := strcase.UpperCamelCase(param.Name)
+
+					goName = strings.ReplaceAll(goName, "Otp", "OTP")
+					if !strings.HasPrefix(goName, "Idemp") {
+						goName = strings.ReplaceAll(goName, "Id", "ID")
+					}
+
 					apiParam := ApiParam{
-						GoName:      strcase.UpperCamelCase(param.Name),
+						GoName:      goName,
 						FlagName:    strcase.KebabCase(param.Name),
 						Description: strings.ReplaceAll(param.Description, "\n", " "),
+						Required:    param.Required,
 					}
 
 					schemaTypeString := false
@@ -161,6 +172,4 @@ func main() {
 	if err := os.WriteFile("commands.gen.go", formatted, 0o644); err != nil {
 		log.Fatalf("Failed to write file: %v", err)
 	}
-
-	log.Println("Successfully generated dynamic idempotent commands.gen.go")
 }

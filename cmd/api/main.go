@@ -14,7 +14,9 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -29,6 +31,10 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
+	authApp "github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
+	authHttp "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/http"
+	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
+	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	todoDecorator "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
@@ -46,12 +52,14 @@ import (
 	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	sharedMiddleware "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 type CompositeHandler struct {
 	*todoHttp.TodoHandler
 	*userHttp.UserHandler
 	*wsHttp.WorkspaceHandler
+	*authHttp.AuthHandler
 }
 
 func swaggerUIHandler(url string) gin.HandlerFunc {
@@ -184,6 +192,44 @@ func main() {
 	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(baseWsRepo, auditRepo)
 	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
 
+	if len(internal.Config.MFAMasterKey) != 32 {
+		slog.Error("MFA_MASTER_KEY must be exactly 32 bytes")
+		os.Exit(1)
+	}
+
+	privKeyBytes, err := os.ReadFile("private.pem")
+	if err != nil {
+		slog.Error("failed to read private key", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	privKey, err := jwt.ParseRSAPrivateKeyFromPEM(privKeyBytes)
+	if err != nil {
+		slog.Error("failed to parse private key", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	pubKeyBytes, err := os.ReadFile("public.pem")
+	if err != nil {
+		slog.Error("failed to read public key", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubKeyBytes)
+	if err != nil {
+		slog.Error("failed to parse public key", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	tokenIssuer := crypto.NewTokenIssuer(privKey, "todo-ddd-api")
+	tokenVerifier := crypto.NewTokenVerifier(pubKey)
+
+	baseAuthRepo := authPg.NewAuthRepo(pool)
+	authRepo := authPg.NewAuthRepositoryWithTracing(baseAuthRepo, "todo-ddd-api")
+
+	masterKey := []byte(internal.Config.MFAMasterKey)
+	totpGuard := authRedis.NewTOTPGuard(redisClient)
+
 	mqConn, err := rabbitmq.NewConn(
 		internal.Config.RabbitMQ.URL,
 		rabbitmq.WithConnectionOptionsReconnectInterval(5*time.Second),
@@ -251,6 +297,13 @@ func main() {
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
 
+	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenIssuer)
+	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo)
+	registerHandlerTx := sharedMiddleware.Transactional(pool, registerHandler)
+
+	initiateTOTPHandler := authApp.NewInitiateTOTPHandler(authRepo, masterKey)
+	verifyTOTPHandler := authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenIssuer, masterKey)
+
 	th := todoHttp.NewTodoHandler(
 		createTodoHandler,
 		completeTodoHandler,
@@ -274,6 +327,8 @@ func main() {
 		deleteWsHandler,
 	)
 
+	ah := authHttp.NewAuthHandler(loginHandler, registerHandlerTx, initiateTOTPHandler, verifyTOTPHandler)
+
 	relay := outbox.NewRelay(pool)
 	relay.Register("todo.created", todoRabbit.MakeCreatedHandler(todoPublisher))
 	relay.Register("todo.completed", todoRabbit.MakeUpdatedHandler(todoPublisher))
@@ -286,11 +341,35 @@ func main() {
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.Idempotency(redisClient))
-	r.Use(middleware.ETag()) // HTTP Caching
+	r.Use(middleware.ETag())
+	r.Use(middleware.IdentityAndMFAResolver(tokenVerifier))
 	r.Use(middleware.ErrorHandler())
 
+	// load openapi spec explicitly to share the router with validation and rate limiting
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromFile("./openapi.yaml")
+	if err != nil {
+		slog.Error("failed to load openapi spec", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	openapiRouter, err := gorillamux.NewRouter(doc)
+	if err != nil {
+		slog.Error("failed to create openapi router", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	r.Use(middleware.RateLimiter(redisClient, openapiRouter))
+
 	if internal.Config.Env != internal.AppEnvProd {
-		validator := createOpenAPIValidatorMw()
+		validator := middleware.NewOpenapiMiddleware(doc).RequestValidatorWithOptions(&middleware.OAValidatorOptions{
+			ValidateResponse: true,
+			Options: openapi3filter.Options{
+				AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
+					return nil
+				},
+			},
+		})
 
 		r.Use(func(c *gin.Context) {
 			p := c.Request.URL.Path
@@ -321,6 +400,7 @@ func main() {
 		TodoHandler:      th,
 		UserHandler:      uh,
 		WorkspaceHandler: wh,
+		AuthHandler:      ah,
 	}
 	api.RegisterHandlers(r.Group("/api/v1"), handler)
 
@@ -355,29 +435,6 @@ func main() {
 	}
 
 	slog.Info("Server exiting")
-}
-
-func createOpenAPIValidatorMw() gin.HandlerFunc {
-	loader := openapi3.NewLoader()
-
-	doc, err := loader.LoadFromFile("./openapi.yaml")
-	if err != nil {
-		slog.Error("failed to load openapi spec", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	oaMiddleware := middleware.NewOpenapiMiddleware(doc)
-
-	validatorOpts := &middleware.OAValidatorOptions{
-		ValidateResponse: true,
-		Options: openapi3filter.Options{
-			AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
-				return nil
-			},
-		},
-	}
-
-	return oaMiddleware.RequestValidatorWithOptions(validatorOpts)
 }
 
 func getExplodedSpec(path string) ([]byte, error) {

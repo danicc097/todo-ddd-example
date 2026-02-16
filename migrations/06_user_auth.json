@@ -1,0 +1,43 @@
+{
+  "operations": [
+    {
+      "create_table": {
+        "name": "user_auth",
+        "columns": [
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "pk": true,
+            "references": {
+              "name": "fk_user_auth_user_id",
+              "table": "users",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "password_hash",
+            "type": "text",
+            "nullable": true
+          },
+          {
+            "name": "totp_status",
+            "type": "text",
+            "nullable": false,
+            "default": "'DISABLED'"
+          },
+          {
+            "name": "totp_secret_cipher",
+            "type": "bytea",
+            "nullable": true
+          },
+          {
+            "name": "totp_secret_nonce",
+            "type": "bytea",
+            "nullable": true
+          }
+        ]
+      }
+    }
+  ]
+}

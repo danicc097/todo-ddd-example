@@ -18,8 +18,13 @@ import (
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	workspaceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/google/uuid"
+	secrecy "github.com/negrel/secrecy"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
 // Defines values for TodoStatus.
@@ -48,6 +53,11 @@ type CreateTodoRequest struct {
 type HTTPValidationError struct {
 	Detail   *[]ValidationError `json:"detail,omitempty"`
 	Messages []string           `json:"messages"`
+}
+
+// IdResponse defines model for IdResponse.
+type IdResponse struct {
+	Id openapi_types.UUID `json:"id"`
 }
 
 // OnboardWorkspaceRequest defines model for OnboardWorkspaceRequest.
@@ -131,6 +141,30 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// LoginJSONBody defines parameters for Login.
+type LoginJSONBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Password secrecy.Secret[string] `json:"password"`
+}
+
+// RegisterJSONBody defines parameters for Register.
+type RegisterJSONBody struct {
+	Email    openapi_types.Email    `json:"email"`
+	Name     string                 `json:"name"`
+	Password secrecy.Secret[string] `json:"password"`
+}
+
+// RegisterParams defines parameters for Register.
+type RegisterParams struct {
+	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// VerifyTOTPJSONBody defines parameters for VerifyTOTP.
+type VerifyTOTPJSONBody struct {
+	Code string `json:"code"`
+}
+
 // CreateTodoParams defines parameters for CreateTodo.
 type CreateTodoParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -178,6 +212,15 @@ type CreateTagParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody LoginJSONBody
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody RegisterJSONBody
+
+// VerifyTOTPJSONRequestBody defines body for VerifyTOTP for application/json ContentType.
+type VerifyTOTPJSONRequestBody VerifyTOTPJSONBody
 
 // CreateTodoJSONRequestBody defines body for CreateTodo for application/json ContentType.
 type CreateTodoJSONRequestBody = CreateTodoRequest
@@ -270,6 +313,24 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// LoginWithBody request with any body
+	LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterWithBody request with any body
+	RegisterWithBody(ctx context.Context, params *RegisterParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Register(ctx context.Context, params *RegisterParams, body RegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InitiateTOTP request
+	InitiateTOTP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// VerifyTOTPWithBody request with any body
+	VerifyTOTPWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAllTodos request
 	GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -326,6 +387,90 @@ type ClientInterface interface {
 	CreateTagWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Login(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterWithBody(ctx context.Context, params *RegisterParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Register(ctx context.Context, params *RegisterParams, body RegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateTOTP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateTOTPRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) VerifyTOTPWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyTOTPRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyTOTPRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetAllTodos(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -578,6 +723,168 @@ func (c *Client) CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, 
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewLoginRequest calls the generic Login builder with application/json body
+func NewLoginRequest(server string, body LoginJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLoginRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLoginRequestWithBody generates requests for Login with any type of body
+func NewLoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/login")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRegisterRequest calls the generic Register builder with application/json body
+func NewRegisterRequest(server string, params *RegisterParams, body RegisterJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewRegisterRequestWithBody generates requests for Register with any type of body
+func NewRegisterRequestWithBody(server string, params *RegisterParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/register")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, *params.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewInitiateTOTPRequest generates requests for InitiateTOTP
+func NewInitiateTOTPRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/totp/initiate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewVerifyTOTPRequest calls the generic VerifyTOTP builder with application/json body
+func NewVerifyTOTPRequest(server string, body VerifyTOTPJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewVerifyTOTPRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewVerifyTOTPRequestWithBody generates requests for VerifyTOTP with any type of body
+func NewVerifyTOTPRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/auth/totp/verify")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewGetAllTodosRequest generates requests for GetAllTodos
@@ -1288,6 +1595,24 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// LoginWithBodyWithResponse request with any body
+	LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+
+	LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+
+	// RegisterWithBodyWithResponse request with any body
+	RegisterWithBodyWithResponse(ctx context.Context, params *RegisterParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterResponse, error)
+
+	RegisterWithResponse(ctx context.Context, params *RegisterParams, body RegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterResponse, error)
+
+	// InitiateTOTPWithResponse request
+	InitiateTOTPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*InitiateTOTPResponse, error)
+
+	// VerifyTOTPWithBodyWithResponse request with any body
+	VerifyTOTPWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error)
+
+	VerifyTOTPWithResponse(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error)
+
 	// GetAllTodosWithResponse request
 	GetAllTodosWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllTodosResponse, error)
 
@@ -1346,6 +1671,100 @@ type ClientWithResponsesInterface interface {
 	CreateTagWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
 }
 
+type LoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		AccessToken string `json:"accessToken"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r LoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *IdResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type InitiateTOTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		ProvisioningUri string `json:"provisioningUri"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r InitiateTOTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InitiateTOTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type VerifyTOTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		AccessToken string `json:"accessToken"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r VerifyTOTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r VerifyTOTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetAllTodosResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1371,10 +1790,8 @@ func (r GetAllTodosResponse) StatusCode() int {
 type CreateTodoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Id openapi_types.UUID `json:"id"`
-	}
-	JSON4XX *ErrorResponse
+	JSON201      *IdResponse
+	JSON4XX      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1463,9 +1880,7 @@ func (r AssignTagToTodoResponse) StatusCode() int {
 type RegisterUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Id openapi_types.UUID `json:"id"`
-	}
+	JSON201      *IdResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1553,11 +1968,9 @@ func (r ListWorkspacesResponse) StatusCode() int {
 type OnboardWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Id openapi_types.UUID `json:"id"`
-	}
-	JSON400 *ErrorResponse
-	JSON4XX *ErrorResponse
+	JSON201      *IdResponse
+	JSON400      *ErrorResponse
+	JSON4XX      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1667,10 +2080,8 @@ func (r GetWorkspaceTagsResponse) StatusCode() int {
 type CreateTagResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Id openapi_types.UUID `json:"id"`
-	}
-	JSON4XX *ErrorResponse
+	JSON201      *IdResponse
+	JSON4XX      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1687,6 +2098,66 @@ func (r CreateTagResponse) StatusCode() int {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
+}
+
+// LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
+func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.LoginWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginResponse(rsp)
+}
+
+func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
+	rsp, err := c.Login(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginResponse(rsp)
+}
+
+// RegisterWithBodyWithResponse request with arbitrary body returning *RegisterResponse
+func (c *ClientWithResponses) RegisterWithBodyWithResponse(ctx context.Context, params *RegisterParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterResponse, error) {
+	rsp, err := c.RegisterWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterWithResponse(ctx context.Context, params *RegisterParams, body RegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterResponse, error) {
+	rsp, err := c.Register(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterResponse(rsp)
+}
+
+// InitiateTOTPWithResponse request returning *InitiateTOTPResponse
+func (c *ClientWithResponses) InitiateTOTPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*InitiateTOTPResponse, error) {
+	rsp, err := c.InitiateTOTP(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateTOTPResponse(rsp)
+}
+
+// VerifyTOTPWithBodyWithResponse request with arbitrary body returning *VerifyTOTPResponse
+func (c *ClientWithResponses) VerifyTOTPWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error) {
+	rsp, err := c.VerifyTOTPWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyTOTPResponse(rsp)
+}
+
+func (c *ClientWithResponses) VerifyTOTPWithResponse(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error) {
+	rsp, err := c.VerifyTOTP(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyTOTPResponse(rsp)
 }
 
 // GetAllTodosWithResponse request returning *GetAllTodosResponse
@@ -1872,6 +2343,116 @@ func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, id work
 	return ParseCreateTagResponse(rsp)
 }
 
+// ParseLoginResponse parses an HTTP response from a LoginWithResponse call
+func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			AccessToken string `json:"accessToken"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRegisterResponse parses an HTTP response from a RegisterWithResponse call
+func ParseRegisterResponse(rsp *http.Response) (*RegisterResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest IdResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInitiateTOTPResponse parses an HTTP response from a InitiateTOTPWithResponse call
+func ParseInitiateTOTPResponse(rsp *http.Response) (*InitiateTOTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InitiateTOTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			ProvisioningUri string `json:"provisioningUri"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseVerifyTOTPResponse parses an HTTP response from a VerifyTOTPWithResponse call
+func ParseVerifyTOTPResponse(rsp *http.Response) (*VerifyTOTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &VerifyTOTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			AccessToken string `json:"accessToken"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetAllTodosResponse parses an HTTP response from a GetAllTodosWithResponse call
 func ParseGetAllTodosResponse(rsp *http.Response) (*GetAllTodosResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1913,9 +2494,7 @@ func ParseCreateTodoResponse(rsp *http.Response) (*CreateTodoResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Id openapi_types.UUID `json:"id"`
-		}
+		var dest IdResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2033,9 +2612,7 @@ func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Id openapi_types.UUID `json:"id"`
-		}
+		var dest IdResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2139,9 +2716,7 @@ func ParseOnboardWorkspaceResponse(rsp *http.Response) (*OnboardWorkspaceRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Id openapi_types.UUID `json:"id"`
-		}
+		var dest IdResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2285,9 +2860,7 @@ func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Id openapi_types.UUID `json:"id"`
-		}
+		var dest IdResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

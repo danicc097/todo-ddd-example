@@ -8,4 +8,5 @@ import (
 type UserRepository interface {
 	Save(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id UserID) (*User, error)
+	FindByEmail(ctx context.Context, email UserEmail) (*User, error)
 }

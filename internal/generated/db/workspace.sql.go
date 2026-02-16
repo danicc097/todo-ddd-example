@@ -200,6 +200,56 @@ func (q *Queries) ListWorkspacesByUserID(ctx context.Context, db DBTX, userID ty
 	return items, nil
 }
 
+const ListWorkspacesWithMembers = `-- name: ListWorkspacesWithMembers :many
+SELECT
+  w.id,
+  w.name,
+  w.description,
+  w.created_at,
+  COALESCE(json_agg(json_build_object('user_id', wm.user_id, 'role', wm.role)) FILTER (WHERE wm.user_id IS NOT NULL), '[]')::json AS members
+FROM
+  workspaces w
+  LEFT JOIN workspace_members wm ON w.id = wm.workspace_id
+GROUP BY
+  w.id
+ORDER BY
+  w.created_at DESC
+`
+
+type ListWorkspacesWithMembersRow struct {
+	ID          types.WorkspaceID `db:"id" json:"id"`
+	Name        string            `db:"name" json:"name"`
+	Description string            `db:"description" json:"description"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	Members     []byte            `db:"members" json:"members"`
+}
+
+func (q *Queries) ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error) {
+	rows, err := db.Query(ctx, ListWorkspacesWithMembers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspacesWithMembersRow{}
+	for rows.Next() {
+		var i ListWorkspacesWithMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+			&i.Members,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const UpsertWorkspace = `-- name: UpsertWorkspace :one
 INSERT INTO workspaces(id, name, description, created_at)
   VALUES ($1, $2, $3, $4)

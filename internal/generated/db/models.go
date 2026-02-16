@@ -39,6 +39,14 @@ type Todos struct {
 	CreatedAt time.Time    `db:"created_at" json:"created_at"`
 }
 
+type UserAuth struct {
+	UserID           uuid.UUID `db:"user_id" json:"user_id"`
+	PasswordHash     *string   `db:"password_hash" json:"password_hash"`
+	TotpStatus       string    `db:"totp_status" json:"totp_status"`
+	TotpSecretCipher []byte    `db:"totp_secret_cipher" json:"totp_secret_cipher"`
+	TotpSecretNonce  []byte    `db:"totp_secret_nonce" json:"totp_secret_nonce"`
+}
+
 type Users struct {
 	ID        types.UserID `db:"id" json:"id"`
 	Email     string       `db:"email" json:"email"`

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
@@ -25,6 +26,11 @@ func NewDeleteWorkspaceHandler(repo domain.WorkspaceRepository) *DeleteWorkspace
 
 func (h *DeleteWorkspaceHandler) Handle(ctx context.Context, cmd DeleteWorkspaceCommand) (application.Void, error) {
 	meta := causation.FromContext(ctx)
+
+	// domain agnostic step-up auth check
+	if !meta.MFAVerified {
+		return application.Void{}, apperrors.New(apperrors.MFARequired, "MFA required for this privileged action")
+	}
 
 	ws, err := h.repo.FindByID(ctx, cmd.ID)
 	if err != nil {

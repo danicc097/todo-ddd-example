@@ -61,6 +61,7 @@ type AppConfig struct {
 	LogLevel string `env:"LOG_LEVEL,INFO"`
 	Env      AppEnv `env:"ENV,development"`
 	Port     string `env:"PORT"`
+	MFAMasterKey string `env:"MFA_MASTER_KEY"`
 }
 
 func NewAppConfig() error {

@@ -58,6 +58,8 @@ func errorCodeToHTTP(code apperrors.ErrorCode) int {
 		return http.StatusUnprocessableEntity
 	case apperrors.Unauthorized:
 		return http.StatusUnauthorized
+	case apperrors.MFARequired:
+		return http.StatusForbidden
 	case apperrors.Internal:
 		return http.StatusInternalServerError
 	default:

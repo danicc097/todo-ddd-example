@@ -26,6 +26,8 @@ type Querier interface {
 	GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error)
 	// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 	GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error)
+	GetUserAuth(ctx context.Context, db DBTX, userID uuid.UUID) (UserAuth, error)
+	GetUserByEmail(ctx context.Context, db DBTX, email string) (Users, error)
 	GetUserByID(ctx context.Context, db DBTX, id types.UserID) (Users, error)
 	GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error)
 	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error)
@@ -33,10 +35,12 @@ type Querier interface {
 	ListTodos(ctx context.Context, db DBTX) ([]ListTodosRow, error)
 	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
+	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
+	UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error
 	UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorkspaceParams) (Workspaces, error)
 }
 

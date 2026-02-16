@@ -43,16 +43,28 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			{{ range $p := $cmd.ApiParams -}}
 			{{ if $p.IsString -}}
 			if val, _ := cmd.Flags().GetString("{{ $p.FlagName }}"); val != "" {
+				{{ if $p.Required -}}
+				params.{{ $p.GoName }} = val
+				{{ else -}}
 				params.{{ $p.GoName }} = &val
+				{{ end -}}
 			}
 			{{ else if $p.IsUUID -}}
 			if val, _ := cmd.Flags().GetString("{{ $p.FlagName }}"); val != "" {
 				u := uuid.MustParse(val)
+				{{ if $p.Required -}}
+				params.{{ $p.GoName }} = u
+				{{ else -}}
 				params.{{ $p.GoName }} = &u
+				{{ end -}}
 			}
 			{{ else if $p.IsInt -}}
 			if val, _ := cmd.Flags().GetInt("{{ $p.FlagName }}"); val != 0 {
+				{{ if $p.Required -}}
+				params.{{ $p.GoName }} = val
+				{{ else -}}
 				params.{{ $p.GoName }} = &val
+				{{ end -}}
 			}
 			{{ end -}}
 			{{ end -}}

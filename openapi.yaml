@@ -70,6 +70,128 @@ servers:
     description: Local development server
 
 paths:
+  /auth/register:
+    post:
+      summary: Register a new user with password
+      operationId: register
+      x-rate-limit:
+        limit: 5
+        window: "1h"
+      tags:
+        - auth
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+                password:
+                  type: string
+                  format: password
+                  x-go-type: "secrecy.Secret[string]"
+                  x-go-type-import:
+                    path: "github.com/negrel/secrecy"
+                    name: "secrecy"
+      responses:
+        '201':
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+
+  /auth/login:
+    post:
+      summary: Login with email and password
+      operationId: login
+      x-rate-limit:
+        limit: 10
+        window: "5m"
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password:
+                  type: string
+                  format: password
+                  x-go-type: "secrecy.Secret[string]"
+                  x-go-type-import:
+                    path: "github.com/negrel/secrecy"
+                    name: "secrecy"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                required: [accessToken]
+                properties:
+                  accessToken: { type: string }
+
+  /auth/totp/initiate:
+    post:
+      summary: Initiate TOTP setup for the user
+      operationId: initiateTOTP
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: TOTP setup initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [provisioningUri]
+                properties:
+                  provisioningUri:
+                    type: string
+
+  /auth/totp/verify:
+    post:
+      summary: Verify and activate TOTP
+      operationId: verifyTOTP
+      x-rate-limit:
+        limit: 5
+        window: "5m"
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: TOTP verified, returns new JWT with MFA claim
+          content:
+            application/json:
+              schema:
+                required: [accessToken]
+                properties:
+                  accessToken: { type: string }
+
   /todos:
     get:
       summary: List all todos
@@ -105,11 +227,7 @@ paths:
           content:
             application/json:
               schema:
-                required: [id]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
+                $ref: '#/components/schemas/IdResponse'
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
@@ -183,11 +301,7 @@ paths:
           content:
             application/json:
               schema:
-                required: [id]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
+                $ref: '#/components/schemas/IdResponse'
 
   /users/{id}:
     get:
@@ -253,11 +367,7 @@ paths:
           content:
             application/json:
               schema:
-                required: [id]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
+                $ref: '#/components/schemas/IdResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '4XX':
@@ -268,6 +378,8 @@ paths:
       operationId: deleteWorkspace
       tags:
         - workspace
+      security:
+        - bearerAuth: []
       parameters:
         - *x-workspaceIDParameter
       responses:
@@ -354,15 +466,17 @@ paths:
           content:
             application/json:
               schema:
-                required: [id]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
+                $ref: '#/components/schemas/IdResponse'
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -376,6 +490,14 @@ components:
         format: uuid
 
   schemas:
+    IdResponse:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+
     HTTPValidationError:
       title: HTTPValidationError
       type: object
