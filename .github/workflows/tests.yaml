@@ -71,6 +71,12 @@ jobs:
         run: |
           go test -tags e2e -v ./tests/e2e/...
 
+      - name: Verify example flow
+        run: |
+          make gen-cli
+          sudo apt-get install oathtool libpam-oath
+          ./scripts/example-flow.sh
+
       - name: Debug on failure
         if: failure()
         run: |
