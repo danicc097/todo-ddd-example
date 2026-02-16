@@ -5,11 +5,11 @@
 
 ## Stack
 
-- **Architecture**:  Follows/Inspired by **Clean Architecture** with **DDD** and
+- **Architecture**: Follows/Inspired by **Clean Architecture** with **DDD** and
   basic **CQRS**.
 - **Database:** **PostgreSQL** with **pgroll** for zero-downtime schema migrations. **sqlc** for type-safe queries.
 - **API:** Contract-first with **OpenAPI 3.0** with **oapi-codegen**.
-  Automatic request/response validation via **kin-openapi**. Distributed cache-aside with **Redis**.
+  Automatic request/response validation via **kin-openapi**. Spec-defined rate limits. Distributed cache-aside with **Redis**.
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
 - **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
 - **Infra:** **Docker swarm** for multinode deployment with Caddy.
@@ -35,6 +35,14 @@ make test
 - Jaeger: http://127.0.0.1:16686/search
 
 # Example API usage
+
+Full flow with MFA via generated `todo-cli` client:
+
+```bash
+scripts/example-flow.sh # with local swarm
+# or
+API_URL="http://localhost:8099" scripts/example-flow.sh # with make dev
+```
 
 ```bash
 $ make ws-listen

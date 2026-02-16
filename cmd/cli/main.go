@@ -5,12 +5,22 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/client"
+)
+
+var (
+	debug        bool
+	styleSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	styleError   = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	styleDebug   = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
+	styleHeader  = lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Bold(true)
 )
 
 func main() {
@@ -32,9 +42,22 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&apiURL, "url", defaultURL, "API Server URL (also set via API_URL env var)")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug output")
 
 	getClient := func() (*client.ClientWithResponses, context.Context) {
-		c, err := client.NewClientWithResponses(apiURL)
+		authOption := client.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+			if token := os.Getenv("API_TOKEN"); token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+
+			if debug {
+				log.Println(styleDebug.Render("DEBUG: Issuing " + req.Method + " request to " + req.URL.String()))
+			}
+
+			return nil
+		})
+
+		c, err := client.NewClientWithResponses(apiURL, authOption)
 		if err != nil {
 			log.Fatalf("Failed to create client: %v", err)
 		}

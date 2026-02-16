@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/google/uuid"
 
@@ -29,6 +31,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		{{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing {{ $cmd.PascalOperationID }}"))
+			}
 
 			{{ range $index, $param := $cmd.PathParams }}
 			{{ if eq $param.GoType "uuid.UUID" -}}
@@ -72,6 +78,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 			{{ if $cmd.HasBody -}}
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.{{ $cmd.BodyType }}
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -79,12 +90,20 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				}
 			}
 			{{ end }}
+
 			resp, err := c.{{ $cmd.PascalOperationID }}WithResponse(ctx{{ range $param := $cmd.PathParams }}, param{{ $param.Name }}{{ end }}{{ if $cmd.HasParams }}, params{{ end }}{{ if $cmd.HasBody }}, reqBody{{ end }})
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}

@@ -31,8 +31,14 @@ func RateLimiter(rdb *redis.Client, router routers.Router) gin.HandlerFunc {
 			return
 		}
 
+		extBytes, err := json.Marshal(extRaw)
+		if err != nil {
+			c.Next()
+			return
+		}
+
 		var rlConfig rateLimitExt
-		if err := json.Unmarshal(extRaw.(json.RawMessage), &rlConfig); err != nil {
+		if err := json.Unmarshal(extBytes, &rlConfig); err != nil {
 			c.Next()
 			return
 		}

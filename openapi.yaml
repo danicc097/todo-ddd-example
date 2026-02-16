@@ -75,8 +75,8 @@ paths:
       summary: Register a new user with password
       operationId: register
       x-rate-limit:
-        limit: 5
-        window: "1h"
+        limit: 50
+        window: "1m"
       tags:
         - auth
       parameters:
@@ -112,7 +112,7 @@ paths:
       operationId: login
       x-rate-limit:
         limit: 10
-        window: "5m"
+        window: "1m"
       tags:
         - auth
       requestBody:
@@ -166,8 +166,8 @@ paths:
       summary: Verify and activate TOTP
       operationId: verifyTOTP
       x-rate-limit:
-        limit: 5
-        window: "5m"
+        limit: 10
+        window: "1m"
       tags:
         - auth
       security:

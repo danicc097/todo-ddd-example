@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
@@ -27,7 +29,16 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing Login"))
+			}
+
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.LoginJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -40,7 +51,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -55,6 +73,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing Register"))
+			}
+
 			params := &client.RegisterParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
 				u := uuid.MustParse(val)
@@ -62,6 +84,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.RegisterJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -74,7 +101,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -90,12 +124,23 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing InitiateTOTP"))
+			}
+
 			resp, err := c.InitiateTOTPWithResponse(ctx)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -109,7 +154,16 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing VerifyTOTP"))
+			}
+
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.VerifyTOTPJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -122,7 +176,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -137,12 +198,23 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetAllTodos"))
+			}
+
 			resp, err := c.GetAllTodosWithResponse(ctx)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -156,6 +228,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTodo"))
+			}
+
 			params := &client.CreateTodoParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
 				u := uuid.MustParse(val)
@@ -163,6 +239,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.CreateTodoJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -175,7 +256,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -191,6 +279,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetTodoByID"))
+			}
+
 			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
 
 			resp, err := c.GetTodoByIDWithResponse(ctx, paramid)
@@ -198,7 +290,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -211,6 +310,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CompleteTodo"))
+			}
 
 			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
 
@@ -225,7 +328,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -240,6 +350,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing AssignTagToTodo"))
+			}
+
 			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
 
 			params := &client.AssignTagToTodoParams{}
@@ -249,6 +363,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.AssignTagToTodoJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -261,7 +380,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -277,6 +403,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing RegisterUser"))
+			}
+
 			params := &client.RegisterUserParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
 				u := uuid.MustParse(val)
@@ -284,6 +414,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.RegisterUserJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -296,7 +431,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -312,6 +454,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetUserByID"))
+			}
+
 			paramid := userDomain.UserID{UUID: uuid.MustParse(args[0])}
 
 			resp, err := c.GetUserByIDWithResponse(ctx, paramid)
@@ -319,7 +465,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -333,6 +486,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetUserWorkspaces"))
+			}
+
 			paramid := userDomain.UserID{UUID: uuid.MustParse(args[0])}
 
 			resp, err := c.GetUserWorkspacesWithResponse(ctx, paramid)
@@ -340,7 +497,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -354,12 +518,23 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing ListWorkspaces"))
+			}
+
 			resp, err := c.ListWorkspacesWithResponse(ctx)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -373,6 +548,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing OnboardWorkspace"))
+			}
+
 			params := &client.OnboardWorkspaceParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
 				u := uuid.MustParse(val)
@@ -380,6 +559,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.OnboardWorkspaceJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -392,7 +576,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -408,6 +599,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing DeleteWorkspace"))
+			}
+
 			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
 			resp, err := c.DeleteWorkspaceWithResponse(ctx, paramid)
@@ -415,7 +610,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -429,6 +631,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing AddWorkspaceMember"))
+			}
+
 			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
 			params := &client.AddWorkspaceMemberParams{}
@@ -438,6 +644,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.AddWorkspaceMemberJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -450,7 +661,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -466,6 +684,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing RemoveWorkspaceMember"))
+			}
+
 			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
 			paramuserId := userDomain.UserID{UUID: uuid.MustParse(args[1])}
@@ -475,7 +697,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -489,6 +718,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetWorkspaceTags"))
+			}
+
 			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
 			resp, err := c.GetWorkspaceTagsWithResponse(ctx, paramid)
@@ -496,7 +729,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
@@ -510,6 +750,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, ctx := getClient()
 
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTag"))
+			}
+
 			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
 
 			params := &client.CreateTagParams{}
@@ -519,6 +763,11 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			}
 
 			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
 			var reqBody client.CreateTagJSONRequestBody
 			if bodyStr != "" {
 				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
@@ -531,7 +780,14 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				return err
 			}
 
-			fmt.Printf("Status: %d\nResponse: %s\n", resp.StatusCode(), string(resp.Body))
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			// Printed directly to stdout so `sed` can reliably grab the JSON
+			fmt.Printf("Response: %s\n", string(resp.Body))
 			return nil
 		},
 	}
