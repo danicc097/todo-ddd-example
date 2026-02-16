@@ -22,5 +22,6 @@ func (s *MockSMSService) Verify(ctx context.Context, auth *domain.UserAuth, code
 	if code == "123456" {
 		return nil
 	}
+
 	return domain.ErrInvalidOTP
 }

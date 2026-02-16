@@ -347,6 +347,7 @@ func main() {
 
 	// load openapi spec explicitly to share the router with validation and rate limiting
 	loader := openapi3.NewLoader()
+
 	doc, err := loader.LoadFromFile("./openapi.yaml")
 	if err != nil {
 		slog.Error("failed to load openapi spec", slog.String("error", err.Error()))

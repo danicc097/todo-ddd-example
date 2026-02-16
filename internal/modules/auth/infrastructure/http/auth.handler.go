@@ -4,13 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/negrel/secrecy"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
-	"github.com/negrel/secrecy"
 )
 
 type AuthHandler struct {

@@ -54,13 +54,13 @@ type OTELConfig struct {
 }
 
 type AppConfig struct {
-	Postgres PostgresConfig
-	Redis    RedisConfig
-	RabbitMQ RabbitMQConfig
-	OTEL     OTELConfig
-	LogLevel string `env:"LOG_LEVEL,INFO"`
-	Env      AppEnv `env:"ENV,development"`
-	Port     string `env:"PORT"`
+	Postgres     PostgresConfig
+	Redis        RedisConfig
+	RabbitMQ     RabbitMQConfig
+	OTEL         OTELConfig
+	LogLevel     string `env:"LOG_LEVEL,INFO"`
+	Env          AppEnv `env:"ENV,development"`
+	Port         string `env:"PORT"`
 	MFAMasterKey string `env:"MFA_MASTER_KEY"`
 }
 
