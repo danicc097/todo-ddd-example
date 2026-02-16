@@ -6,12 +6,15 @@
 ## Stack
 
 - **Architecture**: Follows/Inspired by **Clean Architecture** with **DDD** and
-  basic **CQRS**.
+  basic **CQRS**. Caching, tracing and auditing via decorators with `gowrap`.
 - **Database:** **PostgreSQL** with **pgroll** for zero-downtime schema migrations. **sqlc** for type-safe queries.
-- **API:** Contract-first with **OpenAPI 3.0** with **oapi-codegen**.
-  Automatic request/response validation via **kin-openapi**. Spec-defined rate limits. Distributed cache-aside with **Redis**.
+- **API:** Contract-first via **OpenAPI 3.0** with `oapi-codegen`.
+  - Automatic request/response validation.
+  - Spec-defined rate limiting.
+  - Idempotency keys to let clients safely handle non-idempotent request retries.
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
 - **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
+- **Tooling:** Custom generated CLI client from the OpenAPI spec with completion if using `direnv`.
 - **Infra:** **Docker swarm** for multinode deployment with Caddy.
 - **CI:** See `.github/workflows/tests.yaml`.
 
