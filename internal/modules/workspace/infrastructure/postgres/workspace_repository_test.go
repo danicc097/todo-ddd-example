@@ -23,6 +23,8 @@ func createTestUser(ctx context.Context, t *testing.T, pool *testutils.PostgreSQ
 }
 
 func TestWorkspaceRepo_Integration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	pg := testutils.NewPostgreSQLContainer(ctx, t)

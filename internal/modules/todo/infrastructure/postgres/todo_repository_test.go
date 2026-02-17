@@ -26,6 +26,8 @@ func mustCreateTodo(t *testing.T, title string, wsID wsDomain.WorkspaceID) *doma
 }
 
 func TestTodoRepo_Integration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	postgres := testutils.NewPostgreSQLContainer(ctx, t)

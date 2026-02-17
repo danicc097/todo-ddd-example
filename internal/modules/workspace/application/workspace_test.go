@@ -35,6 +35,8 @@ func (m *mockUserGateway) Exists(ctx context.Context, userID userDomain.UserID) 
 }
 
 func TestWorkspaceUseCases_Integration(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	pg := testutils.NewPostgreSQLContainer(ctx, t)

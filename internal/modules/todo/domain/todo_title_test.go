@@ -8,6 +8,8 @@ import (
 )
 
 func TestNewTodoTitle(t *testing.T) {
+	t.Parallel()
+
 	t.Run("should create valid title", func(t *testing.T) {
 		title, err := NewTodoTitle("Valid Task")
 		assert.NoError(t, err)

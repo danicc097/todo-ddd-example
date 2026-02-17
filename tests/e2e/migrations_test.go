@@ -57,6 +57,8 @@ type migrationHook struct {
 }
 
 func TestMigrations_E2E(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	container, err := postgres.Run(ctx,

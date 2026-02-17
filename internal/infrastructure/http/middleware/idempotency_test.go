@@ -38,6 +38,8 @@ func setupRedisContainer(t *testing.T) *redis.Client {
 }
 
 func TestIdempotencyMiddleware(t *testing.T) {
+	t.Parallel()
+
 	rdb := setupRedisContainer(t)
 
 	gin.SetMode(gin.TestMode)

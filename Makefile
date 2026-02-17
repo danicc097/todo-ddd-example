@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-race test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -56,6 +56,10 @@ dev:
 test:
 	$(MAKE) gen-schema
 	go test ./...
+
+test-race:
+	$(MAKE) gen-schema
+	go test ./... -race -shuffle=on -count=5 -v -timeout 15m
 
 test-e2e:
 	go test -tags e2e -v ./tests/e2e/...

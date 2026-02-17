@@ -22,6 +22,7 @@ import (
 )
 
 func TestE2E_TodoLifecycle(t *testing.T) {
+	t.Parallel()
 	apiURL := os.Getenv("API_URL")
 	if apiURL == "" {
 		apiURL = "http://127.0.0.1:8090"

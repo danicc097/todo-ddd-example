@@ -11,6 +11,8 @@ import (
 )
 
 func TestTodo_Complete(t *testing.T) {
+	t.Parallel()
+
 	title, _ := NewTodoTitle("Task")
 	wsID := wsDomain.WorkspaceID{UUID: uuid.New()}
 
