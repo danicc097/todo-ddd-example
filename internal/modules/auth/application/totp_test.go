@@ -2,10 +2,12 @@ package application_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/negrel/secrecy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,11 +25,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-
-	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
-	defer pgContainer.Close(ctx, t)
-
-	pool := pgContainer.Connect(ctx, t)
+	pool := testutils.GetGlobalPostgresPool(t)
 
 	redisContainer := testutils.NewRedisContainer(ctx, t)
 	defer redisContainer.Close(ctx, t)
@@ -43,9 +41,12 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	privKey, _ := jwt.ParseRSAPrivateKeyFromPEM(privKeyBytes)
 	tokenIssuer := crypto.NewTokenIssuer(privKey, "test")
 
+	uniqueEmail := fmt.Sprintf("auth-%s@example.com", uuid.New().String()[:8])
+
 	registerHandler := application.NewRegisterHandler(userRepo, authRepo)
+
 	userID, err := registerHandler.Handle(ctx, application.RegisterCommand{
-		Email:    "auth-test@example.com",
+		Email:    uniqueEmail,
 		Name:     "Auth User",
 		Password: *secrecy.NewSecret("password123!"),
 	})

@@ -27,8 +27,6 @@ type EventMapper interface {
 }
 
 // EventPublisher is the generic output port.
-//
-//counterfeiter:generate . EventPublisher
 type EventPublisher interface {
 	Publish(ctx context.Context, events ...DomainEvent) error
 }

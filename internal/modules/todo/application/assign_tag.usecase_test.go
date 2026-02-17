@@ -16,7 +16,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
-func TestCompleteTodoUseCase_Integration(t *testing.T) {
+func TestAssignTagToTodoHandler_Handle_Integration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -24,33 +24,33 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 	repo := todoPg.NewTodoRepo(pool)
 
-	baseHandler := application.NewCompleteTodoHandler(repo)
+	baseHandler := application.NewAssignTagToTodoHandler(repo)
 	handler := middleware.Transactional(pool, baseHandler)
 
-	t.Run("completes", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)
 		ws := fixtures.RandomWorkspace(ctx, t, user.ID())
+		tag := fixtures.RandomTag(ctx, t, ws.ID())
 		todo := fixtures.RandomTodo(ctx, t, ws.ID())
 
-		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
-			ID: todo.ID(),
+		_, err := handler.Handle(ctx, application.AssignTagToTodoCommand{
+			TodoID: todo.ID(),
+			TagID:  tag.ID(),
 		})
+
 		require.NoError(t, err)
 
-		found, _ := repo.FindByID(ctx, todo.ID())
-		assert.Equal(t, domain.StatusCompleted, found.Status())
-
-		var count int
-
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.completed' AND (payload ->> 'id')::uuid = $1", todo.ID().UUID).Scan(&count)
+		updated, err := repo.FindByID(ctx, todo.ID())
 		require.NoError(t, err)
-		assert.Equal(t, 1, count)
+		assert.Contains(t, updated.Tags(), tag.ID())
 	})
 
-	t.Run("fails if todo not found", func(t *testing.T) {
-		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
-			ID: domain.TodoID{UUID: uuid.New()},
+	t.Run("failure - todo not found", func(t *testing.T) {
+		_, err := handler.Handle(ctx, application.AssignTagToTodoCommand{
+			TodoID: domain.TodoID{UUID: uuid.New()},
+			TagID:  domain.TagID{UUID: uuid.New()},
 		})
+
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
 	})
 }

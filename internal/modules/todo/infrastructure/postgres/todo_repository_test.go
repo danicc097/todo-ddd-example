@@ -1,4 +1,4 @@
-package postgres
+package postgres_test
 
 import (
 	"context"
@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
-	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -29,25 +28,12 @@ func TestTodoRepo_Integration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	pool := testutils.GetGlobalPostgresPool(t)
+	fixtures := testfixtures.NewFixtures(pool)
+	repo := todoPg.NewTodoRepo(pool)
 
-	postgres := testutils.NewPostgreSQLContainer(ctx, t)
-	defer postgres.Close(ctx, t)
-
-	pool := postgres.Connect(ctx, t)
-	defer pool.Close()
-
-	repo := NewTodoRepo(pool)
-	tagRepo := NewTagRepo(pool)
-	userRepo := userPg.NewUserRepo(pool)
-	wsRepo := wsPg.NewWorkspaceRepo(pool)
-
-	uEmail, _ := userDomain.NewUserEmail("test@mail.com")
-	u := userDomain.CreateUser(uEmail, "test")
-	require.NoError(t, userRepo.Save(ctx, u))
-
-	ws := wsDomain.NewWorkspace("WS", "Desc", u.ID())
-	require.NoError(t, wsRepo.Save(ctx, ws))
-
+	user := fixtures.RandomUser(ctx, t)
+	ws := fixtures.RandomWorkspace(ctx, t, user.ID())
 	todo := mustCreateTodo(t, "Test Todo", ws.ID())
 
 	t.Run("save and find", func(t *testing.T) {
@@ -92,14 +78,8 @@ func TestTodoRepo_Integration(t *testing.T) {
 
 	t.Run("tags", func(t *testing.T) {
 		taggedTodo := mustCreateTodo(t, "Todo with tags", ws.ID())
-
-		tn1, _ := domain.NewTagName("tag-1")
-		tag1 := domain.NewTag(tn1, ws.ID())
-		require.NoError(t, tagRepo.Save(ctx, tag1))
-
-		tn2, _ := domain.NewTagName("tag-2")
-		tag2 := domain.NewTag(tn2, ws.ID())
-		require.NoError(t, tagRepo.Save(ctx, tag2))
+		tag1 := fixtures.RandomTag(ctx, t, ws.ID())
+		tag2 := fixtures.RandomTag(ctx, t, ws.ID())
 
 		taggedTodo.AddTag(tag1.ID())
 		taggedTodo.AddTag(tag2.ID())

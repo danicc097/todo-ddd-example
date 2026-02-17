@@ -1,11 +1,12 @@
 package internal
 
 import (
+	"os"
 	"testing"
 
-	"go.uber.org/goleak"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	os.Exit(testutils.VerifyTestMain(m))
 }

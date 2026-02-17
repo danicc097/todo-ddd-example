@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,93 +20,154 @@ import (
 )
 
 type PostgreSQLContainer struct {
-	container *postgres.PostgresContainer
+	container testcontainers.Container
 	pool      *pgxpool.Pool
+	mu        sync.Mutex
 }
 
-// generated via make gen-schema.
+var (
+	globalPgOnce      sync.Once
+	globalPgContainer *PostgreSQLContainer
+)
+
 const schemaSQLFile = "../../sql/schema.sql"
 
+func GetGlobalPostgresPool(t *testing.T) *pgxpool.Pool {
+	ctx := context.Background()
+
+	globalPgOnce.Do(func() {
+		// possibly no file lock needed, testcontainers handles Reuse concurrency,
+		// and pg_advisory_lock handles schema concurrency
+		globalPgContainer = NewPostgreSQLContainer(ctx, t)
+		globalPgContainer.Connect(ctx, t)
+	})
+
+	return globalPgContainer.Pool()
+}
+
+func CloseGlobalPostgresPool() {
+	if globalPgContainer != nil {
+		globalPgContainer.Close(context.Background(), nil)
+	}
+}
+
 func NewPostgreSQLContainer(ctx context.Context, t *testing.T) *PostgreSQLContainer {
-	t.Helper()
-
 	_, thisFile, _, _ := runtime.Caller(0)
+	absSchemaPath, _ := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
 
-	absSchemaPath, err := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
-	if err != nil {
-		t.Fatalf("failed to get absolute path for schema file: %v", err)
+	req := testcontainers.ContainerRequest{
+		Image: "postgres:16-alpine",
+		Name:  "todo-ddd-test-pg",
+		Env: map[string]string{
+			"POSTGRES_DB":       "testdb",
+			"POSTGRES_USER":     "postgres",
+			"POSTGRES_PASSWORD": "testpass",
+		},
+		ExposedPorts: []string{"5432/tcp"},
+		WaitingFor: wait.ForLog("database system is ready to accept connections").
+			WithOccurrence(2).
+			WithStartupTimeout(30 * time.Second),
 	}
 
-	container, err := postgres.Run(ctx,
-		"postgres:16-alpine",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("postgres"), // use role from generated schema
-		postgres.WithPassword("testpass"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(15*time.Second),
-		),
-	)
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+		Reuse:            true,
+	})
 	if err != nil {
-		t.Fatalf("failed to start postgres container: %v", err)
+		if t != nil {
+			t.Fatalf("failed to start postgres container: %v", err)
+		}
+
+		panic(err)
 	}
 
 	pg := &PostgreSQLContainer{container: container}
 
-	pg.applySchema(ctx, t, absSchemaPath)
+	if !pg.isSchemaApplied(ctx) {
+		pg.applySchema(ctx, t, absSchemaPath)
+	}
 
 	return pg
 }
 
-func (p *PostgreSQLContainer) applySchema(ctx context.Context, t *testing.T, schemaSQLFile string) {
-	t.Helper()
+func (p *PostgreSQLContainer) isSchemaApplied(ctx context.Context) bool {
+	connStr := p.ConnectionString(ctx, "sslmode=disable")
 
-	schemaSQL, err := os.ReadFile(schemaSQLFile)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
-		t.Fatalf("failed to read schema file %s: %v", schemaSQLFile, err)
+		return false
 	}
-
-	connStr, err := p.container.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("failed to get connection string for schema apply: %v", err)
-	}
-
-	var db *sql.DB
-	for range 10 {
-		db, err = sql.Open("pgx", connStr)
-		if err == nil {
-			err = db.PingContext(ctx)
-		}
-
-		if err == nil {
-			break
-		}
-
-		if db != nil {
-			db.Close()
-		}
-
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	if err != nil {
-		t.Fatalf("failed to connect to database for schema apply after retries: %v", err)
-	}
-
 	defer db.Close()
 
-	if _, err := db.ExecContext(ctx, "DROP SCHEMA IF EXISTS public CASCADE"); err != nil {
-		t.Fatalf("failed to drop public schema: %v", err)
+	var exists bool
+
+	err = db.QueryRowContext(ctx, "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'outbox')").Scan(&exists)
+
+	return err == nil && exists
+}
+
+func (p *PostgreSQLContainer) applySchema(ctx context.Context, t *testing.T, schemaSQLFile string) {
+	schemaBytes, err := os.ReadFile(schemaSQLFile)
+	if err != nil {
+		if t != nil {
+			t.Fatalf("failed to read schema file: %v", err)
+		}
+
+		panic(err)
 	}
 
-	if _, err := db.ExecContext(ctx, string(schemaSQL)); err != nil {
-		t.Fatalf("failed to apply schema from %s: %v", schemaSQLFile, err)
+	schemaSQL := string(schemaBytes)
+
+	connStr := p.ConnectionString(ctx, "sslmode=disable")
+
+	db, err := sql.Open("pgx", connStr)
+	if err != nil {
+		if t != nil {
+			t.Fatalf("failed to connect for schema apply: %v", err)
+		}
+
+		panic(err)
+	}
+	defer db.Close()
+
+	// coordinates schema application across processes
+	if _, err := db.ExecContext(ctx, "SELECT pg_advisory_lock(123456789)"); err != nil {
+		if t != nil {
+			t.Fatalf("failed to acquire advisory lock: %v", err)
+		}
+
+		panic(err)
+	}
+	defer db.ExecContext(ctx, "SELECT pg_advisory_unlock(123456789)")
+
+	var exists bool
+
+	_ = db.QueryRowContext(ctx, "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'outbox')").Scan(&exists)
+	if exists {
+		return
+	}
+
+	schemaSQL = strings.ReplaceAll(schemaSQL, "CREATE SCHEMA public;", "CREATE SCHEMA IF NOT EXISTS public;")
+
+	if _, err := db.ExecContext(ctx, schemaSQL); err != nil {
+		if t != nil {
+			t.Fatalf("failed to apply schema from %s: %v", schemaSQLFile, err)
+		}
+
+		panic(err)
 	}
 }
 
 func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpool.Pool {
-	t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.pool != nil {
+		return p.pool
+	}
+
+	connStr := p.ConnectionString(ctx, "sslmode=disable")
 
 	var (
 		pool *pgxpool.Pool
@@ -112,11 +175,6 @@ func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpoo
 	)
 
 	for range 10 {
-		connStr, err := p.container.ConnectionString(ctx, "sslmode=disable")
-		if err != nil {
-			t.Fatalf("failed to get connection string: %v", err)
-		}
-
 		pool, err = pgxpool.New(ctx, connStr)
 		if err == nil {
 			if err := pool.Ping(ctx); err == nil {
@@ -130,32 +188,44 @@ func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpoo
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	t.Fatalf("failed to connect to postgres after retries: %v", err)
+	if t != nil {
+		t.Fatalf("failed to connect to postgres after retries: %v", err)
+	} else {
+		panic(fmt.Sprintf("failed to connect to postgres after retries: %v", err))
+	}
 
 	return nil
 }
 
 func (p *PostgreSQLContainer) Close(ctx context.Context, t *testing.T) {
-	t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	if p.pool != nil {
 		p.pool.Close()
 	}
 
 	if err := p.container.Terminate(ctx); err != nil {
-		t.Logf("failed to terminate postgres container: %v", err)
+		if t != nil {
+			t.Logf("failed to terminate postgres container: %v", err)
+		}
 	}
 }
 
 func (p *PostgreSQLContainer) ConnectionString(ctx context.Context, opts ...string) string {
-	connStr, err := p.container.ConnectionString(ctx, opts...)
-	if err != nil {
-		panic(fmt.Sprintf("failed to get connection string: %v", err))
+	if pg, ok := p.container.(*postgres.PostgresContainer); ok {
+		connStr, _ := pg.ConnectionString(ctx, opts...)
+		return connStr
 	}
 
-	return connStr
+	endpoint, _ := p.container.Endpoint(ctx, "")
+
+	return fmt.Sprintf("postgresql://postgres:testpass@%s/testdb?sslmode=disable", endpoint)
 }
 
 func (p *PostgreSQLContainer) Pool() *pgxpool.Pool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	return p.pool
 }

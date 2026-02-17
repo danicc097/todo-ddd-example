@@ -3,24 +3,14 @@
 package e2e
 
 import (
-	"net/http"
 	"os"
 	"testing"
 
-	"go.uber.org/goleak"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
 func TestMain(m *testing.M) {
-	code := m.Run()
+	defer testutils.CloseGlobalPostgresPool()
 
-	if tr, ok := http.DefaultTransport.(*http.Transport); ok {
-		tr.CloseIdleConnections()
-	}
-
-	if err := goleak.Find(); err != nil {
-		os.Stderr.WriteString("goleak: " + err.Error() + "\n")
-		os.Exit(1)
-	}
-
-	os.Exit(code)
+	os.Exit(testutils.VerifyTestMain(m))
 }

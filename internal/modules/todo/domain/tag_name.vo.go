@@ -10,6 +10,8 @@ var (
 	ErrTagNameTooLong = errors.New("tag name is too long")
 )
 
+const tagMaxLen = 20
+
 type TagName struct {
 	value string
 }
@@ -20,7 +22,7 @@ func NewTagName(val string) (TagName, error) {
 		return TagName{}, ErrTagNameEmpty
 	}
 
-	if len(val) > 20 {
+	if len(val) > tagMaxLen {
 		return TagName{}, ErrTagNameTooLong
 	}
 

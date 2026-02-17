@@ -1,4 +1,4 @@
-package postgres
+package postgres_test
 
 import (
 	"context"
@@ -7,34 +7,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
-
-func createTestUser(ctx context.Context, t *testing.T, pool *testutils.PostgreSQLContainer, email string) *userDomain.User {
-	repo := userPg.NewUserRepo(pool.Pool())
-	e, _ := userDomain.NewUserEmail(email)
-	u := userDomain.CreateUser(e, "test")
-	require.NoError(t, repo.Save(ctx, u))
-
-	return u
-}
 
 func TestWorkspaceRepo_Integration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	pool := testutils.GetGlobalPostgresPool(t)
+	fixtures := testfixtures.NewFixtures(pool)
+	repo := wsPg.NewWorkspaceRepo(pool)
 
-	pg := testutils.NewPostgreSQLContainer(ctx, t)
-	defer pg.Close(ctx, t)
-
-	pool := pg.Connect(ctx, t)
-	repo := NewWorkspaceRepo(pool)
-
-	owner := createTestUser(ctx, t, pg, "owner@mail.com")
-	member := createTestUser(ctx, t, pg, "member@mail.com")
+	owner := fixtures.RandomUser(ctx, t)
+	member := fixtures.RandomUser(ctx, t)
 
 	t.Run("save and find", func(t *testing.T) {
 		ws := wsDomain.NewWorkspace("My Workspace", "Desc", owner.ID())
@@ -49,7 +37,7 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'workspace.created'").Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'workspace.created' AND (payload ->> 'id')::uuid = $1", ws.ID().UUID).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})

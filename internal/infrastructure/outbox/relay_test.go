@@ -16,18 +16,12 @@ import (
 )
 
 func TestOutboxRelay_RetryLogic(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
-
-	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
-	defer pgContainer.Close(ctx, t)
-
-	pool := pgContainer.Connect(ctx, t)
+	pool := testutils.GetGlobalPostgresPool(t)
 
 	q := db.New()
 	eventID := uuid.New()
-	eventType := "test.poison.message"
+	eventType := "test.poison.message." + eventID.String() // Unique per test
 	payload := []byte(`{"data": "bad"}`)
 
 	err := q.SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
@@ -67,21 +61,18 @@ func TestOutboxRelay_RetryLogic(t *testing.T) {
 }
 
 func TestOutboxRelay_GracefulShutdown(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
-
-	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
-	defer pgContainer.Close(ctx, t)
-
-	pool := pgContainer.Connect(ctx, t)
+	pool := testutils.GetGlobalPostgresPool(t)
 
 	relay := outbox.NewRelay(pool)
 
 	handlerStarted := make(chan struct{})
 	blockHandler := make(chan struct{})
 
-	relay.Register("test.slow", func(ctx context.Context, p []byte) error {
+	eventID := uuid.New()
+	eventType := "test.slow." + eventID.String()
+
+	relay.Register(eventType, func(ctx context.Context, p []byte) error {
 		close(handlerStarted)
 		<-blockHandler // block until test allows proceeding
 
@@ -89,8 +80,8 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	})
 
 	_ = db.New().SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
-		ID:        uuid.New(),
-		EventType: "test.slow",
+		ID:        eventID,
+		EventType: eventType,
 		Payload:   []byte("{}"),
 	})
 
@@ -128,6 +119,6 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	}
 
 	count := 0
-	_ = pool.QueryRow(ctx, "SELECT count(*) FROM outbox WHERE processed_at IS NOT NULL").Scan(&count)
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM outbox WHERE id = $1 AND processed_at IS NOT NULL", eventID).Scan(&count)
 	assert.Equal(t, 1, count)
 }

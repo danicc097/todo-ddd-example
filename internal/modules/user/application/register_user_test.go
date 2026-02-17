@@ -2,8 +2,10 @@ package application_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,18 +18,16 @@ func TestRegisterUserUseCase_Integration(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-
-	pgContainer := testutils.NewPostgreSQLContainer(ctx, t)
-	defer pgContainer.Close(ctx, t)
-
-	pool := pgContainer.Connect(ctx, t)
+	pool := testutils.GetGlobalPostgresPool(t)
 	repo := userPg.NewUserRepo(pool)
 	uc := application.NewRegisterUserUseCase(repo)
 
 	t.Run("successfully registers", func(t *testing.T) {
+		uid := uuid.New().String()[:8]
+		email := fmt.Sprintf("new-%s@example.com", uid)
 		cmd := application.RegisterUserCommand{
-			Email: "a@b.com",
-			Name:  "user",
+			Email: email,
+			Name:  "user " + uid,
 		}
 
 		id, err := uc.Execute(ctx, cmd)

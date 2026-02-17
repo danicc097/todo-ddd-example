@@ -111,7 +111,7 @@ func loadEnvToConfig(config any) error {
 		}
 
 		if envtag, ok := fType.Tag.Lookup("env"); ok && len(envtag) > 0 {
-			isPtr := fld.Kind() == reflect.Ptr
+			isPtr := fld.Kind() == reflect.Pointer
 
 			var ptr reflect.Type
 			if isPtr {
@@ -169,7 +169,7 @@ func setDecoderValue(decoder Decoder, envTag string, field reflect.Value) error 
 	envvar, defaultVal := splitEnvTag(envTag)
 	val, present := os.LookupEnv(envvar)
 
-	if !present && field.Kind() != reflect.Ptr {
+	if !present && field.Kind() != reflect.Pointer {
 		if defaultVal == "" {
 			return fmt.Errorf("%s is not set but required", envvar)
 		}
@@ -181,7 +181,7 @@ func setDecoderValue(decoder Decoder, envTag string, field reflect.Value) error 
 
 	kind := field.Kind()
 
-	if kind == reflect.Ptr {
+	if kind == reflect.Pointer {
 		kind = field.Type().Elem().Kind()
 		isPtr = true
 	}
