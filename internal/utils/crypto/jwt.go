@@ -28,11 +28,15 @@ func NewTokenIssuer(privateKey *rsa.PrivateKey, issuer string) *TokenIssuer {
 }
 
 func (i *TokenIssuer) Issue(userID uuid.UUID, mfaVerified bool, duration time.Duration) (string, error) {
+	now := time.Now()
 	claims := AuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    i.issuer,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Audience:  jwt.ClaimStrings{"todo-ddd-api-clients"},
+			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			NotBefore: jwt.NewNumericDate(now),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        uuid.New().String(),
 		},
 		UserID:      userID,
 		MFAVerified: mfaVerified,

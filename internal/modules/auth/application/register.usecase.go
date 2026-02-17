@@ -36,6 +36,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (user
 
 	user := userDomain.CreateUser(email, cmd.Name)
 
+	// non-owasp: should also check passwords against a compromised list and password strength.
 	hash, err := crypto.HashPassword(cmd.Password.ExposeSecret(), crypto.DefaultArgon2Params)
 	if err != nil {
 		return userDomain.UserID{}, err

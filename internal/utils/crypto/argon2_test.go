@@ -3,6 +3,7 @@ package crypto_test
 import (
 	"testing"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +16,7 @@ func TestArgon2(t *testing.T) {
 	password := "my-secret-password"
 
 	// keep small for fast tests
-	params := crypto.Argon2Params{
+	params := argon2id.Params{
 		Memory:      1024,
 		Iterations:  1,
 		Parallelism: 1,
@@ -45,7 +46,7 @@ func TestArgon2(t *testing.T) {
 
 	t.Run("compare error with invalid hash format", func(t *testing.T) {
 		match, err := crypto.ComparePassword(password, "invalid-hash")
-		assert.ErrorIs(t, err, crypto.ErrInvalidHash)
+		require.ErrorIs(t, err, argon2id.ErrInvalidHash)
 		assert.False(t, match)
 	})
 }

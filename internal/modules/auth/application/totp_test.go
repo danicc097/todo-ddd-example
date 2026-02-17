@@ -47,7 +47,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	userID, err := registerHandler.Handle(ctx, application.RegisterCommand{
 		Email:    "auth-test@example.com",
 		Name:     "Auth User",
-		Password: *secrecy.NewSecret("password123"),
+		Password: *secrecy.NewSecret("password123!"),
 	})
 	require.NoError(t, err)
 

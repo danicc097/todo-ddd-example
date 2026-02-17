@@ -96,6 +96,19 @@ func swaggerUIHandler(url string) gin.HandlerFunc {
 	}
 }
 
+func SecurityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")                                     // prevent script injection
+		c.Header("X-Frame-Options", "DENY")                                               // prevent clickjacking
+		c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'") // prevent resource loading and embedding
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")      // force https for the next year
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")       // ensure possibly sensitive data is never cached
+		c.Header("Pragma", "no-cache")                                                    // for legacy http clients
+
+		c.Next()
+	}
+}
+
 func main() {
 	var envPath string
 	flag.StringVar(&envPath, "env", ".env", "Environment Variables filename")
@@ -340,12 +353,15 @@ func main() {
 
 	r := gin.New()
 	r.Use(otelgin.Middleware("todo-ddd-api"))
+	r.Use(SecurityHeaders())
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.Idempotency(redisClient))
 	r.Use(middleware.ETag())
 	r.Use(middleware.IdentityAndMFAResolver(tokenVerifier))
 	r.Use(middleware.ErrorHandler())
+
+	// non-owasp: missing cors based on consumers
 
 	// load openapi spec explicitly to share the router with validation and rate limiting
 	loader := openapi3.NewLoader()
