@@ -98,12 +98,19 @@ func swaggerUIHandler(url string) gin.HandlerFunc {
 
 func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("X-Content-Type-Options", "nosniff")                                     // prevent script injection
-		c.Header("X-Frame-Options", "DENY")                                               // prevent clickjacking
-		c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'") // prevent resource loading and embedding
-		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")      // force https for the next year
-		c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")       // ensure possibly sensitive data is never cached
-		c.Header("Pragma", "no-cache")                                                    // for legacy http clients
+		c.Header("X-Content-Type-Options", "nosniff") // prevent script injection
+		c.Header("X-Frame-Options", "DENY")           // prevent clickjacking
+
+		isDocs := c.Request.URL.Path == "/api/v1/docs"
+		isProd := internal.Config.Env == internal.AppEnvProd
+
+		if isProd || !isDocs {
+			c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		}
+
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains") // force https for the next year
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")  // ensure possibly sensitive data is never cached
+		c.Header("Pragma", "no-cache")                                               // for legacy http clients
 
 		c.Next()
 	}
