@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,22 +11,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type PostgreSQLContainer struct {
 	container testcontainers.Container
-	pool      *pgxpool.Pool
-	mu        sync.Mutex
+	baseURI   string
+	adminPool *pgxpool.Pool
 }
 
 var (
 	globalPgOnce      sync.Once
 	globalPgContainer *PostgreSQLContainer
+	globalPgErr       error
 )
 
 const schemaSQLFile = "../../sql/schema.sql"
@@ -36,196 +37,204 @@ func GetGlobalPostgresPool(t *testing.T) *pgxpool.Pool {
 	ctx := context.Background()
 
 	globalPgOnce.Do(func() {
-		// possibly no file lock needed, testcontainers handles Reuse concurrency,
-		// and pg_advisory_lock handles schema concurrency
-		globalPgContainer = NewPostgreSQLContainer(ctx, t)
-		globalPgContainer.Connect(ctx, t)
+		globalPgContainer, globalPgErr = newPostgreSQLContainer(ctx)
 	})
 
-	return globalPgContainer.Pool()
-}
-
-func CloseGlobalPostgresPool() {
-	if globalPgContainer != nil {
-		globalPgContainer.Close(context.Background(), nil)
+	if globalPgErr != nil {
+		t.Fatalf("Failed to initialize global postgres container: %v", globalPgErr)
 	}
+
+	return globalPgContainer.CreateTestDatabase(ctx, t)
 }
 
-func NewPostgreSQLContainer(ctx context.Context, t *testing.T) *PostgreSQLContainer {
-	_, thisFile, _, _ := runtime.Caller(0)
-	absSchemaPath, _ := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
+func newPostgreSQLContainer(ctx context.Context) (*PostgreSQLContainer, error) {
+	// prevents from killing db when the first package finishes testing
+	_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	_ = os.Setenv("TESTCONTAINERS_REUSE_ENABLE", "true")
 
 	req := testcontainers.ContainerRequest{
 		Image: "postgres:16-alpine",
 		Name:  "todo-ddd-test-pg",
 		Env: map[string]string{
-			"POSTGRES_DB":       "testdb",
+			"POSTGRES_DB":       "postgres",
 			"POSTGRES_USER":     "postgres",
 			"POSTGRES_PASSWORD": "testpass",
+		},
+		Labels: map[string]string{
+			"todo-ddd-test": "true", // cleanup watchdog
+		},
+		Cmd: []string{
+			"-c", "max_connections=500",
+			"-c", "fsync=off",
+			"-c", "synchronous_commit=off",
+			"-c", "full_page_writes=off",
+			"-c", "shared_buffers=128MB",
 		},
 		ExposedPorts: []string{"5432/tcp"},
 		WaitingFor: wait.ForLog("database system is ready to accept connections").
 			WithOccurrence(2).
 			WithStartupTimeout(30 * time.Second),
+		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.ShmSize = 256 * 1024 * 1024
+		},
 	}
 
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	containerInstance, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 		Reuse:            true,
 	})
 	if err != nil {
-		if t != nil {
-			t.Fatalf("failed to start postgres container: %v", err)
-		}
-
-		panic(err)
+		return nil, fmt.Errorf("failed to start postgres container: %w", err)
 	}
 
-	pg := &PostgreSQLContainer{container: container}
+	host, _ := containerInstance.Host(ctx)
+	port, _ := containerInstance.MappedPort(ctx, "5432")
+	baseURI := fmt.Sprintf("postgresql://postgres:testpass@%s:%s", host, port.Port())
 
-	if !pg.isSchemaApplied(ctx) {
-		pg.applySchema(ctx, t, absSchemaPath)
+	// for lock free CREATE/DROP db
+	adminPool, err := pgxpool.New(ctx, baseURI+"/postgres?sslmode=disable")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open admin pool: %w", err)
 	}
 
-	return pg
+	pg := &PostgreSQLContainer{
+		container: containerInstance,
+		baseURI:   baseURI,
+		adminPool: adminPool,
+	}
+
+	if err := pg.cleanupOrphanedDatabases(ctx); err != nil {
+		return nil, fmt.Errorf("failed to clean orphaned databases: %w", err)
+	}
+
+	if err := pg.prepareTemplate(ctx); err != nil {
+		return nil, err
+	}
+
+	return pg, nil
 }
 
-func (p *PostgreSQLContainer) isSchemaApplied(ctx context.Context) bool {
-	connStr := p.ConnectionString(ctx, "sslmode=disable")
-
-	db, err := sql.Open("pgx", connStr)
-	if err != nil {
-		return false
+func (p *PostgreSQLContainer) cleanupOrphanedDatabases(ctx context.Context) error {
+	if _, err := p.adminPool.Exec(ctx, "SELECT pg_advisory_lock(999999999)"); err != nil {
+		return err
 	}
-	defer db.Close()
+	defer p.adminPool.Exec(ctx, "SELECT pg_advisory_unlock(999999999)")
+
+	rows, err := p.adminPool.Query(ctx, "SELECT datname FROM pg_database WHERE datname LIKE 'test_%'")
+	if err != nil {
+		return err
+	}
+
+	var orphanDBs []string
+
+	now := time.Now()
+
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err == nil {
+			parts := strings.Split(name, "_") // test_<timestamp>_<uuid>
+			if len(parts) >= 2 {
+				var ts int64
+				if _, err := fmt.Sscanf(parts[1], "%d", &ts); err == nil {
+					if time.Unix(ts, 0).Add(5 * time.Minute).Before(now) {
+						orphanDBs = append(orphanDBs, name)
+					}
+				}
+			}
+		}
+	}
+
+	rows.Close()
+
+	for _, name := range orphanDBs {
+		_, _ = p.adminPool.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", name))
+	}
+
+	return nil
+}
+
+func (p *PostgreSQLContainer) prepareTemplate(ctx context.Context) error {
+	_, err := p.adminPool.Exec(ctx, "SELECT pg_advisory_lock(123456789)")
+	if err != nil {
+		return fmt.Errorf("failed to acquire advisory lock: %w", err)
+	}
+	defer p.adminPool.Exec(ctx, "SELECT pg_advisory_unlock(123456789)")
 
 	var exists bool
 
-	err = db.QueryRowContext(ctx, "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'outbox')").Scan(&exists)
-
-	return err == nil && exists
-}
-
-func (p *PostgreSQLContainer) applySchema(ctx context.Context, t *testing.T, schemaSQLFile string) {
-	schemaBytes, err := os.ReadFile(schemaSQLFile)
-	if err != nil {
-		if t != nil {
-			t.Fatalf("failed to read schema file: %v", err)
-		}
-
-		panic(err)
-	}
-
-	schemaSQL := string(schemaBytes)
-
-	connStr := p.ConnectionString(ctx, "sslmode=disable")
-
-	db, err := sql.Open("pgx", connStr)
-	if err != nil {
-		if t != nil {
-			t.Fatalf("failed to connect for schema apply: %v", err)
-		}
-
-		panic(err)
-	}
-	defer db.Close()
-
-	// coordinates schema application across processes
-	if _, err := db.ExecContext(ctx, "SELECT pg_advisory_lock(123456789)"); err != nil {
-		if t != nil {
-			t.Fatalf("failed to acquire advisory lock: %v", err)
-		}
-
-		panic(err)
-	}
-	defer db.ExecContext(ctx, "SELECT pg_advisory_unlock(123456789)")
-
-	var exists bool
-
-	_ = db.QueryRowContext(ctx, "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'outbox')").Scan(&exists)
+	_ = p.adminPool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_database WHERE datname = 'template_db')").Scan(&exists)
 	if exists {
-		return
+		return nil
 	}
 
-	schemaSQL = strings.ReplaceAll(schemaSQL, "CREATE SCHEMA public;", "CREATE SCHEMA IF NOT EXISTS public;")
-
-	if _, err := db.ExecContext(ctx, schemaSQL); err != nil {
-		if t != nil {
-			t.Fatalf("failed to apply schema from %s: %v", schemaSQLFile, err)
-		}
-
-		panic(err)
+	if _, err := p.adminPool.Exec(ctx, "CREATE DATABASE template_db;"); err != nil {
+		return fmt.Errorf("failed to create template_db: %w", err)
 	}
+
+	templatePool, err := pgxpool.New(ctx, p.baseURI+"/template_db?sslmode=disable")
+	if err != nil {
+		return fmt.Errorf("failed to open template db pool: %w", err)
+	}
+	defer templatePool.Close()
+
+	_, thisFile, _, _ := runtime.Caller(0)
+	absSchemaPath, _ := filepath.Abs(filepath.Join(filepath.Dir(thisFile), schemaSQLFile))
+
+	schemaBytes, err := os.ReadFile(absSchemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to read schema file: %w", err)
+	}
+
+	schemaSQL := strings.ReplaceAll(string(schemaBytes), "CREATE SCHEMA public;", "CREATE SCHEMA IF NOT EXISTS public;")
+
+	if _, err := templatePool.Exec(ctx, schemaSQL); err != nil {
+		return fmt.Errorf("failed to apply schema to template_db: %w", err)
+	}
+
+	return nil
 }
 
-func (p *PostgreSQLContainer) Connect(ctx context.Context, t *testing.T) *pgxpool.Pool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *PostgreSQLContainer) CreateTestDatabase(ctx context.Context, t *testing.T) *pgxpool.Pool {
+	// so cleanup can distinguish new active dbs
+	testDBName := fmt.Sprintf("test_%d_%s", time.Now().Unix(), strings.ReplaceAll(uuid.New().String(), "-", "")[:12])
 
-	if p.pool != nil {
-		return p.pool
+	// 100% Lock-Free execution for concurrent tests using the shared admin pool
+	if _, err := p.adminPool.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s TEMPLATE template_db;", testDBName)); err != nil {
+		t.Fatalf("failed to create test database: %v", err)
 	}
 
-	connStr := p.ConnectionString(ctx, "sslmode=disable")
+	testConnStr := p.baseURI + "/" + testDBName + "?sslmode=disable"
 
 	var (
 		pool *pgxpool.Pool
 		err  error
 	)
 
-	for range 10 {
-		pool, err = pgxpool.New(ctx, connStr)
+	for range 50 {
+		pool, err = pgxpool.New(ctx, testConnStr)
 		if err == nil {
-			if err := pool.Ping(ctx); err == nil {
-				p.pool = pool
-				return pool
+			if pingErr := pool.Ping(ctx); pingErr == nil {
+				break
+			} else {
+				err = pingErr
+
+				pool.Close()
 			}
-
-			pool.Close()
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
-	if t != nil {
-		t.Fatalf("failed to connect to postgres after retries: %v", err)
-	} else {
-		panic(fmt.Sprintf("failed to connect to postgres after retries: %v", err))
+	if err != nil {
+		t.Fatalf("failed to connect to test db after retries: %v", err)
 	}
 
-	return nil
-}
+	t.Cleanup(func() {
+		pool.Close()
 
-func (p *PostgreSQLContainer) Close(ctx context.Context, t *testing.T) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+		_, _ = p.adminPool.Exec(context.Background(), fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", testDBName))
+	})
 
-	if p.pool != nil {
-		p.pool.Close()
-	}
-
-	if err := p.container.Terminate(ctx); err != nil {
-		if t != nil {
-			t.Logf("failed to terminate postgres container: %v", err)
-		}
-	}
-}
-
-func (p *PostgreSQLContainer) ConnectionString(ctx context.Context, opts ...string) string {
-	if pg, ok := p.container.(*postgres.PostgresContainer); ok {
-		connStr, _ := pg.ConnectionString(ctx, opts...)
-		return connStr
-	}
-
-	endpoint, _ := p.container.Endpoint(ctx, "")
-
-	return fmt.Sprintf("postgresql://postgres:testpass@%s/testdb?sslmode=disable", endpoint)
-}
-
-func (p *PostgreSQLContainer) Pool() *pgxpool.Pool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.pool
+	return pool
 }

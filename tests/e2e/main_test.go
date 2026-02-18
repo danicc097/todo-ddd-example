@@ -10,7 +10,5 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	defer testutils.CloseGlobalPostgresPool()
-
 	os.Exit(testutils.VerifyTestMain(m))
 }

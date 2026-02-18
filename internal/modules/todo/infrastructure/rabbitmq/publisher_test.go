@@ -20,13 +20,13 @@ func TestPublisher_Integration(t *testing.T) {
 
 	ctx := context.Background()
 
-	rmq := testutils.NewRabbitMQContainer(ctx, t)
-	defer rmq.Close(ctx, t)
+	rmq := testutils.GetGlobalRabbitMQ(t)
 
 	conn := rmq.Connect(ctx, t)
 	defer conn.Close()
 
-	exchange := "test-todo-events"
+	exchange := "test-todo-events-" + uuid.New().String() // prevent cross-talk
+
 	publisher, err := rabbitmq.NewPublisher(conn, exchange)
 	require.NoError(t, err)
 

@@ -7,3 +7,4 @@ sql/schema.sql
 /api
 /todo-cli
 .direnv
+.test_last_run

@@ -2,34 +2,75 @@ package testutils
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
-	tcRedis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+var (
+	globalRedisOnce      sync.Once
+	globalRedisContainer *RedisContainer
+	globalRedisErr       error
+)
+
 type RedisContainer struct {
-	container *tcRedis.RedisContainer
-	client    *redis.Client
+	container testcontainers.Container
+	redisURI  string
 }
 
-func NewRedisContainer(ctx context.Context, t *testing.T) *RedisContainer {
-	t.Helper()
+func GetGlobalRedis(t *testing.T) *RedisContainer {
+	ctx := context.Background()
 
-	container, err := tcRedis.Run(ctx,
-		"redis:7-alpine",
-		testcontainers.WithWaitStrategy(
-			wait.NewLogStrategy("Ready to accept connections"),
-		),
-	)
-	if err != nil {
-		t.Fatalf("failed to start redis container: %v", err)
+	globalRedisOnce.Do(func() {
+		globalRedisContainer, globalRedisErr = newRedisContainer(ctx)
+	})
+
+	if globalRedisErr != nil {
+		t.Fatalf("Failed to initialize global redis container: %v", globalRedisErr)
 	}
 
-	return &RedisContainer{container: container}
+	return globalRedisContainer
+}
+
+func newRedisContainer(ctx context.Context) (*RedisContainer, error) {
+	_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	_ = os.Setenv("TESTCONTAINERS_REUSE_ENABLE", "true")
+
+	req := testcontainers.ContainerRequest{
+		Image: "redis:7-alpine",
+		Name:  "todo-ddd-test-redis",
+		Labels: map[string]string{
+			"todo-ddd-test": "true", // cleanup watchdog
+		},
+		ExposedPorts: []string{"6379/tcp"},
+		WaitingFor: wait.ForLog("Ready to accept connections").
+			WithStartupTimeout(15 * time.Second),
+		SkipReaper: true,
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+		Reuse:            true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start redis container: %w", err)
+	}
+
+	host, _ := container.Host(ctx)
+	port, _ := container.MappedPort(ctx, "6379")
+	redisURI := fmt.Sprintf("redis://%s:%s/0", host, port.Port())
+
+	return &RedisContainer{
+		container: container,
+		redisURI:  redisURI,
+	}, nil
 }
 
 func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) *redis.Client {
@@ -40,43 +81,27 @@ func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) *redis.Clien
 		err    error
 	)
 
-	for range 10 {
-		uri, err := r.container.ConnectionString(ctx)
-		if err != nil {
-			t.Fatalf("failed to get redis connection string: %v", err)
-		}
-
-		opt, err := redis.ParseURL(uri)
-		if err != nil {
-			t.Fatalf("failed to parse redis URL: %v", err)
+	for range 50 {
+		opt, parseErr := redis.ParseURL(r.redisURI)
+		if parseErr != nil {
+			t.Fatalf("failed to parse redis URL: %v", parseErr)
 		}
 
 		client = redis.NewClient(opt)
-		if err := client.Ping(ctx).Err(); err == nil {
-			r.client = client
+		if err = client.Ping(ctx).Err(); err == nil {
+			t.Cleanup(func() {
+				client.Close()
+			})
+
 			return client
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		client.Close()
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	t.Fatalf("failed to connect to redis after retries: %v", err)
 
 	return nil
-}
-
-func (r *RedisContainer) Close(ctx context.Context, t *testing.T) {
-	t.Helper()
-
-	if r.client != nil {
-		r.client.Close()
-	}
-
-	if err := r.container.Terminate(ctx); err != nil {
-		t.Logf("failed to terminate redis container: %v", err)
-	}
-}
-
-func (r *RedisContainer) Client() *redis.Client {
-	return r.client
 }

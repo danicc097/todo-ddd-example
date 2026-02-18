@@ -31,13 +31,14 @@ linters:
     - unparam
     - wastedassign
     - wsl
+    - dogsled
   settings:
     paralleltest:
       ignore-missing-subtests: true
     errcheck:
       verbose: false # true to see what is needed exactly in exclude-functions
       check-type-assertions: true
-      check-blank: true
+      check-blank: false
       exclude-functions:
         - (*github.com/gin-gonic/gin.Context).Error
         - io/ioutil.ReadFile

@@ -2,33 +2,75 @@ package testutils
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
-	tcRabbitMQ "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/wagslane/go-rabbitmq"
 )
 
+var (
+	globalRabbitOnce      sync.Once
+	globalRabbitContainer *RabbitMQContainer
+	globalRabbitErr       error
+)
+
 type RabbitMQContainer struct {
-	container *tcRabbitMQ.RabbitMQContainer
+	container testcontainers.Container
+	amqpURI   string
 }
 
-func NewRabbitMQContainer(ctx context.Context, t *testing.T) *RabbitMQContainer {
-	t.Helper()
+func GetGlobalRabbitMQ(t *testing.T) *RabbitMQContainer {
+	ctx := context.Background()
 
-	container, err := tcRabbitMQ.Run(ctx,
-		"rabbitmq:3-management-alpine",
-		testcontainers.WithWaitStrategy(
-			wait.NewLogStrategy("Server startup complete"),
-		),
-	)
-	if err != nil {
-		t.Fatalf("failed to start rabbitmq container: %v", err)
+	globalRabbitOnce.Do(func() {
+		globalRabbitContainer, globalRabbitErr = newRabbitMQContainer(ctx)
+	})
+
+	if globalRabbitErr != nil {
+		t.Fatalf("Failed to initialize global rabbitmq container: %v", globalRabbitErr)
 	}
 
-	return &RabbitMQContainer{container: container}
+	return globalRabbitContainer
+}
+
+func newRabbitMQContainer(ctx context.Context) (*RabbitMQContainer, error) {
+	_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	_ = os.Setenv("TESTCONTAINERS_REUSE_ENABLE", "true")
+
+	req := testcontainers.ContainerRequest{
+		Image:        "rabbitmq:3-management-alpine",
+		Name:         "todo-ddd-test-rmq",
+		ExposedPorts: []string{"5672/tcp", "15672/tcp"},
+		WaitingFor: wait.ForLog("Server startup complete").
+			WithStartupTimeout(60 * time.Second),
+		SkipReaper: true,
+		Labels: map[string]string{
+			"todo-ddd-test": "true", // cleanup watchdog
+		},
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+		Reuse:            true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to start rabbitmq container: %w", err)
+	}
+
+	host, _ := container.Host(ctx)
+	port, _ := container.MappedPort(ctx, "5672")
+	amqpURI := fmt.Sprintf("amqp://guest:guest@%s:%s/", host, port.Port())
+
+	return &RabbitMQContainer{
+		container: container,
+		amqpURI:   amqpURI,
+	}, nil
 }
 
 func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *rabbitmq.Conn {
@@ -39,34 +81,18 @@ func (r *RabbitMQContainer) Connect(ctx context.Context, t *testing.T) *rabbitmq
 		err  error
 	)
 
-	for range 15 {
-		connStr, err := r.container.AmqpURL(ctx)
-		if err != nil {
-			t.Fatalf("failed to get rabbitmq connection string: %v", err)
-		}
-
-		conn, err = rabbitmq.NewConn(
-			connStr,
-			rabbitmq.WithConnectionOptionsLogging,
-		)
+	for range 50 {
+		conn, err = rabbitmq.NewConn(r.amqpURI, rabbitmq.WithConnectionOptionsLogging)
 		if err == nil {
 			return conn
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	t.Fatalf("failed to connect to rabbitmq after retries: %v", err)
 
 	return nil
-}
-
-func (r *RabbitMQContainer) Close(ctx context.Context, t *testing.T) {
-	t.Helper()
-
-	if err := r.container.Terminate(ctx); err != nil {
-		t.Logf("failed to terminate rabbitmq container: %v", err)
-	}
 }
 
 // StartTestConsumer creates a consumer bound to the specified exchange with the given key.
@@ -82,7 +108,7 @@ func (r *RabbitMQContainer) StartTestConsumer(t *testing.T, conn *rabbitmq.Conn,
 		rabbitmq.WithConsumerOptionsQueueAutoDelete,
 		rabbitmq.WithConsumerOptionsExchangeName(exchangeName),
 		rabbitmq.WithConsumerOptionsExchangeKind(exchangeKind),
-		rabbitmq.WithConsumerOptionsExchangeDurable, // must match publisher config
+		rabbitmq.WithConsumerOptionsExchangeDurable,
 		rabbitmq.WithConsumerOptionsExchangeDeclare,
 		rabbitmq.WithConsumerOptionsRoutingKey(bindingKey),
 	)

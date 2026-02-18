@@ -27,10 +27,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
 
-	redisContainer := testutils.NewRedisContainer(ctx, t)
-	defer redisContainer.Close(ctx, t)
-
-	redisClient := redisContainer.Connect(ctx, t)
+	redisClient := testutils.GetGlobalRedis(t).Connect(ctx, t)
 
 	userRepo := userPg.NewUserRepo(pool)
 	authRepo := authPg.NewAuthRepo(pool)

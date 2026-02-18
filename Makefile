@@ -55,7 +55,7 @@ dev:
 
 test:
 	$(MAKE) gen-schema
-	go test ./...
+	go test ./... -count=1
 
 test-race:
 	$(MAKE) gen-schema

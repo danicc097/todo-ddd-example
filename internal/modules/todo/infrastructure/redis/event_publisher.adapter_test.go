@@ -19,10 +19,7 @@ func TestRedisPublisher_Integration(t *testing.T) {
 
 	ctx := context.Background()
 
-	rc := testutils.NewRedisContainer(ctx, t)
-	defer rc.Close(ctx, t)
-
-	client := rc.Connect(ctx, t)
+	client := testutils.GetGlobalRedis(t).Connect(ctx, t)
 
 	pubsub := client.Subscribe(ctx, "todo_updates")
 	defer pubsub.Close()
