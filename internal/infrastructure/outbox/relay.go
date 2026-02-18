@@ -110,15 +110,27 @@ func (r *Relay) processEvents(ctx context.Context) {
 
 	for _, event := range events {
 		h, ok := r.handlers[event.EventType]
-		if !ok { // treat as handled
+		if ok {
+			pubCtx, cancel := context.WithTimeout(ctx, 2*time.Second) // in case publisher hangs
+			err = h(pubCtx, event.Payload)
+
+			cancel()
+		}
+
+		if !ok || err == nil {
+			if !ok {
+				slog.WarnContext(ctx, "no handler for event type, marking as processed", slog.String("type", event.EventType))
+			}
+
 			if err := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); err != nil {
-				slog.ErrorContext(ctx, "failed to mark orphan event processed", slog.String("error", err.Error()))
+				slog.ErrorContext(ctx, "failed to mark event processed", slog.String("error", err.Error()))
+				return // abort tx
 			}
 
 			continue
 		}
 
-		if err := h(ctx, event.Payload); err != nil {
+		if err != nil {
 			slog.WarnContext(ctx, "event handler failed, updating retries", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
 
 			if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
@@ -127,13 +139,6 @@ func (r *Relay) processEvents(ctx context.Context) {
 			}); dbErr != nil {
 				slog.ErrorContext(ctx, "failed to update retries", slog.String("error", dbErr.Error()))
 			}
-
-			continue
-		}
-
-		if err := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); err != nil {
-			slog.ErrorContext(ctx, "failed to mark event processed", slog.String("error", err.Error()))
-			return // abort the tx to avoid reprocessing
 		}
 	}
 

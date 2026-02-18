@@ -272,6 +272,8 @@ paths:
   /users/{id}:
     get:
       operationId: getUserByID
+      security:
+        - bearerAuth: []
       parameters:
         - *x-userIDParameter
       responses:
@@ -286,6 +288,8 @@ paths:
     get:
       summary: Get all workspaces for a user
       operationId: getUserWorkspaces
+      security:
+        - bearerAuth: []
       tags:
         - user
       parameters:
@@ -303,6 +307,8 @@ paths:
     get:
       summary: List all workspaces
       operationId: listWorkspaces
+      security:
+        - bearerAuth: []
       tags:
         - workspace
       responses:

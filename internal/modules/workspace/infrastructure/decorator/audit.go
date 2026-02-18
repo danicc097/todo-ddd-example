@@ -23,8 +23,9 @@ func NewWorkspaceAuditWrapper(
 ) *WorkspaceAuditWrapper {
 	extractor := func(w *wsDomain.Workspace) map[string]any {
 		return map[string]any{
-			"name":        w.Name(),
-			"members_cnt": len(w.Members()),
+			"name":       w.Name(),
+			"members":    w.Members(),
+			"created_at": w.CreatedAt(),
 		}
 	}
 

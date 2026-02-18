@@ -530,6 +530,8 @@ func (siw *ServerInterfaceWrapper) GetUserByID(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -554,6 +556,8 @@ func (siw *ServerInterfaceWrapper) GetUserWorkspaces(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -566,6 +570,8 @@ func (siw *ServerInterfaceWrapper) GetUserWorkspaces(c *gin.Context) {
 
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)

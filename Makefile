@@ -174,7 +174,11 @@ endif
 
 ws-listen:
 	WS_URL=$$(echo "$$API_URL" | sed 's/^http:/ws:/' | sed 's/^https:/wss:/'); \
-	wscat -c "$${WS_URL}/ws"
+	if [ -z "$$API_TOKEN" ]; then \
+		echo "Error: API_TOKEN is not set."; \
+		exit 1; \
+	fi; \
+	wscat -H "Authorization: Bearer $$API_TOKEN" -c "$${WS_URL}/ws"
 
 N ?= 5
 QUEUE ?= todo_events

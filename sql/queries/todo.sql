@@ -1,6 +1,6 @@
 -- name: CreateTodo :one
-INSERT INTO todos(id, title, status, created_at, workspace_id)
-  VALUES ($1, $2, $3, $4, $5)
+INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
+  VALUES ($1, $2, $3, $4, $4, $5)
 RETURNING
   id, title, status, created_at, workspace_id;
 
@@ -43,7 +43,8 @@ UPDATE
   todos
 SET
   title = $2,
-  status = $3
+  status = $3,
+  updated_at = NOW()
 WHERE
   id = $1;
 
@@ -53,3 +54,12 @@ INSERT INTO todo_tags(todo_id, tag_id)
   /* we blindly add tags */
 ON CONFLICT
   DO NOTHING;
+
+-- name: GetWorkspaceTodosLastUpdate :one
+SELECT
+  MAX(updated_at)::timestamptz AS last_update
+FROM
+  todos
+WHERE
+  workspace_id = $1;
+

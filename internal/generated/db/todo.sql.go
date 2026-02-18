@@ -32,8 +32,8 @@ func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoPar
 }
 
 const CreateTodo = `-- name: CreateTodo :one
-INSERT INTO todos(id, title, status, created_at, workspace_id)
-  VALUES ($1, $2, $3, $4, $5)
+INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
+  VALUES ($1, $2, $3, $4, $4, $5)
 RETURNING
   id, title, status, created_at, workspace_id
 `
@@ -46,7 +46,15 @@ type CreateTodoParams struct {
 	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
 }
 
-func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (Todos, error) {
+type CreateTodoRow struct {
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+}
+
+func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (CreateTodoRow, error) {
 	row := db.QueryRow(ctx, CreateTodo,
 		arg.ID,
 		arg.Title,
@@ -54,7 +62,7 @@ func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams)
 		arg.CreatedAt,
 		arg.WorkspaceID,
 	)
-	var i Todos
+	var i CreateTodoRow
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
@@ -103,6 +111,22 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (Ge
 		&i.Tags,
 	)
 	return i, err
+}
+
+const GetWorkspaceTodosLastUpdate = `-- name: GetWorkspaceTodosLastUpdate :one
+SELECT
+  MAX(updated_at)::timestamptz AS last_update
+FROM
+  todos
+WHERE
+  workspace_id = $1
+`
+
+func (q *Queries) GetWorkspaceTodosLastUpdate(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) (time.Time, error) {
+	row := db.QueryRow(ctx, GetWorkspaceTodosLastUpdate, workspaceID)
+	var last_update time.Time
+	err := row.Scan(&last_update)
+	return last_update, err
 }
 
 const ListTodosByWorkspaceID = `-- name: ListTodosByWorkspaceID :many
@@ -165,7 +189,8 @@ UPDATE
   todos
 SET
   title = $2,
-  status = $3
+  status = $3,
+  updated_at = NOW()
 WHERE
   id = $1
 `

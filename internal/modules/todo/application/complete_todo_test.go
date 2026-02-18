@@ -11,6 +11,8 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
@@ -23,8 +25,9 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
 	repo := todoPg.NewTodoRepo(pool)
+	wsRepo := wsPg.NewWorkspaceRepo(pool)
 
-	baseHandler := application.NewCompleteTodoHandler(repo)
+	baseHandler := application.NewCompleteTodoHandler(repo, wsRepo)
 	handler := middleware.Transactional(pool, baseHandler)
 
 	t.Run("completes", func(t *testing.T) {
@@ -32,7 +35,9 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 		ws := fixtures.RandomWorkspace(ctx, t, user.ID())
 		todo := fixtures.RandomTodo(ctx, t, ws.ID())
 
-		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
+		userCtx := causation.WithMetadata(ctx, causation.Metadata{UserID: user.ID().UUID})
+
+		_, err := handler.Handle(userCtx, application.CompleteTodoCommand{
 			ID: todo.ID(),
 		})
 		require.NoError(t, err)

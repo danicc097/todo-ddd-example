@@ -6,6 +6,7 @@ package decorator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
@@ -45,8 +46,42 @@ func (d TodoQueryServiceWithCache) key(id string) string {
 	return fmt.Sprintf("todo_query:%s", id)
 }
 
+func (d TodoQueryServiceWithCache) collectionKey(method string, id string) string {
+	return fmt.Sprintf("todo_query:collection:%s:%s", method, id)
+}
+
 func (d TodoQueryServiceWithCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (ta1 []api.Todo, err error) {
-	return d.base.GetAllByWorkspace(ctx, wsID)
+
+	var cacheVal []byte
+
+	span := trace.SpanFromContext(ctx)
+	key := d.collectionKey("GetAllByWorkspace", fmt.Sprintf("%v", wsID))
+
+	span.SetAttributes(attribute.String("cache.key", key))
+
+	cacheVal, err = d.client.Get(ctx, key).Bytes()
+	if err == nil {
+		err = json.Unmarshal(cacheVal, &ta1)
+		if err == nil {
+			span.SetAttributes(attribute.Bool("cache.hit", true))
+			slog.DebugContext(ctx, "cache hit", slog.String("key", key))
+			return ta1, nil
+		}
+	}
+
+	span.SetAttributes(attribute.Bool("cache.hit", false))
+	slog.DebugContext(ctx, "cache miss", slog.String("key", key))
+
+	ta1, err = d.base.GetAllByWorkspace(ctx, wsID)
+	if err != nil {
+		return ta1, err
+	}
+
+	if data, marshalErr := json.Marshal(ta1); marshalErr == nil {
+		d.client.Set(ctx, key, data, d.ttl)
+	}
+
+	return ta1, nil
 }
 
 func (d TodoQueryServiceWithCache) GetByID(ctx context.Context, id domain.TodoID) (tp1 *api.Todo, err error) {
@@ -83,4 +118,8 @@ func (d TodoQueryServiceWithCache) GetByID(ctx context.Context, id domain.TodoID
 	}
 
 	return tp1, nil
+}
+
+func (d TodoQueryServiceWithCache) GetLastUpdateByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (tp1 *time.Time, err error) {
+	return d.base.GetLastUpdateByWorkspace(ctx, wsID)
 }

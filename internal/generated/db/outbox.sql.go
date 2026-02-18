@@ -43,7 +43,7 @@ WHERE
   AND retries < 5
 ORDER BY
   created_at ASC
-LIMIT 100
+LIMIT 10
 FOR UPDATE
   SKIP LOCKED
 `

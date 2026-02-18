@@ -44,17 +44,19 @@ func (p *RedisPublisher) publishOne(ctx context.Context, event domain.DomainEven
 	switch e := event.(type) {
 	case todoDomain.TodoCreatedEvent:
 		payload = map[string]any{
-			"id":     e.ID,
-			"status": e.Status,
-			"title":  e.Title,
-			"event":  e.EventName(),
+			"id":           e.ID,
+			"status":       e.Status,
+			"title":        e.Title,
+			"event":        e.EventName(),
+			"workspace_id": e.WorkspaceID,
 		}
 	case todoDomain.TodoCompletedEvent:
 		payload = map[string]any{
-			"id":     e.ID,
-			"status": e.Status,
-			"title":  e.Title,
-			"event":  e.EventName(),
+			"id":           e.ID,
+			"status":       e.Status,
+			"title":        e.Title,
+			"event":        e.EventName(),
+			"workspace_id": e.WorkspaceID,
 		}
 	case todoDomain.TagAddedEvent:
 		payload = map[string]any{

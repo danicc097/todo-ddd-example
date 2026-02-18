@@ -41,7 +41,13 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 	dbtx := r.getDB(ctx) // Dynamic resolution
 	p := r.mapper.ToPersistence(t)
 
-	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams(p))
+	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams{
+		ID:          p.ID,
+		Title:       p.Title,
+		Status:      p.Status,
+		CreatedAt:   p.CreatedAt,
+		WorkspaceID: p.WorkspaceID,
+	})
 	if err != nil {
 		return fmt.Errorf("could not create todo: %w", sharedPg.ParseDBError(err))
 	}

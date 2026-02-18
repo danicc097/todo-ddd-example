@@ -6,6 +6,7 @@ import (
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
+	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
 type AddWorkspaceMemberCommand struct {
@@ -25,9 +26,15 @@ func NewAddWorkspaceMemberHandler(repo domain.WorkspaceRepository) *AddWorkspace
 }
 
 func (h *AddWorkspaceMemberHandler) Handle(ctx context.Context, cmd AddWorkspaceMemberCommand) (application.Void, error) {
+	meta := causation.FromContext(ctx)
+
 	ws, err := h.repo.FindByID(ctx, cmd.WorkspaceID)
 	if err != nil {
 		return application.Void{}, err
+	}
+
+	if !ws.IsOwner(userDomain.UserID{UUID: meta.UserID}) && !meta.IsSystem() {
+		return application.Void{}, domain.ErrNotOwner
 	}
 
 	if err := ws.AddMember(cmd.UserID, cmd.Role); err != nil {

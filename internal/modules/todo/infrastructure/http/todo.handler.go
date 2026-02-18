@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -68,6 +69,18 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 }
 
 func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID) {
+	lastUpdate, err := h.queryService.GetLastUpdateByWorkspace(c.Request.Context(), id)
+	if err == nil && lastUpdate != nil {
+		etag := fmt.Sprintf(`"W/%x"`, lastUpdate.UnixNano())
+
+		if c.Request.Header.Get("If-None-Match") == etag {
+			c.AbortWithStatus(http.StatusNotModified)
+			return
+		}
+
+		c.Header("ETag", etag)
+	}
+
 	todos, err := h.queryService.GetAllByWorkspace(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)

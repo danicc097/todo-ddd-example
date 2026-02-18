@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -62,4 +63,13 @@ func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*api.
 		Status:    api.TodoStatus(row.Status),
 		CreatedAt: row.CreatedAt,
 	}, nil
+}
+
+func (s *todoQueryService) GetLastUpdateByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (*time.Time, error) {
+	t, err := s.q.GetWorkspaceTodosLastUpdate(ctx, s.pool, wsID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &t, nil
 }

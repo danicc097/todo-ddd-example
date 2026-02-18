@@ -12,7 +12,7 @@ WHERE
   AND retries < 5
 ORDER BY
   created_at ASC
-LIMIT 100
+LIMIT 10
 /* lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ... */
 FOR UPDATE
   SKIP LOCKED;

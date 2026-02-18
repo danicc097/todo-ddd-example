@@ -275,32 +275,6 @@ func main() {
 	redisPub := todoRedis.NewRedisPublisher(redisClient)
 	todoPublisher := todoMsg.NewMultiPublisher(todoRabbitPub, redisPub)
 
-	hub := ws.NewTodoHub(redisClient)
-
-	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo)
-	createTodoHandler := sharedMiddleware.Transactional(pool, createTodoBase)
-
-	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo)
-	completeTodoHandler := sharedMiddleware.Transactional(pool, completeTodoBase)
-
-	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
-	createTagHandler := sharedMiddleware.Transactional(pool, createTagBase)
-
-	assignTagToTodoBase := todoApp.NewAssignTagToTodoHandler(todoRepo)
-	assignTagToTodoHandler := sharedMiddleware.Transactional(pool, assignTagToTodoBase)
-
-	// queries bypass tx
-	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
-	apiTodoCodec := todoRedis.NewAPITodoCacheCodec()
-	cachedTodoQueryService := todoDecorator.NewTodoQueryServiceWithCache(
-		baseTodoQueryService,
-		redisClient,
-		5*time.Minute,
-		apiTodoCodec,
-	)
-
-	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, "todo-ddd-api")
-
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
 	wsUserGateway := userAdapters.NewWorkspaceUserGateway(userRepo)
@@ -319,6 +293,24 @@ func main() {
 
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
+
+	hub := ws.NewTodoHub(redisClient, workspaceQueryService)
+
+	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo)
+	createTodoHandler := sharedMiddleware.Transactional(pool, createTodoBase)
+
+	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo, wsRepo)
+	completeTodoHandler := sharedMiddleware.Transactional(pool, completeTodoBase)
+
+	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
+	createTagHandler := sharedMiddleware.Transactional(pool, createTagBase)
+
+	assignTagToTodoBase := todoApp.NewAssignTagToTodoHandler(todoRepo)
+	assignTagToTodoHandler := sharedMiddleware.Transactional(pool, assignTagToTodoBase)
+
+	// queries bypass tx
+	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
+	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(baseTodoQueryService, "todo-ddd-api")
 
 	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenIssuer)
 	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo)
@@ -364,7 +356,6 @@ func main() {
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.Idempotency(redisClient))
-	r.Use(middleware.ETag())
 	r.Use(middleware.IdentityAndMFAResolver(tokenVerifier))
 	r.Use(middleware.ErrorHandler())
 
