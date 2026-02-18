@@ -91,7 +91,7 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 		c.Writer = w
 		c.Next()
 
-		if w.Status() >= 500 {
+		if w.Status() >= 400 {
 			client.Del(ctx, redisKey)
 			return
 		}

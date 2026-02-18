@@ -133,7 +133,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		r := gin.New()
 		r.Use(Idempotency(rdb))
 		r.POST("/test", func(c *gin.Context) {
-			c.Status(http.StatusInternalServerError)
+			c.Status(http.StatusBadRequest)
 		})
 
 		w := httptest.NewRecorder()
@@ -141,7 +141,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		req.Header.Set(idempotencyHeaderKey, key)
 		r.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 
 		ctx := context.Background()
 		_, err := rdb.Get(ctx, newIdempotencyRedisKey(key)).Result()
