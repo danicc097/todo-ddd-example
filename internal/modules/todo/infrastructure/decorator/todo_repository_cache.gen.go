@@ -40,7 +40,7 @@ func NewTodoRepositoryWithCache(
 }
 
 func (d TodoRepositoryWithCache) key(id string) string {
-	return fmt.Sprintf("todo:%s", id)
+	return fmt.Sprintf("todo_query:%s", id)
 }
 
 func (d TodoRepositoryWithCache) FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (tpa1 []*_sourceDomain.Todo, err error) {

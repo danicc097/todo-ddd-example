@@ -387,30 +387,28 @@ func main() {
 
 	r.Use(middleware.RateLimiter(redisClient, openapiRouter))
 
-	if internal.Config.Env != internal.AppEnvProd {
-		validator := middleware.NewOpenapiMiddleware(doc).RequestValidatorWithOptions(&middleware.OAValidatorOptions{
-			ValidateResponse: true,
-			Options: openapi3filter.Options{
-				AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
-					return nil
-				},
+	validator := middleware.NewOpenapiMiddleware(doc).RequestValidatorWithOptions(&middleware.OAValidatorOptions{
+		ValidateResponse: true,
+		Options: openapi3filter.Options{
+			AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
+				return nil
 			},
-		})
+		},
+	})
 
-		r.Use(func(c *gin.Context) {
-			p := c.Request.URL.Path
-			if p == "/ws" ||
-				p == "/api/v1/ping" ||
-				p == "/api/v1/docs" ||
-				p == "/favicon.ico" ||
-				p == "/openapi.yaml" {
-				c.Next()
-				return
-			}
+	r.Use(func(c *gin.Context) {
+		p := c.Request.URL.Path
+		if p == "/ws" ||
+			p == "/api/v1/ping" ||
+			p == "/api/v1/docs" ||
+			p == "/favicon.ico" ||
+			p == "/openapi.yaml" {
+			c.Next()
+			return
+		}
 
-			validator(c)
-		})
-	}
+		validator(c)
+	})
 
 	explodedSpec, err := getExplodedSpec("./openapi.yaml")
 	if err != nil {
