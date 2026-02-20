@@ -51,7 +51,7 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 
 	t.Run("user created", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)
-		userCtx := causation.WithMetadata(ctx, causation.Metadata{UserID: user.ID().UUID})
+		userCtx := causation.WithMetadata(ctx, causation.Metadata{UserID: user.ID().UUID()})
 
 		cmd := application.OnboardWorkspaceCommand{
 			Name: "User Workspace " + uuid.New().String(),

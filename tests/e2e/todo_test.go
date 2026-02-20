@@ -46,14 +46,14 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 		Password: *pass,
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusCreated, regResp.StatusCode())
+	require.Equal(t, http.StatusCreated, regResp.StatusCode(), string(regResp.Body))
 
 	loginResp, err := c.LoginWithResponse(ctx, client.LoginRequestBody{
 		Email:    openapi_types.Email(email),
 		Password: *pass,
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, loginResp.StatusCode())
+	require.Equal(t, http.StatusOK, loginResp.StatusCode(), string(loginResp.Body))
 	token := loginResp.JSON200.AccessToken
 
 	c, err = client.NewClientWithResponses(apiURL, client.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
@@ -67,8 +67,8 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 		Name: wsName,
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusCreated, onboardResp.StatusCode())
-	wsID := wsDomain.WorkspaceID{UUID: onboardResp.JSON201.Id}
+	require.Equal(t, http.StatusCreated, onboardResp.StatusCode(), string(onboardResp.Body))
+	wsID := wsDomain.WorkspaceID(onboardResp.JSON201.Id)
 
 	title := "E2E Test Todo"
 	createResp, err := c.CreateTodoWithResponse(ctx,
@@ -77,14 +77,14 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 		client.CreateTodoRequest{Title: title},
 	)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusCreated, createResp.StatusCode())
+	require.Equal(t, http.StatusCreated, createResp.StatusCode(), string(createResp.Body))
 	require.NotNil(t, createResp.JSON201)
 
-	todoID := domain.TodoID{UUID: createResp.JSON201.Id}
+	todoID := domain.TodoID(createResp.JSON201.Id)
 
 	listResp, err := c.GetWorkspaceTodosWithResponse(ctx, wsID)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, listResp.StatusCode())
+	require.Equal(t, http.StatusOK, listResp.StatusCode(), string(listResp.Body))
 
 	found := false
 
@@ -104,5 +104,5 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 
 	completeResp, err := c.CompleteTodoWithResponse(ctx, todoID, &client.CompleteTodoParams{})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, completeResp.StatusCode())
+	require.Equal(t, http.StatusOK, completeResp.StatusCode(), string(completeResp.Body))
 }

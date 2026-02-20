@@ -12,7 +12,7 @@ import (
 func TestNewWorkspace(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("Test Workspace", "Description", creatorID)
 
 	assert.NotNil(t, ws)
@@ -29,11 +29,11 @@ func TestNewWorkspace(t *testing.T) {
 func TestWorkspace_AddMember(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("WS", "Desc", creatorID)
 	ws.ClearEvents()
 
-	newMemberID := userDomain.UserID{UUID: uuid.New()}
+	newMemberID := userDomain.UserID(uuid.New())
 	err := ws.AddMember(newMemberID, RoleMember)
 
 	assert.NoError(t, err)
@@ -50,7 +50,7 @@ func TestWorkspace_AddMember(t *testing.T) {
 func TestWorkspace_AddMember_AlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("WS", "Desc", creatorID)
 
 	err := ws.AddMember(creatorID, RoleMember)
@@ -60,10 +60,10 @@ func TestWorkspace_AddMember_AlreadyExists(t *testing.T) {
 func TestWorkspace_RemoveMember(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("WS", "Desc", creatorID)
 
-	memberID := userDomain.UserID{UUID: uuid.New()}
+	memberID := userDomain.UserID(uuid.New())
 	_ = ws.AddMember(memberID, RoleMember)
 	ws.ClearEvents()
 
@@ -79,17 +79,17 @@ func TestWorkspace_RemoveMember(t *testing.T) {
 func TestWorkspace_RemoveMember_NotFound(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("WS", "Desc", creatorID)
 
-	err := ws.RemoveMember(userDomain.UserID{UUID: uuid.New()})
+	err := ws.RemoveMember(userDomain.UserID(uuid.New()))
 	assert.ErrorIs(t, err, ErrMemberNotFound)
 }
 
 func TestWorkspace_RemoveMember_LastOwner(t *testing.T) {
 	t.Parallel()
 
-	creatorID := userDomain.UserID{UUID: uuid.New()}
+	creatorID := userDomain.UserID(uuid.New())
 	ws := NewWorkspace("WS", "Desc", creatorID)
 
 	err := ws.RemoveMember(creatorID)

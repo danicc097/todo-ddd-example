@@ -41,11 +41,11 @@ func (h *OnboardWorkspaceHandler) Handle(ctx context.Context, cmd OnboardWorkspa
 	meta := causation.FromContext(ctx)
 
 	ownerID := cmd.OwnerID
-	if ownerID.UUID == uuid.Nil && meta.IsUser() {
+	if ownerID.UUID() == uuid.Nil && meta.IsUser() {
 		// fallback to letting the authn user be the owner
 		// if the system were to create a workspace on behalg of a user we would still know
 		// the system created it via the causation pkg.
-		ownerID = userDomain.UserID{UUID: meta.UserID}
+		ownerID = userDomain.UserID(meta.UserID)
 	}
 
 	ws := domain.NewWorkspace(cmd.Name, cmd.Description, ownerID)

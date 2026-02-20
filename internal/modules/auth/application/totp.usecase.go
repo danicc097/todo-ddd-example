@@ -29,7 +29,7 @@ func NewInitiateTOTPHandler(repo domain.AuthRepository, masterKey []byte) *Initi
 
 func (h *InitiateTOTPHandler) Handle(ctx context.Context, _ application.Void) (string, error) {
 	meta := causation.FromContext(ctx)
-	userID := userDomain.UserID{UUID: meta.UserID}
+	userID := userDomain.UserID(meta.UserID)
 
 	auth, err := h.repo.FindByUserID(ctx, userID)
 	if err != nil {
@@ -74,7 +74,7 @@ func NewVerifyTOTPHandler(repo domain.AuthRepository, guard TOTPGuard, issuer *c
 
 func (h *VerifyTOTPHandler) Handle(ctx context.Context, cmd VerifyTOTPCommand) (VerifyTOTPResponse, error) {
 	meta := causation.FromContext(ctx)
-	userID := userDomain.UserID{UUID: meta.UserID}
+	userID := userDomain.UserID(meta.UserID)
 
 	auth, err := h.repo.FindByUserID(ctx, userID)
 	if err != nil {
@@ -108,7 +108,7 @@ func (h *VerifyTOTPHandler) Handle(ctx context.Context, cmd VerifyTOTPCommand) (
 		}
 	}
 
-	token, err := h.issuer.Issue(userID.UUID, true, 15*time.Minute)
+	token, err := h.issuer.Issue(userID.UUID(), true, 15*time.Minute)
 	if err != nil {
 		return VerifyTOTPResponse{}, err
 	}

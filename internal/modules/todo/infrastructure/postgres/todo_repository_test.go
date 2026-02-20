@@ -72,7 +72,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("by id non-existent", func(t *testing.T) {
-		_, err := repo.FindByID(ctx, domain.TodoID{UUID: uuid.New()})
+		_, err := repo.FindByID(ctx, domain.TodoID(uuid.New()))
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
 	})
 

@@ -24,9 +24,10 @@ type TodoCreatedEvent struct {
 	Occurred    time.Time
 }
 
-func (e TodoCreatedEvent) EventName() string      { return "todo.created" }
-func (e TodoCreatedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e TodoCreatedEvent) AggregateID() uuid.UUID { return e.ID.UUID }
+func (e TodoCreatedEvent) EventName() shared.EventType { return shared.TodoCreated }
+func (e TodoCreatedEvent) OccurredAt() time.Time       { return e.Occurred }
+func (e TodoCreatedEvent) AggregateID() uuid.UUID      { return e.ID.UUID() }
+func (e TodoCreatedEvent) AggregateType() string       { return "TODO" }
 
 type TodoCompletedEvent struct {
 	ID          TodoID
@@ -37,16 +38,19 @@ type TodoCompletedEvent struct {
 	Occurred    time.Time
 }
 
-func (e TodoCompletedEvent) EventName() string      { return "todo.completed" }
-func (e TodoCompletedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e TodoCompletedEvent) AggregateID() uuid.UUID { return e.ID.UUID }
+func (e TodoCompletedEvent) EventName() shared.EventType { return shared.TodoCompleted }
+func (e TodoCompletedEvent) OccurredAt() time.Time       { return e.Occurred }
+func (e TodoCompletedEvent) AggregateID() uuid.UUID      { return e.ID.UUID() }
+func (e TodoCompletedEvent) AggregateType() string       { return "TODO" }
 
 type TagAddedEvent struct {
-	TodoID   TodoID
-	TagID    TagID
-	Occurred time.Time
+	TodoID      TodoID
+	TagID       TagID
+	WorkspaceID wsDomain.WorkspaceID
+	Occurred    time.Time
 }
 
-func (e TagAddedEvent) EventName() string      { return "todo.tag_added" }
-func (e TagAddedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e TagAddedEvent) AggregateID() uuid.UUID { return e.TodoID.UUID }
+func (e TagAddedEvent) EventName() shared.EventType { return shared.TodoTagAdded }
+func (e TagAddedEvent) OccurredAt() time.Time       { return e.Occurred }
+func (e TagAddedEvent) AggregateID() uuid.UUID      { return e.TodoID.UUID() }
+func (e TagAddedEvent) AggregateType() string       { return "TODO" }

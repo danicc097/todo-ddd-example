@@ -12,8 +12,17 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
+
+type mockBroker struct {
+	publishFunc func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error
+}
+
+func (m *mockBroker) Publish(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
+	return m.publishFunc(ctx, eventType, aggID, payload, headers)
+}
 
 func TestOutboxRelay_RetryLogic(t *testing.T) {
 	ctx := context.Background()
@@ -21,23 +30,27 @@ func TestOutboxRelay_RetryLogic(t *testing.T) {
 
 	q := db.New()
 	eventID := uuid.New()
-	eventType := "test.poison.message." + eventID.String() // Unique per test
+	eventType := sharedDomain.EventType("test.poison.message." + eventID.String())
 	payload := []byte(`{"data": "bad"}`)
 
 	err := q.SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
-		ID:        eventID,
-		EventType: eventType,
-		Payload:   payload,
+		ID:            eventID,
+		EventType:     eventType,
+		AggregateType: "MOCK",
+		AggregateID:   uuid.New(),
+		Payload:       payload,
+		Headers:       []byte("{}"),
 	})
 	require.NoError(t, err)
 
-	relay := outbox.NewRelay(pool)
-
 	mockErr := errors.New("simulated transient failure")
+	broker := &mockBroker{
+		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
+			return mockErr
+		},
+	}
 
-	relay.Register(eventType, func(ctx context.Context, p []byte) error {
-		return mockErr
-	})
+	relay := outbox.NewRelay(pool, broker)
 
 	relayCtx, cancel := context.WithCancel(ctx)
 	go relay.Start(relayCtx)
@@ -64,25 +77,30 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
 
-	relay := outbox.NewRelay(pool)
-
 	handlerStarted := make(chan struct{})
 	blockHandler := make(chan struct{})
 
+	broker := &mockBroker{
+		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
+			close(handlerStarted)
+			<-blockHandler
+
+			return nil
+		},
+	}
+
+	relay := outbox.NewRelay(pool, broker)
+
 	eventID := uuid.New()
-	eventType := "test.slow." + eventID.String()
-
-	relay.Register(eventType, func(ctx context.Context, p []byte) error {
-		close(handlerStarted)
-		<-blockHandler // block until test allows proceeding
-
-		return nil
-	})
+	eventType := sharedDomain.EventType("test.slow." + eventID.String())
 
 	_ = db.New().SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
-		ID:        eventID,
-		EventType: eventType,
-		Payload:   []byte("{}"),
+		ID:            eventID,
+		EventType:     eventType,
+		AggregateType: "MOCK",
+		AggregateID:   uuid.New(),
+		Payload:       []byte("{}"),
+		Headers:       []byte("{}"),
 	})
 
 	relayCtx, cancel := context.WithCancel(ctx)

@@ -57,7 +57,7 @@ func (h *LoginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}
 
-	token, err := h.issuer.Issue(user.ID().UUID, false, 15*time.Minute)
+	token, err := h.issuer.Issue(user.ID().UUID(), false, 15*time.Minute)
 	if err != nil {
 		return LoginResponse{}, err
 	}

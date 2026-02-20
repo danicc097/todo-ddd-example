@@ -34,7 +34,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)
 		member := fixtures.RandomUser(ctx, t)
 
-		ctx := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID})
+		ctx := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID()})
 
 		baseHandler := application.NewOnboardWorkspaceHandler(repo, ug)
 		handler := middleware.Transactional(pool, baseHandler)
@@ -44,7 +44,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 			Members: map[userDomain.UserID]application.MemberInitialState{
 				member.ID(): {Role: wsDomain.RoleMember},
 			},
-			OwnerID: userDomain.UserID{UUID: uuid.Nil},
+			OwnerID: userDomain.UserID(uuid.Nil),
 		}
 
 		id, err := handler.Handle(ctx, cmd)
@@ -89,7 +89,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		cmd := application.DeleteWorkspaceCommand{ID: ws.ID()}
 
 		// without MFA
-		ctxNoMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID, MFAVerified: false})
+		ctxNoMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID(), MFAVerified: false})
 		_, err := handler.Handle(ctxNoMFA, cmd)
 		require.Error(t, err)
 
@@ -98,7 +98,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		assert.Equal(t, apperrors.MFARequired, appErr.Code)
 
 		// with MFA
-		ctxWithMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID, MFAVerified: true})
+		ctxWithMFA := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID(), MFAVerified: true})
 		_, err = handler.Handle(ctxWithMFA, cmd)
 		require.NoError(t, err)
 

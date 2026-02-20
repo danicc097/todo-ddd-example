@@ -44,10 +44,20 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&apiURL, "url", defaultURL, "API Server URL (also set via API_URL env var)")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug output")
 
+	var extraHeaders []string
+	rootCmd.PersistentFlags().StringSliceVarP(&extraHeaders, "header", "H", nil, "Custom headers (e.g. -H \"If-None-Match: W/123\")")
+
 	getClient := func() (*client.ClientWithResponses, context.Context) {
 		authOption := client.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			if token := os.Getenv("API_TOKEN"); token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
+			}
+
+			for _, h := range extraHeaders {
+				parts := strings.SplitN(h, ":", 2)
+				if len(parts) == 2 {
+					req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+				}
 			}
 
 			if debug {

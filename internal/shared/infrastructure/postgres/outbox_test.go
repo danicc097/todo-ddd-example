@@ -20,9 +20,10 @@ type mockEvent struct {
 	name string
 }
 
-func (e mockEvent) EventName() string      { return e.name }
-func (e mockEvent) OccurredAt() time.Time  { return time.Now() }
-func (e mockEvent) AggregateID() uuid.UUID { return e.id }
+func (e mockEvent) EventName() domain.EventType { return domain.EventType(e.name) }
+func (e mockEvent) OccurredAt() time.Time       { return time.Now() }
+func (e mockEvent) AggregateID() uuid.UUID      { return e.id }
+func (e mockEvent) AggregateType() string       { return "MOCK" }
 
 type mockAggregate struct {
 	events []domain.DomainEvent
@@ -33,7 +34,7 @@ func (a *mockAggregate) ClearEvents()                 { a.events = nil }
 
 type mockMapper struct{}
 
-func (m *mockMapper) MapEvent(e domain.DomainEvent) (string, []byte, error) {
+func (m *mockMapper) MapEvent(e domain.DomainEvent) (domain.EventType, []byte, error) {
 	return e.EventName(), []byte(`{"foo":"bar"}`), nil
 }
 

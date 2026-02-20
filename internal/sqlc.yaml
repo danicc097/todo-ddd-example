@@ -19,6 +19,10 @@ sql:
         emit_all_enum_values: true
         emit_methods_with_db_argument: true
         overrides:
+          - column: "outbox.event_type"
+            go_type:
+              import: "github.com/danicc097/todo-ddd-example/internal/shared/domain"
+              type: "EventType"
           - db_type: "uuid"
             go_type:
               import: "github.com/google/uuid"

@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func (m *WorkspaceMapper) ToDomain(w db.Workspaces, members []db.WorkspaceMember
 
 	domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole, len(memberMap))
 	for uid, role := range memberMap {
-		domainMemberMap[userDomain.UserID{UUID: uid}] = role
+		domainMemberMap[userDomain.UserID(uid)] = role
 	}
 
 	return domain.ReconstituteWorkspace(
@@ -53,6 +54,11 @@ type workspaceCreatedDTO struct {
 	Occurred time.Time `json:"occurred_at"`
 }
 
+type workspaceDeletedDTO struct {
+	ID       uuid.UUID `json:"id"`
+	Occurred time.Time `json:"occurred_at"`
+}
+
 type memberAddedDTO struct {
 	WorkspaceID uuid.UUID `json:"workspace_id"`
 	UserID      uuid.UUID `json:"user_id"`
@@ -66,31 +72,37 @@ type memberRemovedDTO struct {
 	Occurred    time.Time `json:"occurred_at"`
 }
 
-func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (string, []byte, error) {
+func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, []byte, error) {
 	var payload any
 
 	switch evt := event.(type) {
 	case domain.WorkspaceCreatedEvent:
 		payload = workspaceCreatedDTO{
-			ID:       evt.ID.UUID,
+			ID:       evt.ID.UUID(),
 			Name:     evt.Name,
-			OwnerID:  evt.OwnerID.UUID,
+			OwnerID:  evt.OwnerID.UUID(),
 			Occurred: evt.Occurred,
 		}
 	case domain.MemberAddedEvent:
 		payload = memberAddedDTO{
-			WorkspaceID: evt.WorkspaceID.UUID,
-			UserID:      evt.UserID.UUID,
+			WorkspaceID: evt.WorkspaceID.UUID(),
+			UserID:      evt.UserID.UUID(),
 			Role:        evt.Role,
 			Occurred:    evt.Occurred,
 		}
 	case domain.MemberRemovedEvent:
 		payload = memberRemovedDTO{
-			WorkspaceID: evt.WorkspaceID.UUID,
-			UserID:      evt.UserID.UUID,
+			WorkspaceID: evt.WorkspaceID.UUID(),
+			UserID:      evt.UserID.UUID(),
 			Occurred:    evt.Occurred,
 		}
+	case domain.WorkspaceDeletedEvent:
+		payload = workspaceDeletedDTO{
+			ID:       evt.ID.UUID(),
+			Occurred: evt.Occurred,
+		}
 	default:
+		slog.Warn("received unmapped event type, skipping outbox persistence", slog.Any("event_type", evt.EventName()))
 		return "", nil, nil
 	}
 

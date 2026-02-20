@@ -22,7 +22,7 @@ func NewAuthRepo(pool *pgxpool.Pool) *AuthRepo {
 }
 
 func (r *AuthRepo) FindByUserID(ctx context.Context, userID userDomain.UserID) (*domain.UserAuth, error) {
-	row, err := r.q.GetUserAuth(ctx, r.pool, userID.UUID)
+	row, err := r.q.GetUserAuth(ctx, r.pool, userID.UUID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrAuthNotFound
@@ -49,7 +49,7 @@ func (r *AuthRepo) Save(ctx context.Context, auth *domain.UserAuth) error {
 	pass := auth.PasswordHash()
 
 	return r.q.UpsertUserAuth(ctx, r.pool, db.UpsertUserAuthParams{
-		UserID:           auth.UserID().UUID,
+		UserID:           auth.UserID().UUID(),
 		TotpStatus:       auth.TOTPStatus(),
 		TotpSecretCipher: cipher,
 		TotpSecretNonce:  nonce,

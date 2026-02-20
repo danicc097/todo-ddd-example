@@ -42,7 +42,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			{{ if eq $param.GoType "uuid.UUID" -}}
 			param{{ $param.Name }} := uuid.MustParse(args[{{ $index }}])
 			{{ else -}}
-			param{{ $param.Name }} := {{ $param.GoType }}{UUID: uuid.MustParse(args[{{ $index }}])}
+			param{{ $param.Name }} := {{ $param.GoType }}(uuid.MustParse(args[{{ $index }}]))
 			{{ end -}}
 			{{ end }}
 

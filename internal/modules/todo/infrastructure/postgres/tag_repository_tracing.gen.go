@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -39,7 +41,10 @@ func NewTagRepositoryWithTracing(base _sourceDomain.TagRepository, instance stri
 
 // FindByID implements TagRepository
 func (_d TagRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.TagID) (tp1 *_sourceDomain.Tag, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.FindByID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.FindByID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -63,7 +68,10 @@ func (_d TagRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomai
 
 // FindByName implements TagRepository
 func (_d TagRepositoryWithTracing) FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (tp1 *_sourceDomain.Tag, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.FindByName")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.FindByName", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -88,7 +96,10 @@ func (_d TagRepositoryWithTracing) FindByName(ctx context.Context, workspaceID w
 
 // Save implements TagRepository
 func (_d TagRepositoryWithTracing) Save(ctx context.Context, tag *_sourceDomain.Tag) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.Save")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TagRepository.Save", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{

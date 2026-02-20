@@ -14,7 +14,7 @@ func TestAggregateIntegrity(t *testing.T) {
 
 	t.Run("factory must emit creation event", func(t *testing.T) {
 		title, _ := NewTodoTitle("New")
-		todo := NewTodo(title, wsDomain.WorkspaceID{UUID: uuid.New()})
+		todo := NewTodo(title, wsDomain.WorkspaceID(uuid.New()))
 
 		assert.Len(t, todo.Events(), 1)
 		assert.IsType(t, TodoCreatedEvent{}, todo.Events()[0])

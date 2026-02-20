@@ -47,8 +47,8 @@ func TestAssignTagToTodoHandler_Handle_Integration(t *testing.T) {
 
 	t.Run("failure - todo not found", func(t *testing.T) {
 		_, err := handler.Handle(ctx, application.AssignTagToTodoCommand{
-			TodoID: domain.TodoID{UUID: uuid.New()},
-			TagID:  domain.TagID{UUID: uuid.New()},
+			TodoID: domain.TodoID(uuid.New()),
+			TagID:  domain.TagID(uuid.New()),
 		})
 
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)

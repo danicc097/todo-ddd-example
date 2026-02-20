@@ -37,7 +37,7 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'workspace.created' AND (payload ->> 'id')::uuid = $1", ws.ID().UUID).Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'workspace.created' AND aggregate_id = $1", ws.ID().UUID()).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})

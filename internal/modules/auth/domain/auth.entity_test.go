@@ -14,7 +14,7 @@ import (
 func TestUserAuth_TOTP(t *testing.T) {
 	t.Parallel()
 
-	userID := userDomain.UserID{UUID: uuid.New()}
+	userID := userDomain.UserID(uuid.New())
 	auth := domain.NewUserAuth(userID, "hash")
 
 	t.Run("initiate totp", func(t *testing.T) {
@@ -31,7 +31,7 @@ func TestUserAuth_TOTP(t *testing.T) {
 	})
 
 	t.Run("activate totp - success", func(t *testing.T) {
-		userID := userDomain.UserID{UUID: uuid.New()}
+		userID := userDomain.UserID(uuid.New())
 		auth := domain.NewUserAuth(userID, "hash")
 		auth.InitiateTOTP([]byte("c"), []byte("n"))
 
@@ -42,7 +42,7 @@ func TestUserAuth_TOTP(t *testing.T) {
 	})
 
 	t.Run("activate totp - failure", func(t *testing.T) {
-		userID := userDomain.UserID{UUID: uuid.New()}
+		userID := userDomain.UserID(uuid.New())
 		auth := domain.NewUserAuth(userID, "hash")
 
 		// status is DISABLED

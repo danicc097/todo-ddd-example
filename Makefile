@@ -55,14 +55,14 @@ dev:
 
 test:
 	$(MAKE) gen-schema
-	go test ./... -count=1
+	go test ./... -count=1 $(ARGS)
 
 test-race:
 	$(MAKE) gen-schema
-	go test ./... -race -shuffle=on -count=5 -v -timeout 15m
+	go test ./... -race -shuffle=on -count=5 -timeout 15m $(ARGS)
 
 test-e2e:
-	go test -tags e2e -v ./tests/e2e/...
+	go test -tags e2e -v ./tests/e2e/... $(ARGS)
 
 clean:
 	rm -f $(SERVICE)

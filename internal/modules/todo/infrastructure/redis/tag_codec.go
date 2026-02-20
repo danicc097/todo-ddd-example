@@ -1,8 +1,9 @@
 package redis
 
 import (
-	"github.com/hashicorp/go-msgpack/codec"
+	"github.com/ugorji/go/codec"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 )
 
@@ -12,7 +13,7 @@ type TagCacheCodec struct {
 
 func NewTagCacheCodec() *TagCacheCodec {
 	return &TagCacheCodec{
-		handle: &codec.MsgpackHandle{},
+		handle: cache.NewMsgpackHandle(),
 	}
 }
 

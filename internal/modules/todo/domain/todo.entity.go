@@ -78,9 +78,10 @@ func (t *Todo) Complete() error {
 func (t *Todo) AddTag(tagID TagID) {
 	t.tags = append(t.tags, tagID)
 	t.RecordEvent(TagAddedEvent{
-		TodoID:   t.id,
-		TagID:    tagID,
-		Occurred: time.Now(),
+		TodoID:      t.id,
+		TagID:       tagID,
+		WorkspaceID: t.workspaceID,
+		Occurred:    time.Now(),
 	})
 }
 

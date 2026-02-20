@@ -6,7 +6,6 @@ package postgres
 
 import (
 	"context"
-	"time"
 
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
@@ -16,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -42,7 +43,10 @@ func NewTodoQueryServiceWithTracing(base _sourceApplication.TodoQueryService, in
 
 // GetAllByWorkspace implements TodoQueryService
 func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (ta1 []api.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAllByWorkspace")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAllByWorkspace", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -66,7 +70,10 @@ func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsI
 
 // GetByID implements TodoQueryService
 func (_d TodoQueryServiceWithTracing) GetByID(ctx context.Context, id domain.TodoID) (tp1 *api.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetByID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetByID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -86,28 +93,4 @@ func (_d TodoQueryServiceWithTracing) GetByID(ctx context.Context, id domain.Tod
 		_span.End()
 	}()
 	return _d.TodoQueryService.GetByID(ctx, id)
-}
-
-// GetLastUpdateByWorkspace implements TodoQueryService
-func (_d TodoQueryServiceWithTracing) GetLastUpdateByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (tp1 *time.Time, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetLastUpdateByWorkspace")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":  ctx,
-				"wsID": wsID}, map[string]interface{}{
-				"tp1": tp1,
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.TodoQueryService.GetLastUpdateByWorkspace(ctx, wsID)
 }

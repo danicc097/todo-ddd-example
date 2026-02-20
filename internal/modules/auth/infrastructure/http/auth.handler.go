@@ -69,7 +69,7 @@ func (h *AuthHandler) Register(c *gin.Context, params api.RegisterParams) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, api.IdResponse{Id: id.UUID})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: id.UUID()})
 }
 
 func (h *AuthHandler) InitiateTOTP(c *gin.Context) {

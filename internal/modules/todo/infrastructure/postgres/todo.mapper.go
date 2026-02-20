@@ -22,7 +22,7 @@ func (m *TodoMapper) ToDomain(row db.GetTodoByIDRow) *domain.Todo {
 
 	tagIDs := make([]domain.TagID, len(row.Tags))
 	for i, id := range row.Tags {
-		tagIDs[i] = domain.TagID{UUID: id}
+		tagIDs[i] = domain.TagID(id)
 	}
 
 	return domain.ReconstituteTodo(
@@ -40,7 +40,7 @@ func (m *TodoMapper) ListRowToDomain(row db.ListTodosByWorkspaceIDRow) *domain.T
 
 	tagIDs := make([]domain.TagID, len(row.Tags))
 	for i, id := range row.Tags {
-		tagIDs[i] = domain.TagID{UUID: id}
+		tagIDs[i] = domain.TagID(id)
 	}
 
 	return domain.ReconstituteTodo(
@@ -97,34 +97,36 @@ type todoOutboxDTO struct {
 }
 
 type tagAddedOutboxDTO struct {
-	TodoID uuid.UUID `json:"todo_id"`
-	TagID  uuid.UUID `json:"tag_id"`
+	TodoID      uuid.UUID `json:"todo_id"`
+	TagID       uuid.UUID `json:"tag_id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
 }
 
-func (m *TodoMapper) MapEvent(e shared.DomainEvent) (string, []byte, error) {
+func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, []byte, error) {
 	var payload any
 
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
 		payload = todoOutboxDTO{
-			ID:          evt.ID.UUID,
-			WorkspaceID: evt.WorkspaceID.UUID,
+			ID:          evt.ID.UUID(),
+			WorkspaceID: evt.WorkspaceID.UUID(),
 			Title:       evt.Title,
 			Status:      evt.Status,
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
 		payload = todoOutboxDTO{
-			ID:          evt.ID.UUID,
-			WorkspaceID: evt.WorkspaceID.UUID,
+			ID:          evt.ID.UUID(),
+			WorkspaceID: evt.WorkspaceID.UUID(),
 			Title:       evt.Title,
 			Status:      evt.Status,
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
 		payload = tagAddedOutboxDTO{
-			TodoID: evt.TodoID.UUID,
-			TagID:  evt.TagID.UUID,
+			TodoID:      evt.TodoID.UUID(),
+			TagID:       evt.TagID.UUID(),
+			WorkspaceID: evt.WorkspaceID.UUID(),
 		}
 	default:
 		return "", nil, nil

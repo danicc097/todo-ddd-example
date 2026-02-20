@@ -55,11 +55,3 @@ INSERT INTO todo_tags(todo_id, tag_id)
 ON CONFLICT
   DO NOTHING;
 
--- name: GetWorkspaceTodosLastUpdate :one
-SELECT
-  MAX(updated_at)::timestamptz AS last_update
-FROM
-  todos
-WHERE
-  workspace_id = $1;
-

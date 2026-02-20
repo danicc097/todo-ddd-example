@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tcRedis "github.com/testcontainers/testcontainers-go/modules/redis"
+
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 )
 
 func setupRedisContainer(t *testing.T) *redis.Client {
@@ -62,7 +64,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		assert.JSONEq(t, `{"id": "123"}`, w.Body.String())
 
 		ctx := context.Background()
-		val, err := rdb.Get(ctx, newIdempotencyRedisKey(key)).Result()
+		val, err := rdb.Get(ctx, cache.Keys.Idempotency(key)).Result()
 		assert.NoError(t, err)
 		assert.NotEmpty(t, val)
 		assert.NotEqual(t, idempotencyStatusProcessing, val)
@@ -94,7 +96,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		key := "req-3"
 
 		ctx := context.Background()
-		err := rdb.Set(ctx, newIdempotencyRedisKey(key), idempotencyStatusProcessing, 10*time.Second).Err()
+		err := rdb.Set(ctx, cache.Keys.Idempotency(key), idempotencyStatusProcessing, 10*time.Second).Err()
 		require.NoError(t, err)
 
 		r := gin.New()
@@ -144,7 +146,7 @@ func TestIdempotencyMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 
 		ctx := context.Background()
-		_, err := rdb.Get(ctx, newIdempotencyRedisKey(key)).Result()
+		_, err := rdb.Get(ctx, cache.Keys.Idempotency(key)).Result()
 		assert.ErrorIs(t, err, redis.Nil) // deleted
 	})
 }

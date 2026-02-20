@@ -8,17 +8,21 @@ import (
 	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/google/uuid"
 )
 
 type Outbox struct {
-	ID          uuid.UUID  `db:"id" json:"id"`
-	EventType   string     `db:"event_type" json:"event_type"`
-	Payload     []byte     `db:"payload" json:"payload"`
-	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
-	ProcessedAt *time.Time `db:"processed_at" json:"processed_at"`
-	LastError   *string    `db:"last_error" json:"last_error"`
-	Retries     int32      `db:"retries" json:"retries"`
+	ID            uuid.UUID        `db:"id" json:"id"`
+	EventType     domain.EventType `db:"event_type" json:"event_type"`
+	Payload       []byte           `db:"payload" json:"payload"`
+	CreatedAt     time.Time        `db:"created_at" json:"created_at"`
+	ProcessedAt   *time.Time       `db:"processed_at" json:"processed_at"`
+	LastError     *string          `db:"last_error" json:"last_error"`
+	Retries       int32            `db:"retries" json:"retries"`
+	AggregateType string           `db:"aggregate_type" json:"aggregate_type"`
+	AggregateID   uuid.UUID        `db:"aggregate_id" json:"aggregate_id"`
+	Headers       []byte           `db:"headers" json:"headers"`
 }
 
 type Tags struct {

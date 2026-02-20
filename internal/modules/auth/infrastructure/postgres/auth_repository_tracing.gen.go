@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -39,7 +41,10 @@ func NewAuthRepositoryWithTracing(base _sourceDomain.AuthRepository, instance st
 
 // FindByUserID implements AuthRepository
 func (_d AuthRepositoryWithTracing) FindByUserID(ctx context.Context, userID userDomain.UserID) (up1 *_sourceDomain.UserAuth, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.FindByUserID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.FindByUserID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -63,7 +68,10 @@ func (_d AuthRepositoryWithTracing) FindByUserID(ctx context.Context, userID use
 
 // Save implements AuthRepository
 func (_d AuthRepositoryWithTracing) Save(ctx context.Context, auth *_sourceDomain.UserAuth) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.Save")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.Save", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{

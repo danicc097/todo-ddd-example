@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 
+	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/google/uuid"
 )
 
@@ -35,7 +36,7 @@ func (q *Queries) GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, e
 
 const GetUnprocessedOutboxEvents = `-- name: GetUnprocessedOutboxEvents :many
 SELECT
-  id, event_type, payload, created_at, processed_at, last_error, retries
+  id, event_type, payload, created_at, processed_at, last_error, retries, aggregate_type, aggregate_id, headers
 FROM
   outbox
 WHERE
@@ -66,6 +67,9 @@ func (q *Queries) GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Ou
 			&i.ProcessedAt,
 			&i.LastError,
 			&i.Retries,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.Headers,
 		); err != nil {
 			return nil, err
 		}
@@ -92,18 +96,28 @@ func (q *Queries) MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid
 }
 
 const SaveOutboxEvent = `-- name: SaveOutboxEvent :exec
-INSERT INTO outbox(id, event_type, payload)
-  VALUES ($1, $2, $3)
+INSERT INTO outbox(id, event_type, aggregate_type, aggregate_id, payload, headers)
+  VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type SaveOutboxEventParams struct {
-	ID        uuid.UUID `db:"id" json:"id"`
-	EventType string    `db:"event_type" json:"event_type"`
-	Payload   []byte    `db:"payload" json:"payload"`
+	ID            uuid.UUID        `db:"id" json:"id"`
+	EventType     domain.EventType `db:"event_type" json:"event_type"`
+	AggregateType string           `db:"aggregate_type" json:"aggregate_type"`
+	AggregateID   uuid.UUID        `db:"aggregate_id" json:"aggregate_id"`
+	Payload       []byte           `db:"payload" json:"payload"`
+	Headers       []byte           `db:"headers" json:"headers"`
 }
 
 func (q *Queries) SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error {
-	_, err := db.Exec(ctx, SaveOutboxEvent, arg.ID, arg.EventType, arg.Payload)
+	_, err := db.Exec(ctx, SaveOutboxEvent,
+		arg.ID,
+		arg.EventType,
+		arg.AggregateType,
+		arg.AggregateID,
+		arg.Payload,
+		arg.Headers,
+	)
 	return err
 }
 

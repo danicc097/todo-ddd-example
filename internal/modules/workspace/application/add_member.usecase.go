@@ -33,7 +33,7 @@ func (h *AddWorkspaceMemberHandler) Handle(ctx context.Context, cmd AddWorkspace
 		return application.Void{}, err
 	}
 
-	if !ws.IsOwner(userDomain.UserID{UUID: meta.UserID}) && !meta.IsSystem() {
+	if !ws.IsOwner(userDomain.UserID(meta.UserID)) && !meta.IsSystem() {
 		return application.Void{}, domain.ErrNotOwner
 	}
 

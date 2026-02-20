@@ -274,7 +274,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetTodoByID"))
 			}
 
-			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
+			paramid := todoDomain.TodoID(uuid.MustParse(args[0]))
 
 			resp, err := c.GetTodoByIDWithResponse(ctx, paramid)
 			if err != nil {
@@ -314,7 +314,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CompleteTodo"))
 			}
 
-			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
+			paramid := todoDomain.TodoID(uuid.MustParse(args[0]))
 
 			params := &client.CompleteTodoParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
@@ -361,7 +361,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing AssignTagToTodo"))
 			}
 
-			paramid := todoDomain.TodoID{UUID: uuid.MustParse(args[0])}
+			paramid := todoDomain.TodoID(uuid.MustParse(args[0]))
 
 			params := &client.AssignTagToTodoParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
@@ -422,7 +422,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetUserByID"))
 			}
 
-			paramid := userDomain.UserID{UUID: uuid.MustParse(args[0])}
+			paramid := userDomain.UserID(uuid.MustParse(args[0]))
 
 			resp, err := c.GetUserByIDWithResponse(ctx, paramid)
 			if err != nil {
@@ -462,7 +462,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetUserWorkspaces"))
 			}
 
-			paramid := userDomain.UserID{UUID: uuid.MustParse(args[0])}
+			paramid := userDomain.UserID(uuid.MustParse(args[0]))
 
 			resp, err := c.GetUserWorkspacesWithResponse(ctx, paramid)
 			if err != nil {
@@ -599,7 +599,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing DeleteWorkspace"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			resp, err := c.DeleteWorkspaceWithResponse(ctx, paramid)
 			if err != nil {
@@ -639,7 +639,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing AddWorkspaceMember"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			params := &client.AddWorkspaceMemberParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
@@ -700,9 +700,9 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing RemoveWorkspaceMember"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
-			paramuserId := userDomain.UserID{UUID: uuid.MustParse(args[1])}
+			paramuserId := userDomain.UserID(uuid.MustParse(args[1]))
 
 			resp, err := c.RemoveWorkspaceMemberWithResponse(ctx, paramid, paramuserId)
 			if err != nil {
@@ -742,7 +742,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetWorkspaceTags"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			resp, err := c.GetWorkspaceTagsWithResponse(ctx, paramid)
 			if err != nil {
@@ -782,7 +782,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTag"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			params := &client.CreateTagParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {
@@ -843,7 +843,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing GetWorkspaceTodos"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			resp, err := c.GetWorkspaceTodosWithResponse(ctx, paramid)
 			if err != nil {
@@ -883,7 +883,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CreateTodo"))
 			}
 
-			paramid := workspaceDomain.WorkspaceID{UUID: uuid.MustParse(args[0])}
+			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
 			params := &client.CreateTodoParams{}
 			if val, _ := cmd.Flags().GetString("idempotency-key"); val != "" {

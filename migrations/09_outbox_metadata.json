@@ -1,0 +1,37 @@
+{
+  "operations": [
+    {
+      "add_column": {
+        "table": "outbox",
+        "column": {
+          "name": "aggregate_type",
+          "type": "text",
+          "nullable": false,
+          "default": "''"
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "outbox",
+        "column": {
+          "name": "aggregate_id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "'00000000-0000-0000-0000-000000000000'"
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "outbox",
+        "column": {
+          "name": "headers",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'"
+        }
+      }
+    }
+  ]
+}

@@ -2,12 +2,24 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
+
+type EventEnvelope struct {
+	Event     string          `json:"event"`
+	Timestamp time.Time       `json:"timestamp"`
+	Data      json.RawMessage `json:"data"`
+}
 
 // SaveDomainEvents persists events from an aggregate to the outbox.
 func SaveDomainEvents(
@@ -17,20 +29,48 @@ func SaveDomainEvents(
 	mapper domain.EventMapper,
 	agg domain.EventsAggregate,
 ) error {
+	ctx, span := otel.Tracer("outbox").Start(ctx, "SaveDomainEvents", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
+	defer span.End()
+
 	for _, e := range agg.Events() {
-		eventName, payload, err := mapper.MapEvent(e)
+		eventName, rawPayload, err := mapper.MapEvent(e)
 		if err != nil {
 			return err
 		}
 
-		if payload == nil {
+		if rawPayload == nil {
 			continue
 		}
 
+		envelope := EventEnvelope{
+			Event:     string(eventName),
+			Timestamp: e.OccurredAt(),
+			Data:      rawPayload,
+		}
+
+		payload, err := json.Marshal(envelope)
+		if err != nil {
+			return err
+		}
+
+		headers := make(map[string]string)
+		otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(headers))
+
+		headersJSON, err := json.Marshal(headers)
+		if err != nil {
+			return err
+		}
+
 		if err := q.SaveOutboxEvent(ctx, dbtx, db.SaveOutboxEventParams{
-			ID:        uuid.New(),
-			EventType: eventName,
-			Payload:   payload,
+			ID:            uuid.New(),
+			EventType:     eventName,
+			AggregateType: e.AggregateType(),
+			AggregateID:   e.AggregateID(),
+			Payload:       payload,
+			Headers:       headersJSON,
 		}); err != nil {
 			return err
 		}

@@ -6,7 +6,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 	"github.com/google/uuid"
@@ -32,7 +31,6 @@ type Querier interface {
 	GetUserByID(ctx context.Context, db DBTX, id types.UserID) (Users, error)
 	GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error)
 	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error)
-	GetWorkspaceTodosLastUpdate(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) (time.Time, error)
 	ListTagsByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]Tags, error)
 	ListTodosByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]ListTodosByWorkspaceIDRow, error)
 	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)

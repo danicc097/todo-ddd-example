@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,6 +9,8 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 )
 
 type rateLimitExt struct {
@@ -49,7 +50,7 @@ func RateLimiter(rdb *redis.Client, router routers.Router) gin.HandlerFunc {
 		}
 
 		ip := c.ClientIP()
-		key := fmt.Sprintf("ratelimit:%s:%s", route.Operation.OperationID, ip)
+		key := cache.Keys.RateLimit(route.Operation.OperationID, ip)
 		now := time.Now().UnixMicro()
 		windowStart := now - windowDuration.Microseconds()
 		ctx := c.Request.Context()

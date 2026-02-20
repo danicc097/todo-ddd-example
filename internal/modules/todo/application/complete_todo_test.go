@@ -35,7 +35,7 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 		ws := fixtures.RandomWorkspace(ctx, t, user.ID())
 		todo := fixtures.RandomTodo(ctx, t, ws.ID())
 
-		userCtx := causation.WithMetadata(ctx, causation.Metadata{UserID: user.ID().UUID})
+		userCtx := causation.WithMetadata(ctx, causation.Metadata{UserID: user.ID().UUID()})
 
 		_, err := handler.Handle(userCtx, application.CompleteTodoCommand{
 			ID: todo.ID(),
@@ -47,14 +47,14 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.completed' AND (payload ->> 'id')::uuid = $1", todo.ID().UUID).Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.completed' AND aggregate_id = $1", todo.ID().UUID()).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})
 
 	t.Run("fails if todo not found", func(t *testing.T) {
 		_, err := handler.Handle(ctx, application.CompleteTodoCommand{
-			ID: domain.TodoID{UUID: uuid.New()},
+			ID: domain.TodoID(uuid.New()),
 		})
 		assert.ErrorIs(t, err, domain.ErrTodoNotFound)
 	})

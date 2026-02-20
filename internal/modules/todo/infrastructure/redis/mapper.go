@@ -10,23 +10,23 @@ import (
 )
 
 type TodoCacheDTO struct {
-	ID          uuid.UUID   `msgpack:"id"`
-	WorkspaceID uuid.UUID   `msgpack:"workspace_id"`
-	Title       string      `msgpack:"title"`
-	Status      string      `msgpack:"status"`
-	CreatedAt   time.Time   `msgpack:"created_at"`
-	Tags        []uuid.UUID `msgpack:"tags"`
+	ID          uuid.UUID   `json:"id"`
+	WorkspaceID uuid.UUID   `json:"workspace_id"`
+	Title       string      `json:"title"`
+	Status      string      `json:"status"`
+	CreatedAt   time.Time   `json:"created_at"`
+	Tags        []uuid.UUID `json:"tags"`
 }
 
 func ToTodoCacheDTO(t *domain.Todo) TodoCacheDTO {
 	tagUUIDs := make([]uuid.UUID, len(t.Tags()))
 	for i, id := range t.Tags() {
-		tagUUIDs[i] = id.UUID
+		tagUUIDs[i] = id.UUID()
 	}
 
 	return TodoCacheDTO{
-		ID:          t.ID().UUID,
-		WorkspaceID: t.WorkspaceID().UUID,
+		ID:          t.ID().UUID(),
+		WorkspaceID: t.WorkspaceID().UUID(),
 		Title:       t.Title().String(),
 		Status:      t.Status().String(),
 		CreatedAt:   t.CreatedAt(),
@@ -39,34 +39,34 @@ func FromTodoCacheDTO(dto TodoCacheDTO) *domain.Todo {
 
 	tagIDs := make([]domain.TagID, len(dto.Tags))
 	for i, id := range dto.Tags {
-		tagIDs[i] = domain.TagID{UUID: id}
+		tagIDs[i] = domain.TagID(id)
 	}
 
 	return domain.ReconstituteTodo(
-		domain.TodoID{UUID: dto.ID},
+		domain.TodoID(dto.ID),
 		title,
 		domain.TodoStatus(dto.Status),
 		dto.CreatedAt,
 		tagIDs,
-		wsDomain.WorkspaceID{UUID: dto.WorkspaceID},
+		wsDomain.WorkspaceID(dto.WorkspaceID),
 	)
 }
 
 type TagCacheDTO struct {
-	ID          uuid.UUID `msgpack:"id"`
-	Name        string    `msgpack:"name"`
-	WorkspaceID uuid.UUID `msgpack:"workspace_id"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
 }
 
 func ToTagCacheDTO(t *domain.Tag) TagCacheDTO {
 	return TagCacheDTO{
-		ID:          t.ID().UUID,
+		ID:          t.ID().UUID(),
 		Name:        t.Name().String(),
-		WorkspaceID: t.WorkspaceID().UUID,
+		WorkspaceID: t.WorkspaceID().UUID(),
 	}
 }
 
 func FromTagCacheDTO(dto TagCacheDTO) *domain.Tag {
 	name, _ := domain.NewTagName(dto.Name)
-	return domain.ReconstituteTag(domain.TagID{UUID: dto.ID}, name, wsDomain.WorkspaceID{UUID: dto.WorkspaceID})
+	return domain.ReconstituteTag(domain.TagID(dto.ID), name, wsDomain.WorkspaceID(dto.WorkspaceID))
 }

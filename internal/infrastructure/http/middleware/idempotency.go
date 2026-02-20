@@ -2,12 +2,14 @@ package middleware
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/ugorji/go/codec"
+
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 )
 
 const (
@@ -33,6 +35,8 @@ type storedResponse struct {
 	Body    []byte            `json:"body"`
 }
 
+var msgpackHandle = cache.NewMsgpackHandle()
+
 // Idempotency implements the cache aside pattern by deduplicating requests.
 // This ensures that retrying a non-idempotent operation does not result in duplicate resources.
 func Idempotency(client *redis.Client) gin.HandlerFunc {
@@ -48,7 +52,7 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 			return
 		}
 
-		redisKey := newIdempotencyRedisKey(key)
+		redisKey := cache.Keys.Idempotency(key)
 		ctx := c.Request.Context()
 
 		acquired, err := client.SetNX(ctx, redisKey, idempotencyStatusProcessing, 10*time.Second).Result()
@@ -72,7 +76,9 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 			}
 
 			var resp storedResponse
-			if json.Unmarshal(val, &resp) == nil {
+
+			dec := codec.NewDecoderBytes(val, msgpackHandle)
+			if dec.Decode(&resp) == nil {
 				for k, v := range resp.Headers {
 					c.Writer.Header().Set(k, v)
 				}
@@ -107,11 +113,11 @@ func Idempotency(client *redis.Client) gin.HandlerFunc {
 			Body:    w.body.Bytes(),
 		}
 
-		data, _ := json.Marshal(resp)
-		client.Set(ctx, redisKey, data, idempotencyTTL)
-	}
-}
+		var b []byte
 
-func newIdempotencyRedisKey(key string) string {
-	return "idempotency:" + key
+		enc := codec.NewEncoderBytes(&b, msgpackHandle)
+		if err := enc.Encode(resp); err == nil {
+			client.Set(ctx, redisKey, b, idempotencyTTL)
+		}
+	}
 }

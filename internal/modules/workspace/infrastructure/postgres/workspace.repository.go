@@ -95,7 +95,7 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*d
 
 	domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole, len(memberMap))
 	for uid, role := range memberMap {
-		domainMemberMap[userDomain.UserID{UUID: uid}] = role
+		domainMemberMap[userDomain.UserID(uid)] = role
 	}
 
 	return domain.ReconstituteWorkspace(
@@ -115,7 +115,7 @@ func toMemberMap(members []db.WorkspaceMembers) (map[uuid.UUID]domain.WorkspaceR
 			return nil, err
 		}
 
-		memberMap[m.UserID.UUID] = role
+		memberMap[m.UserID.UUID()] = role
 	}
 
 	return memberMap, nil
@@ -143,7 +143,7 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 
 		for _, m := range mm {
 			role, _ := domain.NewWorkspaceRole(m.Role)
-			domainMemberMap[userDomain.UserID{UUID: m.UserID}] = role
+			domainMemberMap[userDomain.UserID(m.UserID)] = role
 		}
 
 		workspaces = append(workspaces, domain.ReconstituteWorkspace(
@@ -161,9 +161,16 @@ func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error
 func (r *WorkspaceRepo) Delete(ctx context.Context, id domain.WorkspaceID) error {
 	dbtx := r.getDB(ctx)
 
+	ws, err := r.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	if err := r.q.DeleteWorkspace(ctx, dbtx, id); err != nil {
 		return fmt.Errorf("failed to delete workspace: %w", sharedPg.ParseDBError(err))
 	}
 
-	return nil
+	ws.Delete()
+
+	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, ws)
 }

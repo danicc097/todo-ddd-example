@@ -49,7 +49,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx = causation.WithMetadata(ctx, causation.Metadata{UserID: userID.UUID})
+	ctx = causation.WithMetadata(ctx, causation.Metadata{UserID: userID.UUID()})
 
 	initiateHandler := application.NewInitiateTOTPHandler(authRepo, masterKey)
 	_ = application.NewVerifyTOTPHandler(authRepo, totpGuard, tokenIssuer, masterKey)

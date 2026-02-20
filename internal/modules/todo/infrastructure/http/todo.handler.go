@@ -5,9 +5,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
@@ -24,7 +26,8 @@ type TodoHandler struct {
 	// keeping queries nontransactional
 	queryService application.TodoQueryService
 
-	hub *ws.TodoHub
+	hub   *ws.Hub
+	redis *redis.Client
 }
 
 func NewTodoHandler(
@@ -33,7 +36,8 @@ func NewTodoHandler(
 	ct sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID],
 	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void],
 	qs application.TodoQueryService,
-	hub *ws.TodoHub,
+	hub *ws.Hub,
+	redis *redis.Client,
 ) *TodoHandler {
 	return &TodoHandler{
 		createHandler:    c,
@@ -42,6 +46,7 @@ func NewTodoHandler(
 		assignTagHandler: at,
 		queryService:     qs,
 		hub:              hub,
+		redis:            redis,
 	}
 }
 
@@ -65,13 +70,13 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": todoID.UUID})
+	c.JSON(http.StatusCreated, gin.H{"id": todoID.UUID()})
 }
 
 func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID) {
-	lastUpdate, err := h.queryService.GetLastUpdateByWorkspace(c.Request.Context(), id)
-	if err == nil && lastUpdate != nil {
-		etag := fmt.Sprintf(`"W/%x"`, lastUpdate.UnixNano())
+	revision, err := h.redis.Get(c.Request.Context(), cache.Keys.WorkspaceRevision(id)).Result()
+	if err == nil {
+		etag := fmt.Sprintf(`"W/%s"`, revision)
 
 		if c.Request.Header.Get("If-None-Match") == etag {
 			c.AbortWithStatus(http.StatusNotModified)
@@ -143,5 +148,5 @@ func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params 
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": tagID.UUID})
+	c.JSON(http.StatusCreated, gin.H{"id": tagID.UUID()})
 }

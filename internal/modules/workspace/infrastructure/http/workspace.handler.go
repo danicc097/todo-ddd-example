@@ -49,7 +49,7 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 
 	if req.Members != nil {
 		for uid, role := range *req.Members {
-			members[userDomain.UserID{UUID: uid}] = application.MemberInitialState{Role: role}
+			members[userDomain.UserID(uid)] = application.MemberInitialState{Role: role}
 		}
 	}
 
@@ -71,7 +71,7 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id.UUID})
+	c.JSON(http.StatusCreated, gin.H{"id": id.UUID()})
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context) {

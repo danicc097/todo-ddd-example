@@ -130,6 +130,13 @@ func (w *Workspace) countOwners() int {
 	return count
 }
 
+func (w *Workspace) Delete() {
+	w.RecordEvent(WorkspaceDeletedEvent{
+		ID:       w.id,
+		Occurred: time.Now(),
+	})
+}
+
 func (w *Workspace) ID() WorkspaceID                              { return w.id }
 func (w *Workspace) Name() string                                 { return w.name }
 func (w *Workspace) Description() string                          { return w.description }

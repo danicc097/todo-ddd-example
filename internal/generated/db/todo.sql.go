@@ -113,22 +113,6 @@ func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (Ge
 	return i, err
 }
 
-const GetWorkspaceTodosLastUpdate = `-- name: GetWorkspaceTodosLastUpdate :one
-SELECT
-  MAX(updated_at)::timestamptz AS last_update
-FROM
-  todos
-WHERE
-  workspace_id = $1
-`
-
-func (q *Queries) GetWorkspaceTodosLastUpdate(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) (time.Time, error) {
-	row := db.QueryRow(ctx, GetWorkspaceTodosLastUpdate, workspaceID)
-	var last_update time.Time
-	err := row.Scan(&last_update)
-	return last_update, err
-}
-
 const ListTodosByWorkspaceID = `-- name: ListTodosByWorkspaceID :many
 SELECT
   t.id,

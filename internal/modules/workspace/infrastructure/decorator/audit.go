@@ -34,7 +34,7 @@ func NewWorkspaceAuditWrapper(
 		auditDomain.AggWorkspace,
 		extractor,
 		func(id wsDomain.WorkspaceID) uuid.UUID {
-			return id.UUID
+			return id.UUID()
 		},
 	)
 

@@ -14,7 +14,7 @@ func TestTodo_Complete(t *testing.T) {
 	t.Parallel()
 
 	title, _ := NewTodoTitle("Task")
-	wsID := wsDomain.WorkspaceID{UUID: uuid.New()}
+	wsID := wsDomain.WorkspaceID(uuid.New())
 
 	t.Run("should transition to completed from pending", func(t *testing.T) {
 		todo := NewTodo(title, wsID)
@@ -24,7 +24,7 @@ func TestTodo_Complete(t *testing.T) {
 	})
 
 	t.Run("should fail transition if archived", func(t *testing.T) {
-		todo := ReconstituteTodo(TodoID{UUID: uuid.New()}, title, StatusArchived, time.Now(), nil, wsID)
+		todo := ReconstituteTodo(TodoID(uuid.New()), title, StatusArchived, time.Now(), nil, wsID)
 		err := todo.Complete()
 		assert.ErrorIs(t, err, ErrInvalidStatus)
 	})

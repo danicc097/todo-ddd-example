@@ -10,6 +10,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
@@ -49,7 +50,7 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'todo.created' AND (payload ->> 'id')::uuid = $1", id.UUID).Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = $1 AND aggregate_id = $2", sharedDomain.TodoCreated, id.UUID()).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})

@@ -19,10 +19,10 @@ func TestTodoCacheCodec_Symmetry(t *testing.T) {
 	codec := redis.NewTodoCacheCodec()
 
 	t.Run("symmetry", func(t *testing.T) {
-		todoID := domain.TodoID{UUID: uuid.New()}
-		wsID := wsDomain.WorkspaceID{UUID: uuid.New()}
+		todoID := domain.TodoID(uuid.New())
+		wsID := wsDomain.WorkspaceID(uuid.New())
 		title, _ := domain.NewTodoTitle("Complex Task")
-		tags := []domain.TagID{{UUID: uuid.New()}, {UUID: uuid.New()}}
+		tags := []domain.TagID{domain.TagID(uuid.New()), domain.TagID(uuid.New())}
 
 		now := time.Now().Truncate(time.Second)
 

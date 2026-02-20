@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -39,7 +41,10 @@ func NewTodoRepositoryWithTracing(base _sourceDomain.TodoRepository, instance st
 
 // FindAllByWorkspace implements TodoRepository
 func (_d TodoRepositoryWithTracing) FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (tpa1 []*_sourceDomain.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindAllByWorkspace")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindAllByWorkspace", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -63,7 +68,10 @@ func (_d TodoRepositoryWithTracing) FindAllByWorkspace(ctx context.Context, wsID
 
 // FindByID implements TodoRepository
 func (_d TodoRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.TodoID) (tp1 *_sourceDomain.Todo, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindByID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.FindByID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -87,7 +95,10 @@ func (_d TodoRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDoma
 
 // Save implements TodoRepository
 func (_d TodoRepositoryWithTracing) Save(ctx context.Context, todo *_sourceDomain.Todo) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.Save")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.Save", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -110,7 +121,10 @@ func (_d TodoRepositoryWithTracing) Save(ctx context.Context, todo *_sourceDomai
 
 // Update implements TodoRepository
 func (_d TodoRepositoryWithTracing) Update(ctx context.Context, todo *_sourceDomain.Todo) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.Update")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.Update", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{

@@ -12,6 +12,7 @@ import (
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 func TestWorkspaceMapper_MapEvent(t *testing.T) {
@@ -25,15 +26,15 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		now := time.Now().Truncate(time.Second)
 
 		evt := domain.WorkspaceCreatedEvent{
-			ID:       domain.WorkspaceID{UUID: id},
+			ID:       domain.WorkspaceID(id),
 			Name:     "Test WS",
-			OwnerID:  userDomain.UserID{UUID: ownerID},
+			OwnerID:  userDomain.UserID(ownerID),
 			Occurred: now,
 		}
 
 		name, data, err := mapper.MapEvent(evt)
 		require.NoError(t, err)
-		assert.Equal(t, "workspace.created", name)
+		assert.Equal(t, sharedDomain.WorkspaceCreated, name)
 
 		var payload map[string]any
 
@@ -51,15 +52,15 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		now := time.Now().Truncate(time.Second)
 
 		evt := domain.MemberAddedEvent{
-			WorkspaceID: domain.WorkspaceID{UUID: wsID},
-			UserID:      userDomain.UserID{UUID: userID},
+			WorkspaceID: domain.WorkspaceID(wsID),
+			UserID:      userDomain.UserID(userID),
 			Role:        "OWNER",
 			Occurred:    now,
 		}
 
 		name, data, err := mapper.MapEvent(evt)
 		require.NoError(t, err)
-		assert.Equal(t, "workspace.member_added", name)
+		assert.Equal(t, sharedDomain.WorkspaceMemberAdded, name)
 
 		var payload map[string]any
 

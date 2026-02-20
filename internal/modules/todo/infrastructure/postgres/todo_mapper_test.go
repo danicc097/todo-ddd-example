@@ -12,6 +12,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 func TestTodoMapper_MapEvent(t *testing.T) {
@@ -25,8 +26,8 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		now := time.Now().Truncate(time.Second)
 
 		evt := domain.TodoCreatedEvent{
-			ID:          domain.TodoID{UUID: id},
-			WorkspaceID: wsDomain.WorkspaceID{UUID: wsID},
+			ID:          domain.TodoID(id),
+			WorkspaceID: wsDomain.WorkspaceID(wsID),
 			Title:       "Test Todo",
 			Status:      "PENDING",
 			CreatedAt:   now,
@@ -35,7 +36,7 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 
 		name, data, err := mapper.MapEvent(evt)
 		require.NoError(t, err)
-		assert.Equal(t, "todo.created", name)
+		assert.Equal(t, sharedDomain.TodoCreated, name)
 
 		var payload map[string]any
 
@@ -54,14 +55,14 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		now := time.Now()
 
 		evt := domain.TagAddedEvent{
-			TodoID:   domain.TodoID{UUID: todoID},
-			TagID:    domain.TagID{UUID: tagID},
+			TodoID:   domain.TodoID(todoID),
+			TagID:    domain.TagID(tagID),
 			Occurred: now,
 		}
 
 		name, data, err := mapper.MapEvent(evt)
 		require.NoError(t, err)
-		assert.Equal(t, "todo.tag_added", name)
+		assert.Equal(t, sharedDomain.TodoTagAdded, name)
 
 		var payload map[string]any
 

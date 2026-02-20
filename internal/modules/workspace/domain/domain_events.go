@@ -11,6 +11,7 @@ import (
 
 var (
 	_ shared.DomainEvent = (*WorkspaceCreatedEvent)(nil)
+	_ shared.DomainEvent = (*WorkspaceDeletedEvent)(nil)
 	_ shared.DomainEvent = (*MemberAddedEvent)(nil)
 	_ shared.DomainEvent = (*MemberRemovedEvent)(nil)
 )
@@ -22,9 +23,24 @@ type WorkspaceCreatedEvent struct {
 	Occurred time.Time
 }
 
-func (e WorkspaceCreatedEvent) EventName() string      { return "workspace.created" }
+func (e WorkspaceCreatedEvent) EventName() shared.EventType {
+	return shared.WorkspaceCreated
+}
 func (e WorkspaceCreatedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e WorkspaceCreatedEvent) AggregateID() uuid.UUID { return e.ID.UUID }
+func (e WorkspaceCreatedEvent) AggregateID() uuid.UUID { return e.ID.UUID() }
+func (e WorkspaceCreatedEvent) AggregateType() string  { return "WORKSPACE" }
+
+type WorkspaceDeletedEvent struct {
+	ID       WorkspaceID
+	Occurred time.Time
+}
+
+func (e WorkspaceDeletedEvent) EventName() shared.EventType {
+	return shared.WorkspaceDeleted
+}
+func (e WorkspaceDeletedEvent) OccurredAt() time.Time  { return e.Occurred }
+func (e WorkspaceDeletedEvent) AggregateID() uuid.UUID { return e.ID.UUID() }
+func (e WorkspaceDeletedEvent) AggregateType() string  { return "WORKSPACE" }
 
 type MemberAddedEvent struct {
 	WorkspaceID WorkspaceID
@@ -33,9 +49,12 @@ type MemberAddedEvent struct {
 	Occurred    time.Time
 }
 
-func (e MemberAddedEvent) EventName() string      { return "workspace.member_added" }
+func (e MemberAddedEvent) EventName() shared.EventType {
+	return shared.WorkspaceMemberAdded
+}
 func (e MemberAddedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e MemberAddedEvent) AggregateID() uuid.UUID { return e.WorkspaceID.UUID }
+func (e MemberAddedEvent) AggregateID() uuid.UUID { return e.WorkspaceID.UUID() }
+func (e MemberAddedEvent) AggregateType() string  { return "WORKSPACE" }
 
 type MemberRemovedEvent struct {
 	WorkspaceID WorkspaceID
@@ -43,6 +62,9 @@ type MemberRemovedEvent struct {
 	Occurred    time.Time
 }
 
-func (e MemberRemovedEvent) EventName() string      { return "workspace.member_removed" }
+func (e MemberRemovedEvent) EventName() shared.EventType {
+	return shared.WorkspaceMemberRemoved
+}
 func (e MemberRemovedEvent) OccurredAt() time.Time  { return e.Occurred }
-func (e MemberRemovedEvent) AggregateID() uuid.UUID { return e.WorkspaceID.UUID }
+func (e MemberRemovedEvent) AggregateID() uuid.UUID { return e.WorkspaceID.UUID() }
+func (e MemberRemovedEvent) AggregateType() string  { return "WORKSPACE" }

@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -38,7 +40,10 @@ func NewWorkspaceRepositoryWithTracing(base _sourceDomain.WorkspaceRepository, i
 
 // Delete implements WorkspaceRepository
 func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id _sourceDomain.WorkspaceID) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Delete")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Delete", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -61,7 +66,10 @@ func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id _sourceD
 
 // FindAll implements WorkspaceRepository
 func (_d WorkspaceRepositoryWithTracing) FindAll(ctx context.Context) (wpa1 []*_sourceDomain.Workspace, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindAll")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindAll", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -84,7 +92,10 @@ func (_d WorkspaceRepositoryWithTracing) FindAll(ctx context.Context) (wpa1 []*_
 
 // FindByID implements WorkspaceRepository
 func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.WorkspaceID) (wp1 *_sourceDomain.Workspace, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindByID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindByID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -108,7 +119,10 @@ func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id _sourc
 
 // Save implements WorkspaceRepository
 func (_d WorkspaceRepositoryWithTracing) Save(ctx context.Context, w *_sourceDomain.Workspace) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Save")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Save", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{

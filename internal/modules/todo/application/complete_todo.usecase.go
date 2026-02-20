@@ -38,7 +38,7 @@ func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoComman
 		return application.Void{}, err
 	}
 
-	_, isMember := ws.Members()[userDomain.UserID{UUID: meta.UserID}]
+	_, isMember := ws.Members()[userDomain.UserID(meta.UserID)]
 
 	if !isMember && !meta.IsSystem() {
 		return application.Void{}, wsDomain.ErrNotOwner

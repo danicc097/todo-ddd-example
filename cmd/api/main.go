@@ -23,13 +23,18 @@ import (
 	rdb "github.com/redis/go-redis/v9"
 	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"gopkg.in/yaml.v3"
 
 	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
+	infraMessaging "github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
+	infraRabbit "github.com/danicc097/todo-ddd-example/internal/infrastructure/rabbitmq"
+	infraRedis "github.com/danicc097/todo-ddd-example/internal/infrastructure/redis"
 	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	authApp "github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	authHttp "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/http"
@@ -38,9 +43,7 @@ import (
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	todoDecorator "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
-	todoMsg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/messaging"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
-	todoRabbit "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/rabbitmq"
 	todoRedis "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
@@ -51,6 +54,7 @@ import (
 	wsDecorator "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/decorator"
 	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	wsRedis "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/redis"
 	sharedMiddleware "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
@@ -180,7 +184,10 @@ func main() {
 	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
 	defer redisClient.Close()
 
-	if err := redisotel.InstrumentTracing(redisClient); err != nil {
+	if err := redisotel.InstrumentTracing(redisClient, redisotel.WithAttributes(
+		semconv.DBSystemNameRedis,
+		semconv.PeerServiceKey.String("redis"),
+	)); err != nil {
 		slog.Error("failed to instrument redis", slog.String("error", err.Error()))
 	}
 
@@ -190,7 +197,7 @@ func main() {
 
 	baseTodoRepo := todoPg.NewTodoRepo(pool)
 	todoCodec := todoRedis.NewTodoCacheCodec()
-	cachedTodoRepo := todoDecorator.NewTodoRepositoryWithCache(
+	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(
 		baseTodoRepo,
 		redisClient,
 		5*time.Minute,
@@ -200,7 +207,7 @@ func main() {
 
 	baseTagRepo := todoPg.NewTagRepo(pool)
 	tagCodec := todoRedis.NewTagCacheCodec()
-	cachedTagRepo := todoDecorator.NewTagRepositoryWithCache(
+	cachedTagRepo := todoDecorator.NewTagRepositoryCache(
 		baseTagRepo,
 		redisClient,
 		60*time.Minute,
@@ -213,7 +220,14 @@ func main() {
 
 	auditRepo := auditMem.NewAuditRepository()
 	baseWsRepo := wsPg.NewWorkspaceRepo(pool)
-	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(baseWsRepo, auditRepo)
+	wsCodec := wsRedis.NewWorkspaceCacheCodec()
+	cachedWsRepo := wsDecorator.NewWorkspaceRepositoryCache(
+		baseWsRepo,
+		redisClient,
+		10*time.Minute,
+		wsCodec,
+	)
+	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(cachedWsRepo, auditRepo)
 	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
 
 	if len(internal.Config.MFAMasterKey) != 32 {
@@ -265,15 +279,15 @@ func main() {
 
 	defer func() { _ = mqConn.Close() }()
 
-	todoRabbitPub, err := todoRabbit.NewPublisher(mqConn, "todo_events")
+	rabbitPub, err := infraRabbit.NewPublisher(mqConn, "todo_events")
 	if err != nil {
-		slog.Error("failed to create Todo rabbitmq publisher", slog.String("error", err.Error()))
+		slog.Error("failed to create rabbitmq publisher", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	defer todoRabbitPub.Close()
+	defer rabbitPub.Close()
 
-	redisPub := todoRedis.NewRedisPublisher(redisClient)
-	todoPublisher := todoMsg.NewMultiPublisher(todoRabbitPub, redisPub)
+	redisPub := infraRedis.NewPublisher(redisClient)
+	multiBroker := infraMessaging.NewMultiBroker(rabbitPub, redisPub)
 
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
@@ -310,7 +324,14 @@ func main() {
 
 	// queries bypass tx
 	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
-	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(baseTodoQueryService, "todo-ddd-api")
+	apiTodoCodec := cache.NewMsgpackCodec[*api.Todo]()
+	cachedTodoQueryService := todoDecorator.NewTodoQueryServiceCache(
+		baseTodoQueryService,
+		redisClient,
+		5*time.Minute,
+		apiTodoCodec,
+	)
+	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, "todo-ddd-api")
 
 	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenIssuer)
 	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo)
@@ -326,6 +347,7 @@ func main() {
 		assignTagToTodoHandler,
 		todoQueryService,
 		hub,
+		redisClient,
 	)
 
 	uh := userHttp.NewUserHandler(
@@ -343,10 +365,7 @@ func main() {
 
 	ah := authHttp.NewAuthHandler(loginHandler, registerHandlerTx, initiateTOTPHandler, verifyTOTPHandler)
 
-	relay := outbox.NewRelay(pool)
-	relay.Register("todo.created", todoRabbit.MakeCreatedHandler(todoPublisher))
-	relay.Register("todo.completed", todoRabbit.MakeUpdatedHandler(todoPublisher))
-	relay.Register("todo.tagadded", todoRabbit.MakeTagAddedHandler(todoPublisher))
+	relay := outbox.NewRelay(pool, multiBroker)
 
 	go relay.Start(ctx)
 

@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
+
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -41,7 +43,10 @@ func NewWorkspaceQueryServiceWithTracing(base _sourceApplication.WorkspaceQueryS
 
 // List implements WorkspaceQueryService
 func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.Workspace, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.List")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.List", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -64,7 +69,10 @@ func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.
 
 // ListByUserID implements WorkspaceQueryService
 func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, userID userDomain.UserID) (wa1 []api.Workspace, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListByUserID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListByUserID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
@@ -88,7 +96,10 @@ func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, use
 
 // ListTagsByWorkspaceID implements WorkspaceQueryService
 func (_d WorkspaceQueryServiceWithTracing) ListTagsByWorkspaceID(ctx context.Context, workspaceID domain.WorkspaceID) (ta1 []api.Tag, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListTagsByWorkspaceID")
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListTagsByWorkspaceID", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+	))
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{

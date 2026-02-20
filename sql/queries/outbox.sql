@@ -1,6 +1,6 @@
 -- name: SaveOutboxEvent :exec
-INSERT INTO outbox(id, event_type, payload)
-  VALUES ($1, $2, $3);
+INSERT INTO outbox(id, event_type, aggregate_type, aggregate_id, payload, headers)
+  VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetUnprocessedOutboxEvents :many
 SELECT

@@ -38,7 +38,7 @@ func (r *TodoRepo) getDB(ctx context.Context) db.DBTX {
 }
 
 func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
-	dbtx := r.getDB(ctx) // Dynamic resolution
+	dbtx := r.getDB(ctx)
 	p := r.mapper.ToPersistence(t)
 
 	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams{

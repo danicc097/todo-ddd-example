@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"sync"
@@ -9,26 +10,27 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
-
-type Handler func(ctx context.Context, payload []byte) error
 
 type Relay struct {
 	pool         *pgxpool.Pool
 	q            *db.Queries
-	handlers     map[string]Handler
+	broker       messaging.Broker
 	tracer       trace.Tracer
 	metricLag    metric.Int64Gauge
 	metricMaxAge metric.Float64Gauge
 	wg           sync.WaitGroup
 }
 
-func NewRelay(pool *pgxpool.Pool) *Relay {
+func NewRelay(pool *pgxpool.Pool, broker messaging.Broker) *Relay {
 	meter := otel.Meter("outbox-relay")
 
 	lag, _ := meter.Int64Gauge("outbox.lag_count", metric.WithDescription("Number of unprocessed events"))
@@ -37,15 +39,11 @@ func NewRelay(pool *pgxpool.Pool) *Relay {
 	return &Relay{
 		pool:         pool,
 		q:            db.New(),
-		handlers:     make(map[string]Handler),
+		broker:       broker,
 		tracer:       otel.Tracer("outbox-relay"),
 		metricLag:    lag,
 		metricMaxAge: age,
 	}
-}
-
-func (r *Relay) Register(eventType string, h Handler) {
-	r.handlers[eventType] = h
 }
 
 func (r *Relay) Start(ctx context.Context) {
@@ -104,24 +102,51 @@ func (r *Relay) processEvents(ctx context.Context) {
 		return
 	}
 
-	if len(events) > 0 {
-		slog.DebugContext(ctx, "processing outbox batch", slog.Int("count", len(events)))
+	if len(events) == 0 {
+		return
 	}
 
-	for _, event := range events {
-		h, ok := r.handlers[event.EventType]
-		if ok {
-			pubCtx, cancel := context.WithTimeout(ctx, 2*time.Second) // in case publisher hangs
-			err = h(pubCtx, event.Payload)
+	ctx, span := r.tracer.Start(ctx, "outbox.relay_batch", trace.WithAttributes(
+		attribute.Int("batch.size", len(events)),
+	))
+	defer span.End()
 
-			cancel()
+	slog.DebugContext(ctx, "processing outbox batch", slog.Int("count", len(events)))
+
+	for _, event := range events {
+		var headers map[string]string
+		if err := json.Unmarshal(event.Headers, &headers); err != nil {
+			slog.ErrorContext(ctx, "failed to unmarshal headers", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
+			// skip malformed
+			continue
 		}
 
-		if !ok || err == nil {
-			if !ok {
-				slog.WarnContext(ctx, "no handler for event type, marking as processed", slog.String("type", event.EventType))
-			}
+		slog.DebugContext(ctx, "extracted headers from outbox", slog.String("id", event.ID.String()), slog.Any("headers", headers))
 
+		carrier := propagation.MapCarrier(headers)
+		extractedCtx := otel.GetTextMapPropagator().Extract(ctx, carrier)
+
+		pubCtx, span := r.tracer.Start(extractedCtx, "outbox.publish_event",
+			trace.WithSpanKind(trace.SpanKindProducer),
+			trace.WithLinks(trace.LinkFromContext(ctx)),
+			trace.WithAttributes(
+				attribute.String("event.type", string(event.EventType)),
+				attribute.String("aggregate.id", event.AggregateID.String()),
+				attribute.String("aggregate.type", event.AggregateType),
+			),
+		)
+
+		pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
+
+		err = r.broker.Publish(pubCtx, string(event.EventType), event.AggregateID, event.Payload, headers)
+		if err != nil {
+			span.RecordError(err)
+		}
+
+		span.End()
+		cancel()
+
+		if err == nil {
 			if err := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); err != nil {
 				slog.ErrorContext(ctx, "failed to mark event processed", slog.String("error", err.Error()))
 				return // abort tx
@@ -130,15 +155,13 @@ func (r *Relay) processEvents(ctx context.Context) {
 			continue
 		}
 
-		if err != nil {
-			slog.WarnContext(ctx, "event handler failed, updating retries", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
+		slog.WarnContext(ctx, "event publish failed, updating retries", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
 
-			if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
-				ID:        event.ID,
-				LastError: pointers.New(err.Error()),
-			}); dbErr != nil {
-				slog.ErrorContext(ctx, "failed to update retries", slog.String("error", dbErr.Error()))
-			}
+		if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
+			ID:        event.ID,
+			LastError: pointers.New(err.Error()),
+		}); dbErr != nil {
+			slog.ErrorContext(ctx, "failed to update retries", slog.String("error", dbErr.Error()))
 		}
 	}
 

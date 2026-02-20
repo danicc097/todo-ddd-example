@@ -46,7 +46,8 @@ linters:
         - io.Copy(os.Stdout)
     exhaustruct:
       include:
-        - github.com/danicc097/todo-ddd-example/*Event
+        - github.com/danicc097/todo-ddd-example/internal/generated/api.*
+        - .*Event
     ireturn:
       allow:
         - error
