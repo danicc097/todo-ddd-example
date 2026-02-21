@@ -36,12 +36,14 @@ func (q *Queries) GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, e
 
 const GetUnprocessedOutboxEvents = `-- name: GetUnprocessedOutboxEvents :many
 SELECT
-  id, event_type, payload, created_at, processed_at, last_error, retries, aggregate_type, aggregate_id, headers
+  id, event_type, payload, created_at, processed_at, last_error, retries, aggregate_type, aggregate_id, headers, last_attempted_at
 FROM
   outbox
 WHERE
   processed_at IS NULL
-  AND retries < 5
+  -- max backoff 1024s
+  AND (last_attempted_at IS NULL
+    OR NOW() >= last_attempted_at + make_interval(secs := power(2, LEAST(retries, 10))::int))
 ORDER BY
   created_at ASC
 LIMIT 10
@@ -70,6 +72,7 @@ func (q *Queries) GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Ou
 			&i.AggregateType,
 			&i.AggregateID,
 			&i.Headers,
+			&i.LastAttemptedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -126,7 +129,8 @@ UPDATE
   outbox
 SET
   retries = retries + 1,
-  last_error = $2
+  last_error = $2,
+  last_attempted_at = NOW()
 WHERE
   id = $1
 `

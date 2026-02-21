@@ -9,7 +9,9 @@ FROM
   outbox
 WHERE
   processed_at IS NULL
-  AND retries < 5
+  -- max backoff 1024s
+  AND (last_attempted_at IS NULL
+    OR NOW() >= last_attempted_at + make_interval(secs := power(2, LEAST(retries, 10))::int))
 ORDER BY
   created_at ASC
 LIMIT 10
@@ -30,7 +32,8 @@ UPDATE
   outbox
 SET
   retries = retries + 1,
-  last_error = $2
+  last_error = $2,
+  last_attempted_at = NOW()
 WHERE
   id = $1;
 

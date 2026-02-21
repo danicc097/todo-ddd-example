@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -21,7 +22,7 @@ import (
 )
 
 // Relay polls the database for outbox events and publishes them to the message broker.
-// It provides deliveries with a dead letter queue cutoff.
+// It provides at-least-once deliveries with infinite backoff.
 type Relay struct {
 	pool         *pgxpool.Pool
 	q            *db.Queries
@@ -126,22 +127,18 @@ func (r *Relay) processEvents(ctx context.Context) {
 func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Outbox) {
 	var headers map[string]string
 
-	idAtrr := slog.String("event_id", event.ID.String())
+	idAttr := slog.String("event_id", event.ID.String())
 
-	if err := json.Unmarshal(event.Headers, &headers); err != nil {
-		slog.ErrorContext(ctx, "failed to unmarshal headers, discarding event", idAtrr, slog.String("error", err.Error()))
-		_ = r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
-			ID:        event.ID,
-			LastError: pointers.New("fatal: invalid header JSON"),
-		})
+	unmarshalErr := json.Unmarshal(event.Headers, &headers)
 
-		return
+	spanCtx := ctx
+
+	if unmarshalErr == nil {
+		carrier := propagation.MapCarrier(headers)
+		spanCtx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 	}
 
-	carrier := propagation.MapCarrier(headers)
-	extractedCtx := otel.GetTextMapPropagator().Extract(ctx, carrier)
-
-	pubCtx, span := r.tracer.Start(extractedCtx, "outbox.publish_event",
+	pubCtx, span := r.tracer.Start(spanCtx, "outbox.publish_event",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithLinks(trace.LinkFromContext(ctx)),
 		trace.WithAttributes(
@@ -152,25 +149,39 @@ func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Out
 	)
 	defer span.End()
 
+	if unmarshalErr != nil {
+		span.RecordError(unmarshalErr)
+		span.SetStatus(codes.Error, "failed to unmarshal headers")
+
+		slog.ErrorContext(ctx, "failed to unmarshal headers", idAttr, slog.String("error", unmarshalErr.Error()))
+		_ = r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
+			ID:        event.ID,
+			LastError: pointers.New("fatal: invalid header JSON"),
+		})
+
+		return
+	}
+
 	pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
 	defer cancel()
 
 	err := r.broker.Publish(pubCtx, string(event.EventType), event.AggregateID, event.Payload, headers)
 	if err == nil {
 		if dbErr := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); dbErr != nil {
-			slog.ErrorContext(ctx, "failed to mark event processed", idAtrr, slog.String("error", dbErr.Error()))
+			slog.ErrorContext(ctx, "failed to mark event processed", idAttr, slog.String("error", dbErr.Error()))
 		}
 
 		return
 	}
 
 	span.RecordError(err)
-	slog.WarnContext(ctx, "event publish failed, updating retries", idAtrr, slog.String("error", err.Error()))
+	span.SetStatus(codes.Error, "broker publish failed")
+	slog.WarnContext(ctx, "event publish failed", idAttr, slog.String("error", err.Error()))
 
 	if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
 		ID:        event.ID,
 		LastError: pointers.New(err.Error()),
 	}); dbErr != nil {
-		slog.ErrorContext(ctx, "failed to update retries", idAtrr, slog.String("error", dbErr.Error()))
+		slog.ErrorContext(ctx, "failed to update retries", idAttr, slog.String("error", dbErr.Error()))
 	}
 }

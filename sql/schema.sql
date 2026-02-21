@@ -32,7 +32,8 @@ CREATE TABLE public.outbox (
     retries integer DEFAULT 0 NOT NULL,
     aggregate_type text DEFAULT ''::text NOT NULL,
     aggregate_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
-    headers jsonb DEFAULT '{}'::jsonb NOT NULL
+    headers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    last_attempted_at timestamp with time zone
 );
 ALTER TABLE public.outbox OWNER TO postgres;
 CREATE TABLE public.tags (
