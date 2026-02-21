@@ -24,9 +24,11 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		ownerID := uuid.New()
 		now := time.Now().Truncate(time.Second)
 
+		wsName, _ := domain.NewWorkspaceName("Test WS")
+
 		evt := domain.WorkspaceCreatedEvent{
 			ID:       domain.WorkspaceID(id),
-			Name:     "Test WS",
+			Name:     wsName,
 			OwnerID:  userDomain.UserID(ownerID),
 			Occurred: now,
 		}

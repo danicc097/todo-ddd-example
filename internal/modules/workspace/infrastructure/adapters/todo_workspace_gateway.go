@@ -32,4 +32,4 @@ func (g *TodoWorkspaceGateway) IsMember(ctx context.Context, wsID wsDomain.Works
 	return isMember, nil
 }
 
-var _ todoApp.WorkspaceGateway = (*TodoWorkspaceGateway)(nil)
+var _ todoApp.WorkspaceProvider = (*TodoWorkspaceGateway)(nil)

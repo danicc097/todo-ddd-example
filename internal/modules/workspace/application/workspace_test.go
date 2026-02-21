@@ -28,7 +28,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 
 	repo := wsPg.NewWorkspaceRepo(pool)
-	ug := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
+	up := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
 
 	t.Run("onboard workspace", func(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)
@@ -36,7 +36,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 
 		ctx := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID()})
 
-		baseHandler := application.NewOnboardWorkspaceHandler(repo, ug)
+		baseHandler := application.NewOnboardWorkspaceHandler(repo, up)
 		handler := middleware.Transactional(pool, baseHandler)
 
 		cmd := application.OnboardWorkspaceCommand{
@@ -47,12 +47,12 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 			OwnerID: userDomain.UserID(uuid.Nil),
 		}
 
-		id, err := handler.Handle(ctx, cmd)
+		resp, err := handler.Handle(ctx, cmd)
 		require.NoError(t, err)
 
-		found, err := repo.FindByID(ctx, id)
+		found, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
-		assert.Equal(t, cmd.Name, found.Name())
+		assert.Equal(t, cmd.Name, found.Name().String())
 	})
 
 	t.Run("remove member", func(t *testing.T) {

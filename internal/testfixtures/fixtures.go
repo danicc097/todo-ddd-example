@@ -42,7 +42,8 @@ func (f *Fixtures) RandomUser(ctx context.Context, t *testing.T) *userDomain.Use
 	email, err := userDomain.NewUserEmail(emailStr)
 	require.NoError(t, err)
 
-	user := userDomain.CreateUser(email, "Random User "+uid)
+	name, _ := userDomain.NewUserName("Random User " + uid)
+	user := userDomain.CreateUser(email, name)
 	require.NoError(t, f.UserRepo.Save(ctx, user))
 
 	return user
@@ -52,7 +53,9 @@ func (f *Fixtures) RandomWorkspace(ctx context.Context, t *testing.T, ownerID us
 	t.Helper()
 
 	uid := uuid.New().String()[:8]
-	ws := wsDomain.NewWorkspace("Workspace "+uid, "Desc", ownerID)
+	name, _ := wsDomain.NewWorkspaceName("Workspace " + uid)
+	desc, _ := wsDomain.NewWorkspaceDescription("Desc")
+	ws := wsDomain.NewWorkspace(name, desc, ownerID)
 	require.NoError(t, f.WorkspaceRepo.Save(ctx, ws))
 
 	return ws

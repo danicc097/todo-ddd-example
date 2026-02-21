@@ -9,14 +9,16 @@ type UserMapper struct{}
 
 func (m *UserMapper) ToDomain(row db.Users) *domain.User {
 	email, _ := domain.NewUserEmail(row.Email)
-	return domain.NewUser(row.ID, email, row.Name, row.CreatedAt)
+	name, _ := domain.NewUserName(row.Name)
+
+	return domain.NewUser(row.ID, email, name, row.CreatedAt)
 }
 
 func (m *UserMapper) ToPersistence(u *domain.User) db.Users {
 	return db.Users{
 		ID:        u.ID(),
 		Email:     u.Email().String(),
-		Name:      u.Name(),
+		Name:      u.Name().String(),
 		CreatedAt: u.CreatedAt(),
 	}
 }

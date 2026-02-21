@@ -15,6 +15,10 @@ type RegisterCommand struct {
 	Password secrecy.Secret[string]
 }
 
+type RegisterUserResponse struct {
+	ID userDomain.UserID
+}
+
 type RegisterHandler struct {
 	userRepo userDomain.UserRepository
 	authRepo domain.AuthRepository
@@ -29,29 +33,34 @@ func NewRegisterHandler(userRepo userDomain.UserRepository, authRepo domain.Auth
 	}
 }
 
-func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (userDomain.UserID, error) {
+func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (RegisterUserResponse, error) {
 	email, err := userDomain.NewUserEmail(cmd.Email)
 	if err != nil {
-		return userDomain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
-	user := userDomain.CreateUser(email, cmd.Name)
+	name, err := userDomain.NewUserName(cmd.Name)
+	if err != nil {
+		return RegisterUserResponse{}, err
+	}
+
+	user := userDomain.CreateUser(email, name)
 
 	// non-owasp: should also check passwords against a compromised list and password strength.
 	hash, err := h.hasher.Hash(cmd.Password.ExposeSecret())
 	if err != nil {
-		return userDomain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
 	auth := domain.NewUserAuth(user.ID(), hash)
 
 	if err := h.userRepo.Save(ctx, user); err != nil {
-		return userDomain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
 	if err := h.authRepo.Save(ctx, auth); err != nil {
-		return userDomain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
-	return user.ID(), nil
+	return RegisterUserResponse{ID: user.ID()}, nil
 }

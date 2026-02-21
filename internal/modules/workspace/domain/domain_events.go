@@ -18,7 +18,7 @@ var (
 
 type WorkspaceCreatedEvent struct {
 	ID       WorkspaceID
-	Name     string
+	Name     WorkspaceName
 	OwnerID  user.UserID
 	Occurred time.Time
 }

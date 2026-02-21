@@ -26,10 +26,13 @@ func (m *WorkspaceMapper) ToDomain(w db.Workspaces, members []db.WorkspaceMember
 		domainMemberMap[userDomain.UserID(uid)] = role
 	}
 
+	name, _ := domain.NewWorkspaceName(w.Name)
+	description, _ := domain.NewWorkspaceDescription(w.Description)
+
 	return domain.ReconstituteWorkspace(
 		w.ID,
-		w.Name,
-		w.Description,
+		name,
+		description,
 		w.CreatedAt,
 		domainMemberMap,
 	), nil
@@ -38,8 +41,8 @@ func (m *WorkspaceMapper) ToDomain(w db.Workspaces, members []db.WorkspaceMember
 func (m *WorkspaceMapper) ToPersistence(w *domain.Workspace) db.Workspaces {
 	return db.Workspaces{
 		ID:          w.ID(),
-		Name:        w.Name(),
-		Description: w.Description(),
+		Name:        w.Name().String(),
+		Description: w.Description().String(),
 		CreatedAt:   w.CreatedAt(),
 	}
 }
@@ -78,7 +81,7 @@ func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, 
 	case domain.WorkspaceCreatedEvent:
 		payload = WorkspaceCreatedDTO{
 			ID:       evt.ID.UUID(),
-			Name:     evt.Name,
+			Name:     evt.Name.String(),
 			OwnerID:  evt.OwnerID.UUID(),
 			Occurred: evt.Occurred,
 		}

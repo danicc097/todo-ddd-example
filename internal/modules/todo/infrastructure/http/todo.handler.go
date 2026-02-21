@@ -18,9 +18,9 @@ import (
 )
 
 type TodoHandler struct {
-	createHandler    sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID]
+	createHandler    sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse]
 	completeHandler  sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void]
-	createTagHandler sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID]
+	createTagHandler sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse]
 	assignTagHandler sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void]
 
 	// keeping queries nontransactional
@@ -31,9 +31,9 @@ type TodoHandler struct {
 }
 
 func NewTodoHandler(
-	c sharedApp.RequestHandler[application.CreateTodoCommand, domain.TodoID],
+	c sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse],
 	comp sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void],
-	ct sharedApp.RequestHandler[application.CreateTagCommand, domain.TagID],
+	ct sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse],
 	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void],
 	qs application.TodoQueryService,
 	hub *ws.Hub,
@@ -61,7 +61,7 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 		return
 	}
 
-	todoID, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{
+	resp, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{
 		Title:       req.Title,
 		WorkspaceID: id,
 	})
@@ -70,7 +70,7 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": todoID.UUID()})
+	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
 }
 
 func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID, params api.GetWorkspaceTodosParams) {
@@ -166,7 +166,7 @@ func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params 
 		return
 	}
 
-	tagID, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{
+	resp, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{
 		Name:        req.Name,
 		WorkspaceID: id,
 	})
@@ -175,5 +175,5 @@ func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params 
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": tagID.UUID()})
+	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
 }

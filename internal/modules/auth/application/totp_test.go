@@ -44,14 +44,14 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	registerHandler := application.NewRegisterHandler(userRepo, authRepo, hasher)
 
-	userID, err := registerHandler.Handle(ctx, application.RegisterCommand{
+	registerResp, err := registerHandler.Handle(ctx, application.RegisterCommand{
 		Email:    uniqueEmail,
 		Name:     "Auth User",
 		Password: *secrecy.NewSecret("password123!"),
 	})
 	require.NoError(t, err)
 
-	ctx = causation.WithMetadata(ctx, causation.Metadata{UserID: userID.UUID()})
+	ctx = causation.WithMetadata(ctx, causation.Metadata{UserID: registerResp.ID.UUID()})
 
 	initiateHandler := application.NewInitiateTOTPHandler(authRepo, masterKey)
 	_ = application.NewVerifyTOTPHandler(authRepo, totpGuard, tokenIssuer, masterKey)
@@ -60,7 +60,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, uri, "otpauth://totp/Todo-DDD-App")
 
-	auth, err := authRepo.FindByUserID(ctx, userID)
+	auth, err := authRepo.FindByUserID(ctx, registerResp.ID)
 	require.NoError(t, err)
 	assert.True(t, auth.IsTOTPPending())
 }

@@ -19,16 +19,16 @@ var (
 type WorkspaceID = shared.ID[Workspace]
 
 type Workspace struct {
+	shared.AggregateRoot
+
 	id          WorkspaceID
-	name        string
-	description string
+	name        WorkspaceName
+	description WorkspaceDescription
 	members     map[userDomain.UserID]WorkspaceRole
 	createdAt   time.Time
-
-	events []shared.DomainEvent
 }
 
-func NewWorkspace(name, description string, creatorID userDomain.UserID) *Workspace {
+func NewWorkspace(name WorkspaceName, description WorkspaceDescription, creatorID userDomain.UserID) *Workspace {
 	id := shared.NewID[Workspace]()
 	now := time.Now()
 
@@ -61,8 +61,8 @@ func NewWorkspace(name, description string, creatorID userDomain.UserID) *Worksp
 
 func ReconstituteWorkspace(
 	id WorkspaceID,
-	name string,
-	description string,
+	name WorkspaceName,
+	description WorkspaceDescription,
 	createdAt time.Time,
 	members map[userDomain.UserID]WorkspaceRole,
 ) *Workspace {
@@ -138,13 +138,7 @@ func (w *Workspace) Delete() {
 }
 
 func (w *Workspace) ID() WorkspaceID                              { return w.id }
-func (w *Workspace) Name() string                                 { return w.name }
-func (w *Workspace) Description() string                          { return w.description }
+func (w *Workspace) Name() WorkspaceName                          { return w.name }
+func (w *Workspace) Description() WorkspaceDescription            { return w.description }
 func (w *Workspace) CreatedAt() time.Time                         { return w.createdAt }
 func (w *Workspace) Members() map[userDomain.UserID]WorkspaceRole { return w.members }
-func (w *Workspace) Events() []shared.DomainEvent                 { return w.events }
-func (w *Workspace) ClearEvents()                                 { w.events = nil }
-
-func (w *Workspace) RecordEvent(e shared.DomainEvent) {
-	w.events = append(w.events, e)
-}

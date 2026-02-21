@@ -40,17 +40,17 @@ func TestCreateTodoUseCase_Integration(t *testing.T) {
 			TagIDs:      []domain.TagID{tag.ID()},
 		}
 
-		id, err := handler.Handle(ctx, cmd)
+		resp, err := handler.Handle(ctx, cmd)
 		require.NoError(t, err)
 
-		found, err := repo.FindByID(ctx, id)
+		found, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
 		assert.Equal(t, title, found.Title().String())
 		assert.Contains(t, found.Tags(), tag.ID())
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = $1 AND aggregate_id = $2", sharedDomain.TodoCreated, id.UUID()).Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = $1 AND aggregate_id = $2", sharedDomain.TodoCreated, resp.ID.UUID()).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})

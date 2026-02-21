@@ -11,6 +11,6 @@ func (m *UserRestMapper) ToResponse(u *domain.User) api.User {
 	return api.User{
 		Id:    u.ID(),
 		Email: u.Email().String(),
-		Name:  u.Name(),
+		Name:  u.Name().String(),
 	}
 }

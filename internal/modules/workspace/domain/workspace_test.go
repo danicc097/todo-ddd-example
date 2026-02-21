@@ -13,10 +13,12 @@ func TestNewWorkspace(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("Test Workspace", "Description", creatorID)
+	name, _ := NewWorkspaceName("Test Workspace")
+	desc, _ := NewWorkspaceDescription("Description")
+	ws := NewWorkspace(name, desc, creatorID)
 
 	assert.NotNil(t, ws)
-	assert.Equal(t, "Test Workspace", ws.Name())
+	assert.Equal(t, name, ws.Name())
 	assert.Contains(t, ws.Members(), creatorID)
 	assert.Equal(t, RoleOwner, ws.Members()[creatorID])
 
@@ -30,7 +32,9 @@ func TestWorkspace_AddMember(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("WS", "Desc", creatorID)
+	name, _ := NewWorkspaceName("WS")
+	desc, _ := NewWorkspaceDescription("Desc")
+	ws := NewWorkspace(name, desc, creatorID)
 	ws.ClearEvents()
 
 	newMemberID := userDomain.UserID(uuid.New())
@@ -52,7 +56,9 @@ func TestWorkspace_AddMember_AlreadyExists(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("WS", "Desc", creatorID)
+	name, _ := NewWorkspaceName("WS")
+	desc, _ := NewWorkspaceDescription("Desc")
+	ws := NewWorkspace(name, desc, creatorID)
 
 	err := ws.AddMember(creatorID, RoleMember)
 	assert.ErrorIs(t, err, ErrUserAlreadyMember)
@@ -62,7 +68,9 @@ func TestWorkspace_RemoveMember(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("WS", "Desc", creatorID)
+	name, _ := NewWorkspaceName("WS")
+	desc, _ := NewWorkspaceDescription("Desc")
+	ws := NewWorkspace(name, desc, creatorID)
 
 	memberID := userDomain.UserID(uuid.New())
 	_ = ws.AddMember(memberID, RoleMember)
@@ -81,7 +89,9 @@ func TestWorkspace_RemoveMember_NotFound(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("WS", "Desc", creatorID)
+	name, _ := NewWorkspaceName("WS")
+	desc, _ := NewWorkspaceDescription("Desc")
+	ws := NewWorkspace(name, desc, creatorID)
 
 	err := ws.RemoveMember(userDomain.UserID(uuid.New()))
 	assert.ErrorIs(t, err, ErrMemberNotFound)
@@ -91,7 +101,9 @@ func TestWorkspace_RemoveMember_LastOwner(t *testing.T) {
 	t.Parallel()
 
 	creatorID := userDomain.UserID(uuid.New())
-	ws := NewWorkspace("WS", "Desc", creatorID)
+	name, _ := NewWorkspaceName("WS")
+	desc, _ := NewWorkspaceDescription("Desc")
+	ws := NewWorkspace(name, desc, creatorID)
 
 	err := ws.RemoveMember(creatorID)
 	assert.ErrorIs(t, err, ErrAtLeastOneOwner)

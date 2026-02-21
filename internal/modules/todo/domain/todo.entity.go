@@ -13,7 +13,7 @@ var ErrTodoNotFound = shared.NewDomainError(apperrors.NotFound, "todo not found"
 type TodoID = shared.ID[Todo]
 
 type Todo struct {
-	AggregateRoot
+	shared.AggregateRoot
 
 	id          TodoID
 	workspaceID wsDomain.WorkspaceID

@@ -44,18 +44,6 @@ func (r *todoRepositoryCache) Save(ctx context.Context, todo *domain.Todo) error
 	return nil
 }
 
-func (r *todoRepositoryCache) Update(ctx context.Context, todo *domain.Todo) error {
-	if err := r.base.Update(ctx, todo); err != nil {
-		return err
-	}
-
-	r.rdb.Del(ctx, cache.Keys.Todo(todo.ID()))
-	_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(todo.WorkspaceID()))
-	r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(todo.WorkspaceID()))
-
-	return nil
-}
-
 func (r *todoRepositoryCache) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo, error) {
 	key := cache.Keys.Todo(id)
 

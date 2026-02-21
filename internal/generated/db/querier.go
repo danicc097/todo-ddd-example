@@ -14,7 +14,6 @@ import (
 type Querier interface {
 	AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error
 	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
-	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
 	DeleteIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) error
@@ -37,12 +36,13 @@ type Querier interface {
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
+	RemoveMissingTagsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingTagsFromTodoParams) error
 	RemoveWorkspaceMember(ctx context.Context, db DBTX, arg RemoveWorkspaceMemberParams) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	TryLockIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (int64, error)
 	UpdateIdempotencyKey(ctx context.Context, db DBTX, arg UpdateIdempotencyKeyParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error
-	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
+	UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (UpsertTodoRow, error)
 	UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error
 	UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorkspaceParams) (Workspaces, error)
 	UpsertWorkspaceMember(ctx context.Context, db DBTX, arg UpsertWorkspaceMemberParams) error

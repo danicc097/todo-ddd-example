@@ -14,20 +14,24 @@ type CreateTodoCommand struct {
 	TagIDs      []domain.TagID
 }
 
+type CreateTodoResponse struct {
+	ID domain.TodoID
+}
+
 type CreateTodoHandler struct {
 	repo domain.TodoRepository
 }
 
-var _ application.RequestHandler[CreateTodoCommand, domain.TodoID] = (*CreateTodoHandler)(nil)
+var _ application.RequestHandler[CreateTodoCommand, CreateTodoResponse] = (*CreateTodoHandler)(nil)
 
 func NewCreateTodoHandler(repo domain.TodoRepository) *CreateTodoHandler {
 	return &CreateTodoHandler{repo: repo}
 }
 
-func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (domain.TodoID, error) {
+func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (CreateTodoResponse, error) {
 	title, err := domain.NewTodoTitle(cmd.Title)
 	if err != nil {
-		return domain.TodoID{}, err
+		return CreateTodoResponse{}, err
 	}
 
 	todo := domain.NewTodo(title, cmd.WorkspaceID)
@@ -36,8 +40,8 @@ func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (
 	}
 
 	if err := h.repo.Save(ctx, todo); err != nil {
-		return domain.TodoID{}, err
+		return CreateTodoResponse{}, err
 	}
 
-	return todo.ID(), nil
+	return CreateTodoResponse{ID: todo.ID()}, nil
 }

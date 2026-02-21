@@ -25,7 +25,9 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 	member := fixtures.RandomUser(ctx, t)
 
 	t.Run("save and find", func(t *testing.T) {
-		ws := wsDomain.NewWorkspace("My Workspace", "Desc", owner.ID())
+		name, _ := wsDomain.NewWorkspaceName("My Workspace")
+		desc, _ := wsDomain.NewWorkspaceDescription("Desc")
+		ws := wsDomain.NewWorkspace(name, desc, owner.ID())
 		err := repo.Save(ctx, ws)
 		require.NoError(t, err)
 
@@ -43,7 +45,9 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("add member", func(t *testing.T) {
-		ws := wsDomain.NewWorkspace("Team WS", "Desc", owner.ID())
+		name, _ := wsDomain.NewWorkspaceName("Team WS")
+		desc, _ := wsDomain.NewWorkspaceDescription("Desc")
+		ws := wsDomain.NewWorkspace(name, desc, owner.ID())
 		require.NoError(t, repo.Save(ctx, ws))
 
 		require.NoError(t, ws.AddMember(member.ID(), wsDomain.RoleMember))
@@ -56,7 +60,9 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("remove member", func(t *testing.T) {
-		ws := wsDomain.NewWorkspace("Delete WS", "Desc", owner.ID())
+		name, _ := wsDomain.NewWorkspaceName("Delete WS")
+		desc, _ := wsDomain.NewWorkspaceDescription("Desc")
+		ws := wsDomain.NewWorkspace(name, desc, owner.ID())
 		require.NoError(t, ws.AddMember(member.ID(), wsDomain.RoleMember))
 		require.NoError(t, repo.Save(ctx, ws))
 
@@ -70,7 +76,9 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("delete workspace", func(t *testing.T) {
-		ws := wsDomain.NewWorkspace("Gone WS", "Desc", owner.ID())
+		name, _ := wsDomain.NewWorkspaceName("Gone WS")
+		desc, _ := wsDomain.NewWorkspaceDescription("Desc")
+		ws := wsDomain.NewWorkspace(name, desc, owner.ID())
 		require.NoError(t, repo.Save(ctx, ws))
 
 		err := repo.Delete(ctx, ws.ID())

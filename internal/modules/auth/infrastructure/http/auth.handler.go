@@ -8,20 +8,19 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
-	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type AuthHandler struct {
 	loginHandler    sharedApp.RequestHandler[application.LoginCommand, application.LoginResponse]
-	registerHandler sharedApp.RequestHandler[application.RegisterCommand, userDomain.UserID]
+	registerHandler sharedApp.RequestHandler[application.RegisterCommand, application.RegisterUserResponse]
 	initiateHandler sharedApp.RequestHandler[sharedApp.Void, string]
 	verifyHandler   sharedApp.RequestHandler[application.VerifyTOTPCommand, application.VerifyTOTPResponse]
 }
 
 func NewAuthHandler(
 	login sharedApp.RequestHandler[application.LoginCommand, application.LoginResponse],
-	register sharedApp.RequestHandler[application.RegisterCommand, userDomain.UserID],
+	register sharedApp.RequestHandler[application.RegisterCommand, application.RegisterUserResponse],
 	initiate sharedApp.RequestHandler[sharedApp.Void, string],
 	verify sharedApp.RequestHandler[application.VerifyTOTPCommand, application.VerifyTOTPResponse],
 ) *AuthHandler {
@@ -59,7 +58,7 @@ func (h *AuthHandler) Register(c *gin.Context, params api.RegisterParams) {
 		return
 	}
 
-	id, err := h.registerHandler.Handle(c.Request.Context(), application.RegisterCommand{
+	resp, err := h.registerHandler.Handle(c.Request.Context(), application.RegisterCommand{
 		Email:    string(req.Email),
 		Name:     req.Name,
 		Password: req.Password,
@@ -69,7 +68,7 @@ func (h *AuthHandler) Register(c *gin.Context, params api.RegisterParams) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, api.IdResponse{Id: id.UUID()})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }
 
 func (h *AuthHandler) InitiateTOTP(c *gin.Context) {

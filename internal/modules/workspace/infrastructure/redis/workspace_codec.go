@@ -30,8 +30,8 @@ func NewWorkspaceCacheCodec() *WorkspaceCacheCodec {
 func (c *WorkspaceCacheCodec) Marshal(w *domain.Workspace) ([]byte, error) {
 	dto := workspaceCacheDTO{
 		ID:          w.ID(),
-		Name:        w.Name(),
-		Description: w.Description(),
+		Name:        w.Name().String(),
+		Description: w.Description().String(),
 		CreatedAt:   w.CreatedAt(),
 		Members:     w.Members(),
 	}
@@ -51,10 +51,13 @@ func (c *WorkspaceCacheCodec) Unmarshal(data []byte) (*domain.Workspace, error) 
 		return nil, err
 	}
 
+	name, _ := domain.NewWorkspaceName(dto.Name)
+	description, _ := domain.NewWorkspaceDescription(dto.Description)
+
 	w := domain.ReconstituteWorkspace(
 		dto.ID,
-		dto.Name,
-		dto.Description,
+		name,
+		description,
 		dto.CreatedAt,
 		dto.Members,
 	)

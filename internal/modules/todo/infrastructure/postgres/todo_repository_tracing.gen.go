@@ -118,29 +118,3 @@ func (_d TodoRepositoryWithTracing) Save(ctx context.Context, todo *_sourceDomai
 	}()
 	return _d.TodoRepository.Save(ctx, todo)
 }
-
-// Update implements TodoRepository
-func (_d TodoRepositoryWithTracing) Update(ctx context.Context, todo *_sourceDomain.Todo) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoRepository.Update", trace.WithAttributes(
-		semconv.DBSystemNamePostgreSQL,
-		semconv.PeerServiceKey.String("postgres"),
-	))
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":  ctx,
-				"todo": todo}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.TodoRepository.Update(ctx, todo)
-}

@@ -47,7 +47,7 @@ func TestTodoRepo_Integration(t *testing.T) {
 
 	t.Run("update", func(t *testing.T) {
 		require.NoError(t, todo.Complete())
-		err := repo.Update(ctx, todo)
+		err := repo.Save(ctx, todo)
 		require.NoError(t, err)
 
 		updated, err := repo.FindByID(ctx, todo.ID())

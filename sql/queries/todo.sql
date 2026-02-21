@@ -1,8 +1,17 @@
--- name: CreateTodo :one
+-- name: UpsertTodo :one
 INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
   VALUES ($1, $2, $3, $4, $4, $5)
-RETURNING
-  id, title, status, created_at, workspace_id;
+ON CONFLICT (id)
+  DO UPDATE SET
+    title = EXCLUDED.title,
+    status = EXCLUDED.status,
+    updated_at = NOW()
+  RETURNING
+    id,
+    title,
+    status,
+    created_at,
+    workspace_id;
 
 -- name: GetTodoByID :one
 SELECT
@@ -39,20 +48,14 @@ ORDER BY
   t.created_at DESC
 LIMIT $2 OFFSET $3;
 
--- name: UpdateTodo :exec
-UPDATE
-  todos
-SET
-  title = $2,
-  status = $3,
-  updated_at = NOW()
-WHERE
-  id = $1;
-
 -- name: AddTagToTodo :exec
 INSERT INTO todo_tags(todo_id, tag_id)
   VALUES ($1, $2)
-  /* we blindly add tags */
 ON CONFLICT
   DO NOTHING;
+
+-- name: RemoveMissingTagsFromTodo :exec
+DELETE FROM todo_tags
+WHERE todo_id = $1
+  AND NOT (tag_id = ANY (sqlc.arg(tags)::uuid[]));
 

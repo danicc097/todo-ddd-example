@@ -14,19 +14,19 @@ type CompleteTodoCommand struct {
 	ID domain.TodoID
 }
 
-type WorkspaceGateway interface {
+type WorkspaceProvider interface {
 	IsMember(ctx context.Context, wsID wsDomain.WorkspaceID, userID userDomain.UserID) (bool, error)
 }
 
 type CompleteTodoHandler struct {
 	repo   domain.TodoRepository
-	wsGate WorkspaceGateway
+	wsProv WorkspaceProvider
 }
 
 var _ application.RequestHandler[CompleteTodoCommand, application.Void] = (*CompleteTodoHandler)(nil)
 
-func NewCompleteTodoHandler(repo domain.TodoRepository, wsGate WorkspaceGateway) *CompleteTodoHandler {
-	return &CompleteTodoHandler{repo: repo, wsGate: wsGate}
+func NewCompleteTodoHandler(repo domain.TodoRepository, wsProv WorkspaceProvider) *CompleteTodoHandler {
+	return &CompleteTodoHandler{repo: repo, wsProv: wsProv}
 }
 
 func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoCommand) (application.Void, error) {
@@ -37,7 +37,7 @@ func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoComman
 		return application.Void{}, err
 	}
 
-	isMember, err := h.wsGate.IsMember(ctx, todo.WorkspaceID(), userDomain.UserID(meta.UserID))
+	isMember, err := h.wsProv.IsMember(ctx, todo.WorkspaceID(), userDomain.UserID(meta.UserID))
 	if err != nil {
 		return application.Void{}, err
 	}
@@ -50,5 +50,5 @@ func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoComman
 		return application.Void{}, err
 	}
 
-	return application.Void{}, h.repo.Update(ctx, todo)
+	return application.Void{}, h.repo.Save(ctx, todo)
 }

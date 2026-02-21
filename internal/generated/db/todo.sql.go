@@ -16,7 +16,6 @@ import (
 const AddTagToTodo = `-- name: AddTagToTodo :exec
 INSERT INTO todo_tags(todo_id, tag_id)
   VALUES ($1, $2)
-  /* we blindly add tags */
 ON CONFLICT
   DO NOTHING
 `
@@ -29,48 +28,6 @@ type AddTagToTodoParams struct {
 func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error {
 	_, err := db.Exec(ctx, AddTagToTodo, arg.TodoID, arg.TagID)
 	return err
-}
-
-const CreateTodo = `-- name: CreateTodo :one
-INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
-  VALUES ($1, $2, $3, $4, $4, $5)
-RETURNING
-  id, title, status, created_at, workspace_id
-`
-
-type CreateTodoParams struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-}
-
-type CreateTodoRow struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-}
-
-func (q *Queries) CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (CreateTodoRow, error) {
-	row := db.QueryRow(ctx, CreateTodo,
-		arg.ID,
-		arg.Title,
-		arg.Status,
-		arg.CreatedAt,
-		arg.WorkspaceID,
-	)
-	var i CreateTodoRow
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Status,
-		&i.CreatedAt,
-		&i.WorkspaceID,
-	)
-	return i, err
 }
 
 const GetTodoByID = `-- name: GetTodoByID :one
@@ -175,24 +132,69 @@ func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListT
 	return items, nil
 }
 
-const UpdateTodo = `-- name: UpdateTodo :exec
-UPDATE
-  todos
-SET
-  title = $2,
-  status = $3,
-  updated_at = NOW()
-WHERE
-  id = $1
+const RemoveMissingTagsFromTodo = `-- name: RemoveMissingTagsFromTodo :exec
+DELETE FROM todo_tags
+WHERE todo_id = $1
+  AND NOT (tag_id = ANY ($2::uuid[]))
 `
 
-type UpdateTodoParams struct {
-	ID     types.TodoID `db:"id" json:"id"`
-	Title  string       `db:"title" json:"title"`
-	Status string       `db:"status" json:"status"`
+type RemoveMissingTagsFromTodoParams struct {
+	TodoID types.TodoID `db:"todo_id" json:"todo_id"`
+	Tags   []uuid.UUID  `db:"tags" json:"tags"`
 }
 
-func (q *Queries) UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error {
-	_, err := db.Exec(ctx, UpdateTodo, arg.ID, arg.Title, arg.Status)
+func (q *Queries) RemoveMissingTagsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingTagsFromTodoParams) error {
+	_, err := db.Exec(ctx, RemoveMissingTagsFromTodo, arg.TodoID, arg.Tags)
 	return err
+}
+
+const UpsertTodo = `-- name: UpsertTodo :one
+INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
+  VALUES ($1, $2, $3, $4, $4, $5)
+ON CONFLICT (id)
+  DO UPDATE SET
+    title = EXCLUDED.title,
+    status = EXCLUDED.status,
+    updated_at = NOW()
+  RETURNING
+    id,
+    title,
+    status,
+    created_at,
+    workspace_id
+`
+
+type UpsertTodoParams struct {
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+}
+
+type UpsertTodoRow struct {
+	ID          types.TodoID      `db:"id" json:"id"`
+	Title       string            `db:"title" json:"title"`
+	Status      string            `db:"status" json:"status"`
+	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+}
+
+func (q *Queries) UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (UpsertTodoRow, error) {
+	row := db.QueryRow(ctx, UpsertTodo,
+		arg.ID,
+		arg.Title,
+		arg.Status,
+		arg.CreatedAt,
+		arg.WorkspaceID,
+	)
+	var i UpsertTodoRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Status,
+		&i.CreatedAt,
+		&i.WorkspaceID,
+	)
+	return i, err
 }

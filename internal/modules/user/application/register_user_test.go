@@ -30,10 +30,10 @@ func TestRegisterUserUseCase_Integration(t *testing.T) {
 			Name:  "user " + uid,
 		}
 
-		id, err := uc.Execute(ctx, cmd)
+		resp, err := uc.Execute(ctx, cmd)
 		require.NoError(t, err)
 
-		found, err := repo.FindByID(ctx, id)
+		found, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
 		assert.Equal(t, cmd.Email, found.Email().String())
 	})

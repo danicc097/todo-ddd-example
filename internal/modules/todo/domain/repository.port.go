@@ -11,7 +11,6 @@ type TodoRepository interface {
 	Save(ctx context.Context, todo *Todo) error
 	FindByID(ctx context.Context, id TodoID) (*Todo, error)
 	FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]*Todo, error)
-	Update(ctx context.Context, todo *Todo) error
 }
 
 //go:generate go tool gowrap gen -g -i TagRepository -t ../../../../templates/opentelemetry.gotmpl -o ../infrastructure/postgres/tag_repository_tracing.gen.go

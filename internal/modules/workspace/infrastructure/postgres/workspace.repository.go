@@ -43,8 +43,8 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 
 	_, err := r.q.UpsertWorkspace(ctx, dbtx, db.UpsertWorkspaceParams{
 		ID:          w.ID(),
-		Name:        w.Name(),
-		Description: w.Description(),
+		Name:        w.Name().String(),
+		Description: w.Description().String(),
 		CreatedAt:   w.CreatedAt(),
 	})
 	if err != nil {
@@ -77,7 +77,7 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 		delete(ccmm, userID.UUID())
 	}
 
-	for removedUserID := range ccmm { // anything left has to be a removed user
+	for removedUserID := range ccmm {
 		err := r.q.RemoveWorkspaceMember(ctx, dbtx, db.RemoveWorkspaceMemberParams{
 			WorkspaceID: w.ID(),
 			UserID:      userDomain.UserID(removedUserID),
@@ -117,10 +117,13 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*d
 		domainMemberMap[userDomain.UserID(uid)] = role
 	}
 
+	name, _ := domain.NewWorkspaceName(w.Name)
+	description, _ := domain.NewWorkspaceDescription(w.Description)
+
 	return domain.ReconstituteWorkspace(
 		w.ID,
-		w.Name,
-		w.Description,
+		name,
+		description,
 		w.CreatedAt,
 		domainMemberMap,
 	), nil

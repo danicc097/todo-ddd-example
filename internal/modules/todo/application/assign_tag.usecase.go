@@ -30,7 +30,7 @@ func (h *AssignTagToTodoHandler) Handle(ctx context.Context, cmd AssignTagToTodo
 
 	todo.AddTag(cmd.TagID)
 
-	if err := h.repo.Update(ctx, todo); err != nil {
+	if err := h.repo.Save(ctx, todo); err != nil {
 		return application.Void{}, err
 	}
 

@@ -27,9 +27,9 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 
 	repo := wsPg.NewWorkspaceRepo(pool)
-	ug := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
+	up := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
 
-	baseHandler := application.NewOnboardWorkspaceHandler(repo, ug)
+	baseHandler := application.NewOnboardWorkspaceHandler(repo, up)
 	handler := middleware.Transactional(pool, baseHandler)
 
 	t.Run("system created", func(t *testing.T) {
@@ -40,12 +40,12 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 			OwnerID: owner.ID(),
 		}
 
-		id, err := handler.Handle(ctx, cmd)
+		resp, err := handler.Handle(ctx, cmd)
 		require.NoError(t, err)
 
-		savedWs, err := repo.FindByID(ctx, id)
+		savedWs, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
-		assert.Equal(t, cmd.Name, savedWs.Name())
+		assert.Equal(t, cmd.Name, savedWs.Name().String())
 		assert.True(t, savedWs.IsOwner(owner.ID()))
 	})
 
@@ -58,12 +58,12 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 			// OwnerID is empty, should fallback to context UserID
 		}
 
-		id, err := handler.Handle(userCtx, cmd)
+		resp, err := handler.Handle(userCtx, cmd)
 		require.NoError(t, err)
 
-		savedWs, err := repo.FindByID(ctx, id)
+		savedWs, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
-		assert.Equal(t, cmd.Name, savedWs.Name())
+		assert.Equal(t, cmd.Name, savedWs.Name().String())
 		assert.True(t, savedWs.IsOwner(user.ID()))
 	})
 
@@ -79,10 +79,10 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 			},
 		}
 
-		id, err := handler.Handle(ctx, cmd)
+		resp, err := handler.Handle(ctx, cmd)
 		require.NoError(t, err)
 
-		savedWs, err := repo.FindByID(ctx, id)
+		savedWs, err := repo.FindByID(ctx, resp.ID)
 		require.NoError(t, err)
 		assert.Contains(t, savedWs.Members(), owner.ID())
 		assert.Contains(t, savedWs.Members(), member.ID())

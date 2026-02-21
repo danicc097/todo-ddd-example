@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -42,7 +43,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 	dbtx := r.getDB(ctx)
 	p := r.mapper.ToPersistence(t)
 
-	_, err := r.q.CreateTodo(ctx, dbtx, db.CreateTodoParams{
+	_, err := r.q.UpsertTodo(ctx, dbtx, db.UpsertTodoParams{
 		ID:          p.ID,
 		Title:       p.Title,
 		Status:      p.Status,
@@ -50,33 +51,20 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 		WorkspaceID: p.WorkspaceID,
 	})
 	if err != nil {
-		return fmt.Errorf("could not create todo: %w", sharedPg.ParseDBError(err))
+		return fmt.Errorf("could not save todo: %w", sharedPg.ParseDBError(err))
 	}
 
-	for _, tagID := range t.Tags() {
-		err := r.q.AddTagToTodo(ctx, dbtx, db.AddTagToTodoParams{
-			TodoID: t.ID(),
-			TagID:  tagID,
-		})
-		if err != nil {
-			return fmt.Errorf("could not add tag to todo: %w", sharedPg.ParseDBError(err))
-		}
+	tagUUIDs := make([]uuid.UUID, len(t.Tags()))
+	for i, tagID := range t.Tags() {
+		tagUUIDs[i] = tagID.UUID()
 	}
 
-	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, t)
-}
-
-func (r *TodoRepo) Update(ctx context.Context, t *domain.Todo) error {
-	dbtx := r.getDB(ctx)
-	p := r.mapper.ToPersistence(t)
-
-	err := r.q.UpdateTodo(ctx, dbtx, db.UpdateTodoParams{
-		ID:     p.ID,
-		Title:  p.Title,
-		Status: p.Status,
+	err = r.q.RemoveMissingTagsFromTodo(ctx, dbtx, db.RemoveMissingTagsFromTodoParams{
+		TodoID: t.ID(),
+		Tags:   tagUUIDs,
 	})
 	if err != nil {
-		return fmt.Errorf("could not update todo: %w", sharedPg.ParseDBError(err))
+		return fmt.Errorf("could not sync tags: %w", sharedPg.ParseDBError(err))
 	}
 
 	for _, tagID := range t.Tags() {

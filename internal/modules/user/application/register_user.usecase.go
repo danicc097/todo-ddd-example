@@ -11,6 +11,10 @@ type RegisterUserCommand struct {
 	Name  string
 }
 
+type RegisterUserResponse struct {
+	ID domain.UserID
+}
+
 type RegisterUserUseCase struct {
 	repo domain.UserRepository
 }
@@ -19,16 +23,21 @@ func NewRegisterUserUseCase(repo domain.UserRepository) *RegisterUserUseCase {
 	return &RegisterUserUseCase{repo: repo}
 }
 
-func (uc *RegisterUserUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) (domain.UserID, error) {
+func (uc *RegisterUserUseCase) Execute(ctx context.Context, cmd RegisterUserCommand) (RegisterUserResponse, error) {
 	email, err := domain.NewUserEmail(cmd.Email)
 	if err != nil {
-		return domain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
-	user := domain.CreateUser(email, cmd.Name)
+	name, err := domain.NewUserName(cmd.Name)
+	if err != nil {
+		return RegisterUserResponse{}, err
+	}
+
+	user := domain.CreateUser(email, name)
 	if err := uc.repo.Save(ctx, user); err != nil {
-		return domain.UserID{}, err
+		return RegisterUserResponse{}, err
 	}
 
-	return user.ID(), nil
+	return RegisterUserResponse{ID: user.ID()}, nil
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type WorkspaceHandler struct {
-	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID]
+	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse]
 	addMemberHandler    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void]
 	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void]
 	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void]
@@ -23,7 +23,7 @@ type WorkspaceHandler struct {
 }
 
 func NewWorkspaceHandler(
-	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, domain.WorkspaceID],
+	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse],
 	addMemberHandler sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void],
 	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void],
 	qs application.WorkspaceQueryService,
@@ -65,13 +65,13 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 		OwnerID:     userDomain.UserID{},
 	}
 
-	id, err := h.onboardHandler.Handle(c.Request.Context(), cmd)
+	resp, err := h.onboardHandler.Handle(c.Request.Context(), cmd)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id.UUID()})
+	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspacesParams) {
