@@ -64,32 +64,6 @@ func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id _sourceD
 	return _d.WorkspaceRepository.Delete(ctx, id)
 }
 
-// FindAll implements WorkspaceRepository
-func (_d WorkspaceRepositoryWithTracing) FindAll(ctx context.Context) (wpa1 []*_sourceDomain.Workspace, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindAll", trace.WithAttributes(
-		semconv.DBSystemNamePostgreSQL,
-		semconv.PeerServiceKey.String("postgres"),
-	))
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx": ctx}, map[string]interface{}{
-				"wpa1": wpa1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.WorkspaceRepository.FindAll(ctx)
-}
-
 // FindByID implements WorkspaceRepository
 func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDomain.WorkspaceID) (wp1 *_sourceDomain.Workspace, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindByID", trace.WithAttributes(

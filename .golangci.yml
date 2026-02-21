@@ -48,6 +48,7 @@ linters:
       include:
         - github.com/danicc097/todo-ddd-example/internal/generated/api.*
         - .*Event
+        - .*Args
         - github.com/danicc097/todo-ddd-example/internal/generated/db.*Params
     ireturn:
       allow:
@@ -128,7 +129,6 @@ linters:
           - err113
           - errcheck
           - errchkjson
-          - exhaustruct
           - funlen
           - lll
           - nonamedreturns

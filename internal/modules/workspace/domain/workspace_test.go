@@ -45,6 +45,7 @@ func TestWorkspace_AddMember(t *testing.T) {
 	assert.IsType(t, MemberAddedEvent{}, events[0])
 	evt := events[0].(MemberAddedEvent)
 	assert.Equal(t, newMemberID, evt.UserID)
+	assert.Equal(t, RoleMember, evt.Role)
 }
 
 func TestWorkspace_AddMember_AlreadyExists(t *testing.T) {

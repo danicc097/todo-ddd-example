@@ -12,22 +12,6 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 )
 
-const AddWorkspaceMember = `-- name: AddWorkspaceMember :exec
-INSERT INTO workspace_members(workspace_id, user_id, role)
-  VALUES ($1, $2, $3)
-`
-
-type AddWorkspaceMemberParams struct {
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-	UserID      types.UserID      `db:"user_id" json:"user_id"`
-	Role        string            `db:"role" json:"role"`
-}
-
-func (q *Queries) AddWorkspaceMember(ctx context.Context, db DBTX, arg AddWorkspaceMemberParams) error {
-	_, err := db.Exec(ctx, AddWorkspaceMember, arg.WorkspaceID, arg.UserID, arg.Role)
-	return err
-}
-
 const CreateWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces(id, name, description, created_at)
   VALUES ($1, $2, $3, $4)
@@ -66,16 +50,6 @@ WHERE id = $1
 
 func (q *Queries) DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error {
 	_, err := db.Exec(ctx, DeleteWorkspace, id)
-	return err
-}
-
-const DeleteWorkspaceMembers = `-- name: DeleteWorkspaceMembers :exec
-DELETE FROM workspace_members
-WHERE workspace_id = $1
-`
-
-func (q *Queries) DeleteWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) error {
-	_, err := db.Exec(ctx, DeleteWorkspaceMembers, workspaceID)
 	return err
 }
 
@@ -256,6 +230,22 @@ func (q *Queries) ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]Lis
 	return items, nil
 }
 
+const RemoveWorkspaceMember = `-- name: RemoveWorkspaceMember :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1
+  AND user_id = $2
+`
+
+type RemoveWorkspaceMemberParams struct {
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UserID      types.UserID      `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) RemoveWorkspaceMember(ctx context.Context, db DBTX, arg RemoveWorkspaceMemberParams) error {
+	_, err := db.Exec(ctx, RemoveWorkspaceMember, arg.WorkspaceID, arg.UserID)
+	return err
+}
+
 const UpsertWorkspace = `-- name: UpsertWorkspace :one
 INSERT INTO workspaces(id, name, description, created_at)
   VALUES ($1, $2, $3, $4)
@@ -289,4 +279,22 @@ func (q *Queries) UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorksp
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const UpsertWorkspaceMember = `-- name: UpsertWorkspaceMember :exec
+INSERT INTO workspace_members(workspace_id, user_id, role)
+  VALUES ($1, $2, $3)
+ON CONFLICT (workspace_id, user_id)
+  DO UPDATE SET ROLE = EXCLUDED.role
+`
+
+type UpsertWorkspaceMemberParams struct {
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UserID      types.UserID      `db:"user_id" json:"user_id"`
+	Role        string            `db:"role" json:"role"`
+}
+
+func (q *Queries) UpsertWorkspaceMember(ctx context.Context, db DBTX, arg UpsertWorkspaceMemberParams) error {
+	_, err := db.Exec(ctx, UpsertWorkspaceMember, arg.WorkspaceID, arg.UserID, arg.Role)
+	return err
 }

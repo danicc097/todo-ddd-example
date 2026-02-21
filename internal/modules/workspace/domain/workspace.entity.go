@@ -50,10 +50,10 @@ func NewWorkspace(name, description string, creatorID userDomain.UserID) *Worksp
 	})
 
 	ws.RecordEvent(MemberAddedEvent{
-		WorkspaceID: id,
-		UserID:      creatorID,
-		Role:        string(RoleOwner),
-		Occurred:    now,
+		WsID:     id,
+		UserID:   creatorID,
+		Role:     RoleOwner,
+		Occurred: now,
 	})
 
 	return ws
@@ -83,10 +83,10 @@ func (w *Workspace) AddMember(userID userDomain.UserID, role WorkspaceRole) erro
 	w.members[userID] = role
 
 	w.RecordEvent(MemberAddedEvent{
-		WorkspaceID: w.id,
-		UserID:      userID,
-		Role:        string(role),
-		Occurred:    time.Now(),
+		WsID:     w.id,
+		UserID:   userID,
+		Role:     role,
+		Occurred: time.Now(),
 	})
 
 	return nil
@@ -110,9 +110,9 @@ func (w *Workspace) RemoveMember(userID userDomain.UserID) error {
 	delete(w.members, userID)
 
 	w.RecordEvent(MemberRemovedEvent{
-		WorkspaceID: w.id,
-		UserID:      userID,
-		Occurred:    time.Now(),
+		WsID:     w.id,
+		UserID:   userID,
+		Occurred: time.Now(),
 	})
 
 	return nil

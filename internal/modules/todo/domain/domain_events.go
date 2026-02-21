@@ -16,41 +16,44 @@ var (
 )
 
 type TodoCreatedEvent struct {
-	ID          TodoID
-	WorkspaceID wsDomain.WorkspaceID
-	Title       string
-	Status      string
-	CreatedAt   time.Time
-	Occurred    time.Time
+	ID        TodoID
+	WsID      wsDomain.WorkspaceID
+	Title     TodoTitle
+	Status    TodoStatus
+	CreatedAt time.Time
+	Occurred  time.Time
 }
 
 func (e TodoCreatedEvent) EventName() shared.EventType         { return shared.TodoCreated }
 func (e TodoCreatedEvent) OccurredAt() time.Time               { return e.Occurred }
 func (e TodoCreatedEvent) AggregateID() uuid.UUID              { return e.ID.UUID() }
 func (e TodoCreatedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
+func (e TodoCreatedEvent) WorkspaceID() uuid.UUID              { return e.WsID.UUID() }
 
 type TodoCompletedEvent struct {
-	ID          TodoID
-	WorkspaceID wsDomain.WorkspaceID
-	Title       string
-	Status      string
-	CreatedAt   time.Time
-	Occurred    time.Time
+	ID        TodoID
+	WsID      wsDomain.WorkspaceID
+	Title     TodoTitle
+	Status    TodoStatus
+	CreatedAt time.Time
+	Occurred  time.Time
 }
 
 func (e TodoCompletedEvent) EventName() shared.EventType         { return shared.TodoCompleted }
 func (e TodoCompletedEvent) OccurredAt() time.Time               { return e.Occurred }
 func (e TodoCompletedEvent) AggregateID() uuid.UUID              { return e.ID.UUID() }
 func (e TodoCompletedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
+func (e TodoCompletedEvent) WorkspaceID() uuid.UUID              { return e.WsID.UUID() }
 
 type TagAddedEvent struct {
-	TodoID      TodoID
-	TagID       TagID
-	WorkspaceID wsDomain.WorkspaceID
-	Occurred    time.Time
+	TodoID   TodoID
+	TagID    TagID
+	WsID     wsDomain.WorkspaceID
+	Occurred time.Time
 }
 
 func (e TagAddedEvent) EventName() shared.EventType         { return shared.TodoTagAdded }
 func (e TagAddedEvent) OccurredAt() time.Time               { return e.Occurred }
 func (e TagAddedEvent) AggregateID() uuid.UUID              { return e.TodoID.UUID() }
 func (e TagAddedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
+func (e TagAddedEvent) WorkspaceID() uuid.UUID              { return e.WsID.UUID() }

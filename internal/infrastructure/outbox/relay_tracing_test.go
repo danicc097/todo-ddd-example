@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
@@ -29,11 +30,9 @@ func TestOutboxRelay_Tracing(t *testing.T) {
 	otel.SetTracerProvider(tp)
 	defer otel.SetTracerProvider(oldTP)
 
-	broker := &mockBroker{
-		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-			return nil
-		},
-	}
+	broker := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+		return nil
+	})
 
 	relay := outbox.NewRelay(pool, broker)
 

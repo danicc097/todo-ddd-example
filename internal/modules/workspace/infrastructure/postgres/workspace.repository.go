@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -52,19 +51,39 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 		return fmt.Errorf("failed to upsert workspace: %w", sharedPg.ParseDBError(err))
 	}
 
-	// diffing not worth it
-	if err := r.q.DeleteWorkspaceMembers(ctx, dbtx, w.ID()); err != nil {
-		return fmt.Errorf("failed to clear members: %w", sharedPg.ParseDBError(err))
+	currentMembers, err := r.q.GetWorkspaceMembers(ctx, dbtx, w.ID())
+	if err != nil {
+		return fmt.Errorf("failed to get workspace members: %w", sharedPg.ParseDBError(err))
+	}
+
+	ccmm := make(map[uuid.UUID]string)
+	for _, m := range currentMembers {
+		ccmm[m.UserID.UUID()] = m.Role
 	}
 
 	for userID, role := range w.Members() {
-		err := r.q.AddWorkspaceMember(ctx, dbtx, db.AddWorkspaceMemberParams{
+		currentRole, exists := ccmm[userID.UUID()]
+		if !exists || currentRole != string(role) {
+			err := r.q.UpsertWorkspaceMember(ctx, dbtx, db.UpsertWorkspaceMemberParams{
+				WorkspaceID: w.ID(),
+				UserID:      userID,
+				Role:        string(role),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to upsert member %s: %w", userID, sharedPg.ParseDBError(err))
+			}
+		}
+
+		delete(ccmm, userID.UUID())
+	}
+
+	for removedUserID := range ccmm { // anything left has to be a removed user
+		err := r.q.RemoveWorkspaceMember(ctx, dbtx, db.RemoveWorkspaceMemberParams{
 			WorkspaceID: w.ID(),
-			UserID:      userID,
-			Role:        string(role),
+			UserID:      userDomain.UserID(removedUserID),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to add member %s: %w", userID, sharedPg.ParseDBError(err))
+			return fmt.Errorf("failed to remove member %s: %w", removedUserID, sharedPg.ParseDBError(err))
 		}
 	}
 
@@ -119,43 +138,6 @@ func toMemberMap(members []db.WorkspaceMembers) (map[uuid.UUID]domain.WorkspaceR
 	}
 
 	return memberMap, nil
-}
-
-func (r *WorkspaceRepo) FindAll(ctx context.Context) ([]*domain.Workspace, error) {
-	dbtx := r.getDB(ctx)
-
-	rows, err := r.q.ListWorkspacesWithMembers(ctx, dbtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list workspaces: %w", sharedPg.ParseDBError(err))
-	}
-
-	workspaces := make([]*domain.Workspace, 0, len(rows))
-
-	for _, row := range rows {
-		var mm []struct {
-			UserID uuid.UUID `json:"user_id"`
-			Role   string    `json:"role"`
-		}
-
-		_ = json.Unmarshal(row.Members, &mm)
-
-		domainMemberMap := make(map[userDomain.UserID]domain.WorkspaceRole)
-
-		for _, m := range mm {
-			role, _ := domain.NewWorkspaceRole(m.Role)
-			domainMemberMap[userDomain.UserID(m.UserID)] = role
-		}
-
-		workspaces = append(workspaces, domain.ReconstituteWorkspace(
-			row.ID,
-			row.Name,
-			row.Description,
-			row.CreatedAt,
-			domainMemberMap,
-		))
-	}
-
-	return workspaces, nil
 }
 
 func (r *WorkspaceRepo) Delete(ctx context.Context, id domain.WorkspaceID) error {

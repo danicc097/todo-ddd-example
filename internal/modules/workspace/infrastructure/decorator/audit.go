@@ -60,7 +60,3 @@ func (w *WorkspaceAuditWrapper) Delete(ctx context.Context, id wsDomain.Workspac
 func (w *WorkspaceAuditWrapper) FindByID(ctx context.Context, id wsDomain.WorkspaceID) (*wsDomain.Workspace, error) {
 	return w.base.FindByID(ctx, id)
 }
-
-func (w *WorkspaceAuditWrapper) FindAll(ctx context.Context) ([]*wsDomain.Workspace, error) {
-	return w.base.FindAll(ctx)
-}

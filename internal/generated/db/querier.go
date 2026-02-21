@@ -13,14 +13,12 @@ import (
 
 type Querier interface {
 	AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error
-	AddWorkspaceMember(ctx context.Context, db DBTX, arg AddWorkspaceMemberParams) error
 	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
 	DeleteIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) error
 	DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error
-	DeleteWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) error
 	GetIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (IdempotencyKeys, error)
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error)
@@ -39,6 +37,7 @@ type Querier interface {
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
+	RemoveWorkspaceMember(ctx context.Context, db DBTX, arg RemoveWorkspaceMemberParams) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	TryLockIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (int64, error)
 	UpdateIdempotencyKey(ctx context.Context, db DBTX, arg UpdateIdempotencyKeyParams) error
@@ -46,6 +45,7 @@ type Querier interface {
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
 	UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error
 	UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorkspaceParams) (Workspaces, error)
+	UpsertWorkspaceMember(ctx context.Context, db DBTX, arg UpsertWorkspaceMemberParams) error
 }
 
 var _ Querier = (*Queries)(nil)

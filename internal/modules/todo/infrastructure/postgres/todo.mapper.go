@@ -108,24 +108,24 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, erro
 	case domain.TodoCreatedEvent:
 		payload = TodoOutboxDTO{
 			ID:          evt.ID.UUID(),
-			WorkspaceID: evt.WorkspaceID.UUID(),
-			Title:       evt.Title,
-			Status:      evt.Status,
+			WorkspaceID: evt.WsID.UUID(),
+			Title:       evt.Title.String(),
+			Status:      evt.Status.String(),
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
 		payload = TodoOutboxDTO{
 			ID:          evt.ID.UUID(),
-			WorkspaceID: evt.WorkspaceID.UUID(),
-			Title:       evt.Title,
-			Status:      evt.Status,
+			WorkspaceID: evt.WsID.UUID(),
+			Title:       evt.Title.String(),
+			Status:      evt.Status.String(),
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
 		payload = TagAddedOutboxDTO{
 			TodoID:      evt.TodoID.UUID(),
 			TagID:       evt.TagID.UUID(),
-			WorkspaceID: evt.WorkspaceID.UUID(),
+			WorkspaceID: evt.WsID.UUID(),
 		}
 	default:
 		return "", nil, nil

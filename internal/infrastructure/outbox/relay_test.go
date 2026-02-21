@@ -11,18 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
-
-type mockBroker struct {
-	publishFunc func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error
-}
-
-func (m *mockBroker) Publish(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-	return m.publishFunc(ctx, eventType, aggID, payload, headers)
-}
 
 func TestOutboxRelay_RetryLogic(t *testing.T) {
 	t.Parallel()
@@ -46,11 +39,9 @@ func TestOutboxRelay_RetryLogic(t *testing.T) {
 	require.NoError(t, err)
 
 	mockErr := errors.New("simulated transient failure")
-	broker := &mockBroker{
-		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-			return mockErr
-		},
-	}
+	broker := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+		return mockErr
+	})
 
 	relay := outbox.NewRelay(pool, broker)
 
@@ -92,15 +83,13 @@ func TestOutboxRelay_FatalErrorBackoff(t *testing.T) {
 		AggregateType: "MOCK",
 		AggregateID:   uuid.New(),
 		Payload:       []byte("{}"),
-		Headers:       []byte(`["invalid", "type"]`),
+		Headers:       []byte("[\"invalid\", \"type\"]"),
 	})
 	require.NoError(t, err)
 
-	broker := &mockBroker{
-		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-			return nil
-		},
-	}
+	broker := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+		return nil
+	})
 
 	relay := outbox.NewRelay(pool, broker)
 
@@ -134,14 +123,12 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	handlerStarted := make(chan struct{})
 	blockHandler := make(chan struct{})
 
-	broker := &mockBroker{
-		publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-			close(handlerStarted)
-			<-blockHandler
+	broker := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+		close(handlerStarted)
+		<-blockHandler
 
-			return nil
-		},
-	}
+		return nil
+	})
 
 	relay := outbox.NewRelay(pool, broker)
 
@@ -167,7 +154,6 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 
 	select {
 	case <-handlerStarted:
-		// event is being processed
 	case <-time.After(5 * time.Second):
 		t.Fatal("Relay did not pick up event")
 	}
@@ -178,14 +164,12 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	case <-done:
 		t.Fatal("Relay stopped before handler finished")
 	default:
-		// still running
 	}
 
-	close(blockHandler) // unblock
+	close(blockHandler)
 
 	select {
 	case <-done:
-		// exits
 	case <-time.After(5 * time.Second):
 		t.Fatal("Relay did not stop after active tasks finished")
 	}

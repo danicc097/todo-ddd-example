@@ -84,14 +84,14 @@ func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, 
 		}
 	case domain.MemberAddedEvent:
 		payload = MemberAddedDTO{
-			WorkspaceID: evt.WorkspaceID.UUID(),
+			WorkspaceID: evt.WsID.UUID(),
 			UserID:      evt.UserID.UUID(),
-			Role:        evt.Role,
+			Role:        string(evt.Role),
 			Occurred:    evt.Occurred,
 		}
 	case domain.MemberRemovedEvent:
 		payload = MemberRemovedDTO{
-			WorkspaceID: evt.WorkspaceID.UUID(),
+			WorkspaceID: evt.WsID.UUID(),
 			UserID:      evt.UserID.UUID(),
 			Occurred:    evt.Occurred,
 		}

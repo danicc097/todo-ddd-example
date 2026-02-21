@@ -48,10 +48,10 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		now := time.Now().Truncate(time.Second)
 
 		evt := domain.MemberAddedEvent{
-			WorkspaceID: domain.WorkspaceID(wsID),
-			UserID:      userDomain.UserID(userID),
-			Role:        "OWNER",
-			Occurred:    now,
+			WsID:     domain.WorkspaceID(wsID),
+			UserID:   userDomain.UserID(userID),
+			Role:     domain.RoleOwner,
+			Occurred: now,
 		}
 
 		name, data, err := mapper.MapEvent(evt)

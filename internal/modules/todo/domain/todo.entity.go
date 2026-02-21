@@ -35,12 +35,12 @@ func NewTodo(title TodoTitle, workspaceID wsDomain.WorkspaceID) *Todo {
 		createdAt:   now,
 	}
 	t.RecordEvent(TodoCreatedEvent{
-		ID:          id,
-		WorkspaceID: workspaceID,
-		Title:       title.String(),
-		Status:      StatusPending.String(),
-		CreatedAt:   now,
-		Occurred:    now,
+		ID:        id,
+		WsID:      workspaceID,
+		Title:     title,
+		Status:    StatusPending,
+		CreatedAt: now,
+		Occurred:  now,
 	})
 
 	return t
@@ -64,12 +64,12 @@ func (t *Todo) Complete() error {
 
 	t.status = StatusCompleted
 	t.RecordEvent(TodoCompletedEvent{
-		ID:          t.id,
-		WorkspaceID: t.workspaceID,
-		Title:       t.title.String(),
-		Status:      t.status.String(),
-		CreatedAt:   t.createdAt,
-		Occurred:    time.Now(),
+		ID:        t.id,
+		WsID:      t.workspaceID,
+		Title:     t.title,
+		Status:    t.status,
+		CreatedAt: t.createdAt,
+		Occurred:  time.Now(),
 	})
 
 	return nil
@@ -78,10 +78,10 @@ func (t *Todo) Complete() error {
 func (t *Todo) AddTag(tagID TagID) {
 	t.tags = append(t.tags, tagID)
 	t.RecordEvent(TagAddedEvent{
-		TodoID:      t.id,
-		TagID:       tagID,
-		WorkspaceID: t.workspaceID,
-		Occurred:    time.Now(),
+		TodoID:   t.id,
+		TagID:    tagID,
+		WsID:     t.workspaceID,
+		Occurred: time.Now(),
 	})
 }
 

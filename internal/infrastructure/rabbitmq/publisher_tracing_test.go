@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/rabbitmq"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -35,7 +36,12 @@ func TestPublisher_Tracing(t *testing.T) {
 
 	defer pub.Close()
 
-	err = pub.Publish(ctx, "test.event", uuid.New(), []byte("{}"), nil)
+	err = pub.Publish(ctx, messaging.PublishArgs{
+		EventType: "test.event",
+		AggID:     uuid.New(),
+		Payload:   []byte("{}"),
+		Headers:   nil,
+	})
 	require.NoError(t, err)
 
 	spans := exp.GetSpans()

@@ -31,10 +31,6 @@ func (keys) WorkspaceRevision(id types.WorkspaceID) string {
 	return fmt.Sprintf("ws:%s:revision", id)
 }
 
-func (keys) AllWorkspaces() string {
-	return "ws:collection:FindAll:all"
-}
-
 func (keys) RateLimit(opID, ip string) string {
 	return fmt.Sprintf("ratelimit:%s:%s", opID, ip)
 }
@@ -49,8 +45,4 @@ func (keys) WorkspaceTag(wsID types.WorkspaceID) string {
 
 func (keys) TagSet(tag string) string {
 	return "cache_tags:" + tag
-}
-
-func (keys) TodoAPIUpdatesChannel() string {
-	return "todo_api_updates"
 }

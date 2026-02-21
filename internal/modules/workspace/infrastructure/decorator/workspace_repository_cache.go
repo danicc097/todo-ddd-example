@@ -38,7 +38,7 @@ func (r *workspaceRepositoryCache) Save(ctx context.Context, w *domain.Workspace
 		return err
 	}
 
-	r.rdb.Del(ctx, cache.Keys.Workspace(w.ID()), cache.Keys.AllWorkspaces())
+	r.rdb.Del(ctx, cache.Keys.Workspace(w.ID()))
 	r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(w.ID()))
 
 	return nil
@@ -52,20 +52,12 @@ func (r *workspaceRepositoryCache) FindByID(ctx context.Context, id domain.Works
 	})
 }
 
-func (r *workspaceRepositoryCache) FindAll(ctx context.Context) ([]*domain.Workspace, error) {
-	key := cache.Keys.AllWorkspaces()
-
-	return cache.GetOrFetch(ctx, r.rdb, key, r.ttl, cache.NewCollectionCodec[*domain.Workspace](), func(ctx context.Context) ([]*domain.Workspace, error) {
-		return r.base.FindAll(ctx)
-	})
-}
-
 func (r *workspaceRepositoryCache) Delete(ctx context.Context, id domain.WorkspaceID) error {
 	if err := r.base.Delete(ctx, id); err != nil {
 		return err
 	}
 
-	r.rdb.Del(ctx, cache.Keys.Workspace(id), cache.Keys.AllWorkspaces())
+	r.rdb.Del(ctx, cache.Keys.Workspace(id))
 	r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(id))
 
 	return nil

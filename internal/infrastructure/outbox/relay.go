@@ -125,16 +125,16 @@ func (r *Relay) processEvents(ctx context.Context) {
 }
 
 func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Outbox) {
-	var headers map[string]string
+	var rawHeaders map[string]string
 
 	idAttr := slog.String("event_id", event.ID.String())
 
-	unmarshalErr := json.Unmarshal(event.Headers, &headers)
+	unmarshalErr := json.Unmarshal(event.Headers, &rawHeaders)
 
 	spanCtx := ctx
 
 	if unmarshalErr == nil {
-		carrier := propagation.MapCarrier(headers)
+		carrier := propagation.MapCarrier(rawHeaders)
 		spanCtx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 	}
 
@@ -162,10 +162,22 @@ func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Out
 		return
 	}
 
+	headers := make(map[messaging.Header]string, len(rawHeaders))
+	for k, v := range rawHeaders {
+		headers[messaging.Header(k)] = v
+	}
+
 	pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
 	defer cancel()
 
-	err := r.broker.Publish(pubCtx, string(event.EventType), event.AggregateID, event.Payload, headers)
+	args := messaging.PublishArgs{
+		EventType: string(event.EventType),
+		AggID:     event.AggregateID,
+		Payload:   event.Payload,
+		Headers:   headers,
+	}
+
+	err := r.broker.Publish(pubCtx, args)
 	if err == nil {
 		if dbErr := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); dbErr != nil {
 			slog.ErrorContext(ctx, "failed to mark event processed", idAttr, slog.String("error", dbErr.Error()))

@@ -12,38 +12,31 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 )
 
-type mockBroker struct {
-	publishFunc func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error
-}
-
-func (m *mockBroker) Publish(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-	return m.publishFunc(ctx, eventType, aggID, payload, headers)
-}
-
-var _ messaging.Broker = (*mockBroker)(nil)
-
 func TestMultiBroker_Publish(t *testing.T) {
 	t.Parallel()
 
-	t.Run("publishes to all brokers", func(t *testing.T) {
-		count1 := 0
-		broker1 := &mockBroker{
-			publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-				count1++
-				return nil
-			},
-		}
+	args := messaging.PublishArgs{
+		EventType: "test",
+		AggID:     uuid.New(),
+		Payload:   nil,
+		Headers:   nil,
+	}
 
-		count2 := 0
-		broker2 := &mockBroker{
-			publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-				count2++
-				return nil
-			},
-		}
+	t.Run("publishes to all brokers", func(t *testing.T) {
+		count1, count2 := 0, 0
+
+		broker1 := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+			count1++
+			return nil
+		})
+
+		broker2 := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+			count2++
+			return nil
+		})
 
 		multi := messaging.NewMultiBroker(broker1, broker2)
-		err := multi.Publish(context.Background(), "test", uuid.New(), nil, nil)
+		err := multi.Publish(context.Background(), args)
 
 		require.NoError(t, err)
 		assert.Equal(t, 1, count1)
@@ -51,14 +44,12 @@ func TestMultiBroker_Publish(t *testing.T) {
 	})
 
 	t.Run("returns error if any broker fails", func(t *testing.T) {
-		broker1 := &mockBroker{
-			publishFunc: func(ctx context.Context, eventType string, aggID uuid.UUID, payload []byte, headers map[string]string) error {
-				return errors.New("fail")
-			},
-		}
+		broker1 := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+			return errors.New("fail")
+		})
 
 		multi := messaging.NewMultiBroker(broker1)
-		err := multi.Publish(context.Background(), "test", uuid.New(), nil, nil)
+		err := multi.Publish(context.Background(), args)
 
 		assert.Error(t, err)
 	})

@@ -7,6 +7,7 @@ package ws
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
@@ -36,8 +38,15 @@ var (
 // PermissionProvider fetches authorized rooms for a user.
 type PermissionProvider func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 
-// MessageFilter extracts a room ID from a message.
-type MessageFilter func(message []byte) (uuid.UUID, bool)
+type broadcastMessage struct {
+	roomID  uuid.UUID
+	payload []byte
+}
+
+type pubsubCmd struct {
+	channelName string
+	isSubscribe bool
+}
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
@@ -121,35 +130,38 @@ func (c *Client) writePump() {
 
 // Hub maintains the set of active clients and broadcasts messages aware of rooms/permissions.
 type Hub struct {
+	clients      map[*Client]bool // all connected clients
 	rooms        map[uuid.UUID]map[*Client]bool
 	register     chan *Client
 	unregister   chan *Client
-	broadcast    chan []byte
+	broadcast    chan broadcastMessage
+	pubsubCmds   chan pubsubCmd
 	redis        *redis.Client
-	channelName  string
 	permProvider PermissionProvider
-	msgFilter    MessageFilter
 	stop         chan struct{}
 	wg           sync.WaitGroup
+	pubsub       *redis.PubSub
 }
 
-func NewHub(r *redis.Client, channel string, pp PermissionProvider, mf MessageFilter) *Hub {
+func NewHub(r *redis.Client, pp PermissionProvider) *Hub {
 	h := &Hub{
+		clients:      make(map[*Client]bool),
 		rooms:        make(map[uuid.UUID]map[*Client]bool),
 		register:     make(chan *Client),
 		unregister:   make(chan *Client),
-		broadcast:    make(chan []byte),
+		broadcast:    make(chan broadcastMessage),
+		pubsubCmds:   make(chan pubsubCmd, 100),
 		redis:        r,
-		channelName:  channel,
 		permProvider: pp,
-		msgFilter:    mf,
 		stop:         make(chan struct{}),
+		pubsub:       r.Subscribe(context.Background(), messaging.Keys.TodoAPIUpdatesChannel()), // always listen to updates channel (global events)
 	}
 
-	h.wg.Add(2)
+	h.wg.Add(3)
 
 	go h.run()
 	go h.listenRedis()
+	go h.pubsubWorker()
 
 	return h
 }
@@ -167,49 +179,90 @@ func (h *Hub) run() {
 		case <-h.stop:
 			return
 		case client := <-h.register:
+			h.clients[client] = true
+
 			for roomID := range client.rooms {
 				if h.rooms[roomID] == nil {
 					h.rooms[roomID] = make(map[*Client]bool)
+
+					h.pubsubCmds <- pubsubCmd{
+						channelName: messaging.Keys.WorkspaceTodoAPIUpdatesChannel(roomID),
+						isSubscribe: true,
+					}
 				}
 
 				h.rooms[roomID][client] = true
 			}
 		case client := <-h.unregister:
+			delete(h.clients, client)
+
 			for roomID := range client.rooms {
 				if clients, ok := h.rooms[roomID]; ok {
 					delete(clients, client)
 
 					if len(clients) == 0 {
 						delete(h.rooms, roomID)
+
+						h.pubsubCmds <- pubsubCmd{
+							channelName: messaging.Keys.WorkspaceTodoAPIUpdatesChannel(roomID),
+							isSubscribe: false,
+						}
 					}
 				}
 			}
 
 			close(client.send)
-		case message := <-h.broadcast:
-			roomID, ok := h.msgFilter(message)
-			if !ok {
+		case msg := <-h.broadcast:
+			if msg.roomID == uuid.Nil {
+				for client := range h.clients {
+					h.safeSend(client, msg.payload)
+				}
+
 				continue
 			}
 
-			if clients, ok := h.rooms[roomID]; ok {
+			if clients, ok := h.rooms[msg.roomID]; ok {
 				for client := range clients {
-					select {
-					case client.send <- message: // happy path
-					default: // queue is full
-						select {
-						case <-client.send: // drop oldest message if buffer is full
-						default:
-						}
-
-						select {
-						case client.send <- message: // try again
-						default: // still full
-							client.conn.Close()
-						}
-					}
+					h.safeSend(client, msg.payload)
 				}
 			}
+		}
+	}
+}
+
+func (h *Hub) pubsubWorker() {
+	defer h.wg.Done()
+
+	for {
+		select {
+		case <-h.stop:
+			return
+		case cmd := <-h.pubsubCmds:
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if cmd.isSubscribe {
+				_ = h.pubsub.Subscribe(ctx, cmd.channelName)
+			} else {
+				_ = h.pubsub.Unsubscribe(ctx, cmd.channelName)
+			}
+
+			cancel()
+		}
+	}
+}
+
+func (h *Hub) safeSend(client *Client, payload []byte) {
+	select {
+	case client.send <- payload: // happy path
+	default: // queue is full
+		select {
+		case <-client.send: // drop oldest message if buffer is full
+		default:
+		}
+
+		select {
+		case client.send <- payload: // try again
+		default: // still full
+			client.conn.Close()
 		}
 	}
 }
@@ -258,11 +311,12 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 func (h *Hub) listenRedis() {
 	defer h.wg.Done()
 
-	// we control termination via h.stop not ctx
-	pubsub := h.redis.Subscribe(context.Background(), h.channelName)
-	defer pubsub.Close()
+	defer h.pubsub.Close()
 
-	ch := pubsub.Channel()
+	ch := h.pubsub.Channel()
+
+	globalChannel := messaging.Keys.TodoAPIUpdatesChannel()
+	wsChannelPrefix := messaging.Keys.WorkspaceTodoAPIUpdatesChannelPrefix()
 
 	for {
 		select {
@@ -273,8 +327,21 @@ func (h *Hub) listenRedis() {
 				return
 			}
 
+			var roomID uuid.UUID
+
+			if msg.Channel != globalChannel {
+				roomIDStr := strings.TrimPrefix(msg.Channel, wsChannelPrefix)
+
+				var err error
+
+				roomID, err = uuid.Parse(roomIDStr)
+				if err != nil {
+					continue
+				}
+			}
+
 			select {
-			case h.broadcast <- []byte(msg.Payload):
+			case h.broadcast <- broadcastMessage{roomID: roomID, payload: []byte(msg.Payload)}:
 			case <-h.stop:
 				return
 			}

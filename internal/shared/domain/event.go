@@ -16,6 +16,12 @@ type DomainEvent interface {
 	AggregateType() AggregateType
 }
 
+// WorkspacedEvent allows identifying events belonging to a specific workspace.
+type WorkspacedEvent interface {
+	DomainEvent
+	WorkspaceID() uuid.UUID
+}
+
 // EventsAggregate defines the contract for an aggregate root that manages events.
 type EventsAggregate interface {
 	Events() []DomainEvent

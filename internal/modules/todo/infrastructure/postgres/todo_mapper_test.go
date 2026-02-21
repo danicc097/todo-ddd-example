@@ -24,13 +24,15 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		wsID := uuid.New()
 		now := time.Now().Truncate(time.Second)
 
+		title, _ := domain.NewTodoTitle("Test Todo")
+
 		evt := domain.TodoCreatedEvent{
-			ID:          domain.TodoID(id),
-			WorkspaceID: wsDomain.WorkspaceID(wsID),
-			Title:       "Test Todo",
-			Status:      "PENDING",
-			CreatedAt:   now,
-			Occurred:    now,
+			ID:        domain.TodoID(id),
+			WsID:      wsDomain.WorkspaceID(wsID),
+			Title:     title,
+			Status:    domain.StatusPending,
+			CreatedAt: now,
+			Occurred:  now,
 		}
 
 		name, data, err := mapper.MapEvent(evt)
@@ -53,6 +55,7 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		evt := domain.TagAddedEvent{
 			TodoID:   domain.TodoID(todoID),
 			TagID:    domain.TagID(tagID),
+			WsID:     wsDomain.WorkspaceID(uuid.New()), // adding missing field or keeping it consistent
 			Occurred: now,
 		}
 

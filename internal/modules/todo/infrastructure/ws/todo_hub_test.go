@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
@@ -119,7 +119,7 @@ func TestTodoHub_Integration(t *testing.T) {
 		})
 
 		require.Eventually(t, func() bool {
-			_ = redisClient.Publish(ctx, cache.Keys.TodoAPIUpdatesChannel(), data).Err()
+			_ = redisClient.Publish(ctx, messaging.Keys.WorkspaceTodoAPIUpdatesChannel(wsID1), data).Err()
 			return rec.has(wsID1)
 		}, 5*time.Second, 100*time.Millisecond)
 	})
@@ -152,8 +152,8 @@ func TestTodoHub_Integration(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			// processed sequentially, ensure forbidden sent first
-			_ = redisClient.Publish(ctx, cache.Keys.TodoAPIUpdatesChannel(), forbiddenData).Err()
-			_ = redisClient.Publish(ctx, cache.Keys.TodoAPIUpdatesChannel(), allowedData).Err()
+			_ = redisClient.Publish(ctx, messaging.Keys.WorkspaceTodoAPIUpdatesChannel(wsID2), forbiddenData).Err()
+			_ = redisClient.Publish(ctx, messaging.Keys.WorkspaceTodoAPIUpdatesChannel(wsID1), allowedData).Err()
 
 			return rec.has(wsID1)
 		}, 5*time.Second, 100*time.Millisecond)

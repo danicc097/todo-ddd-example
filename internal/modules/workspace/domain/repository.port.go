@@ -8,6 +8,5 @@ import (
 type WorkspaceRepository interface {
 	Save(ctx context.Context, w *Workspace) error
 	FindByID(ctx context.Context, id WorkspaceID) (*Workspace, error)
-	FindAll(ctx context.Context) ([]*Workspace, error)
 	Delete(ctx context.Context, id WorkspaceID) error
 }

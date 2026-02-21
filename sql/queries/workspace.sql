@@ -43,13 +43,16 @@ ON CONFLICT (id)
   RETURNING
     *;
 
--- name: DeleteWorkspaceMembers :exec
-DELETE FROM workspace_members
-WHERE workspace_id = $1;
-
--- name: AddWorkspaceMember :exec
+-- name: UpsertWorkspaceMember :exec
 INSERT INTO workspace_members(workspace_id, user_id, role)
-  VALUES ($1, $2, $3);
+  VALUES ($1, $2, $3)
+ON CONFLICT (workspace_id, user_id)
+  DO UPDATE SET ROLE = EXCLUDED.role;
+
+-- name: RemoveWorkspaceMember :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1
+  AND user_id = $2;
 
 -- name: ListWorkspacesByUserID :many
 SELECT
