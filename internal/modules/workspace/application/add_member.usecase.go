@@ -15,35 +15,37 @@ type AddWorkspaceMemberCommand struct {
 	Role        domain.WorkspaceRole
 }
 
+type AddWorkspaceMemberResponse struct{}
+
 type AddWorkspaceMemberHandler struct {
 	repo domain.WorkspaceRepository
 }
 
-var _ application.RequestHandler[AddWorkspaceMemberCommand, application.Void] = (*AddWorkspaceMemberHandler)(nil)
+var _ application.RequestHandler[AddWorkspaceMemberCommand, AddWorkspaceMemberResponse] = (*AddWorkspaceMemberHandler)(nil)
 
 func NewAddWorkspaceMemberHandler(repo domain.WorkspaceRepository) *AddWorkspaceMemberHandler {
 	return &AddWorkspaceMemberHandler{repo: repo}
 }
 
-func (h *AddWorkspaceMemberHandler) Handle(ctx context.Context, cmd AddWorkspaceMemberCommand) (application.Void, error) {
+func (h *AddWorkspaceMemberHandler) Handle(ctx context.Context, cmd AddWorkspaceMemberCommand) (AddWorkspaceMemberResponse, error) {
 	meta := causation.FromContext(ctx)
 
 	ws, err := h.repo.FindByID(ctx, cmd.WorkspaceID)
 	if err != nil {
-		return application.Void{}, err
+		return AddWorkspaceMemberResponse{}, err
 	}
 
 	if !ws.IsOwner(userDomain.UserID(meta.UserID)) && !meta.IsSystem() {
-		return application.Void{}, domain.ErrNotOwner
+		return AddWorkspaceMemberResponse{}, domain.ErrNotOwner
 	}
 
 	if err := ws.AddMember(cmd.UserID, cmd.Role); err != nil {
-		return application.Void{}, err
+		return AddWorkspaceMemberResponse{}, err
 	}
 
 	if err := h.repo.Save(ctx, ws); err != nil {
-		return application.Void{}, err
+		return AddWorkspaceMemberResponse{}, err
 	}
 
-	return application.Void{}, nil
+	return AddWorkspaceMemberResponse{}, nil
 }

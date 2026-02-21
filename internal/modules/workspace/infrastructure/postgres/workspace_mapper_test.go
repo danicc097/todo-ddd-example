@@ -39,9 +39,9 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 
 		payload := data.(postgres.WorkspaceCreatedDTO)
 
-		assert.Equal(t, id, payload.ID)
+		assert.Equal(t, domain.WorkspaceID(id), payload.ID)
 		assert.Equal(t, "Test WS", payload.Name)
-		assert.Equal(t, ownerID, payload.OwnerID)
+		assert.Equal(t, userDomain.UserID(ownerID), payload.OwnerID)
 	})
 
 	t.Run("MemberAddedEvent", func(t *testing.T) {
@@ -62,8 +62,8 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 
 		payload := data.(postgres.MemberAddedDTO)
 
-		assert.Equal(t, wsID, payload.WorkspaceID)
-		assert.Equal(t, userID, payload.UserID)
+		assert.Equal(t, domain.WorkspaceID(wsID), payload.WorkspaceID)
+		assert.Equal(t, userDomain.UserID(userID), payload.UserID)
 		assert.Equal(t, "OWNER", payload.Role)
 	})
 }

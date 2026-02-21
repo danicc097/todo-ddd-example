@@ -3,13 +3,16 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
+	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 type AuthRepo struct {
@@ -21,14 +24,22 @@ func NewAuthRepo(pool *pgxpool.Pool) *AuthRepo {
 	return &AuthRepo{q: db.New(), pool: pool}
 }
 
+func (r *AuthRepo) getDB(ctx context.Context) db.DBTX {
+	if tx := infraDB.ExtractTx(ctx); tx != nil {
+		return tx
+	}
+
+	return r.pool
+}
+
 func (r *AuthRepo) FindByUserID(ctx context.Context, userID userDomain.UserID) (*domain.UserAuth, error) {
-	row, err := r.q.GetUserAuth(ctx, r.pool, userID.UUID())
+	row, err := r.q.GetUserAuth(ctx, r.getDB(ctx), userID.UUID())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrAuthNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("failed to get auth for user %s: %w", userID, sharedPg.ParseDBError(err))
 	}
 
 	passhash := ""
@@ -48,11 +59,16 @@ func (r *AuthRepo) Save(ctx context.Context, auth *domain.UserAuth) error {
 	cipher, nonce := auth.TOTPCredentials()
 	pass := auth.PasswordHash()
 
-	return r.q.UpsertUserAuth(ctx, r.pool, db.UpsertUserAuthParams{
+	err := r.q.UpsertUserAuth(ctx, r.getDB(ctx), db.UpsertUserAuthParams{
 		UserID:           auth.UserID().UUID(),
 		TotpStatus:       auth.TOTPStatus(),
 		TotpSecretCipher: cipher,
 		TotpSecretNonce:  nonce,
 		PasswordHash:     &pass,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to save auth for user %s: %w", auth.UserID(), sharedPg.ParseDBError(err))
+	}
+
+	return nil
 }

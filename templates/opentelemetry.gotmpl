@@ -1,6 +1,7 @@
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -38,6 +39,7 @@ func (_d {{$decorator}}) {{$method.Declaration}} {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "{{$spanNameType}}.{{$method.Name}}", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "{{$method.Name}}"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {

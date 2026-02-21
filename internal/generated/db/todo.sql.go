@@ -30,6 +30,16 @@ func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoPar
 	return err
 }
 
+const DeleteTodo = `-- name: DeleteTodo :exec
+DELETE FROM todos
+WHERE id = $1
+`
+
+func (q *Queries) DeleteTodo(ctx context.Context, db DBTX, id types.TodoID) error {
+	_, err := db.Exec(ctx, DeleteTodo, id)
+	return err
+}
+
 const GetTodoByID = `-- name: GetTodoByID :one
 SELECT
   t.id,

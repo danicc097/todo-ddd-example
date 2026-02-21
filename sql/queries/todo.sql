@@ -59,3 +59,7 @@ DELETE FROM todo_tags
 WHERE todo_id = $1
   AND NOT (tag_id = ANY (sqlc.arg(tags)::uuid[]));
 
+-- name: DeleteTodo :exec
+DELETE FROM todos
+WHERE id = $1;
+

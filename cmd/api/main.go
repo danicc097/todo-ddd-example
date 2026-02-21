@@ -294,9 +294,9 @@ func main() {
 
 	getUserUC := userApp.NewGetUserUseCase(userRepo)
 
-	wsUserGateway := userAdapters.NewWorkspaceUserGateway(userRepo)
+	wsUserProvider := userAdapters.NewWorkspaceUserProvider(userRepo)
 
-	onboardWsBase := wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserGateway)
+	onboardWsBase := wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider)
 	onboardWsHandler := sharedMiddleware.Transactional(pool, onboardWsBase)
 
 	addWsMemberBase := wsApp.NewAddWorkspaceMemberHandler(wsRepo)
@@ -311,7 +311,7 @@ func main() {
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
 
-	wsGate := wsAdapters.NewTodoWorkspaceGateway(wsRepo)
+	wsGate := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
 	hub := ws.NewTodoHub(redisClient, workspaceQueryService)
 

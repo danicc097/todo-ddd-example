@@ -18,3 +18,12 @@ const (
 func (s TodoStatus) String() string {
 	return string(s)
 }
+
+func (s TodoStatus) MarshalText() ([]byte, error) {
+	return []byte(s), nil
+}
+
+func (s *TodoStatus) UnmarshalText(text []byte) error {
+	*s = TodoStatus(text)
+	return nil
+}

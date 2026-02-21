@@ -27,7 +27,7 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 
 	repo := wsPg.NewWorkspaceRepo(pool)
-	up := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
+	up := userAdapters.NewWorkspaceUserProvider(fixtures.UserRepo)
 
 	baseHandler := application.NewOnboardWorkspaceHandler(repo, up)
 	handler := middleware.Transactional(pool, baseHandler)

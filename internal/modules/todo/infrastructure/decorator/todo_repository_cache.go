@@ -62,3 +62,22 @@ func (r *todoRepositoryCache) FindAllByWorkspace(ctx context.Context, wsID wsDom
 		return r.base.FindAllByWorkspace(ctx, wsID)
 	})
 }
+
+func (r *todoRepositoryCache) Delete(ctx context.Context, id domain.TodoID) error {
+	todo, err := r.base.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := r.base.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	db.AfterCommit(ctx, func(ctx context.Context) {
+		r.rdb.Del(ctx, cache.Keys.Todo(id))
+		_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(todo.WorkspaceID()))
+		r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(todo.WorkspaceID()))
+	})
+
+	return nil
+}

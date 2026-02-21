@@ -65,18 +65,3 @@ WHERE
 ORDER BY
   w.created_at DESC;
 
--- name: ListWorkspacesWithMembers :many
-SELECT
-  w.id,
-  w.name,
-  w.description,
-  w.created_at,
-  COALESCE(json_agg(json_build_object('user_id', wm.user_id, 'role', wm.role)) FILTER (WHERE wm.user_id IS NOT NULL), '[]')::json AS members
-FROM
-  workspaces w
-  LEFT JOIN workspace_members wm ON w.id = wm.workspace_id
-GROUP BY
-  w.id
-ORDER BY
-  w.created_at DESC;
-

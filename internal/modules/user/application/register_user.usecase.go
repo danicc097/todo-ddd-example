@@ -34,7 +34,7 @@ func (uc *RegisterUserUseCase) Execute(ctx context.Context, cmd RegisterUserComm
 		return RegisterUserResponse{}, err
 	}
 
-	user := domain.CreateUser(email, name)
+	user := domain.NewUser(email, name)
 	if err := uc.repo.Save(ctx, user); err != nil {
 		return RegisterUserResponse{}, err
 	}

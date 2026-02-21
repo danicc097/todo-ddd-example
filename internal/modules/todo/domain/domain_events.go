@@ -13,7 +13,20 @@ var (
 	_ shared.DomainEvent = (*TodoCreatedEvent)(nil)
 	_ shared.DomainEvent = (*TodoCompletedEvent)(nil)
 	_ shared.DomainEvent = (*TagAddedEvent)(nil)
+	_ shared.DomainEvent = (*TagCreatedEvent)(nil)
 )
+
+type TagCreatedEvent struct {
+	ID   TagID
+	Name TagName
+	WsID wsDomain.WorkspaceID
+}
+
+func (e TagCreatedEvent) EventName() shared.EventType         { return shared.TodoTagCreated }
+func (e TagCreatedEvent) OccurredAt() time.Time               { return time.Now() }
+func (e TagCreatedEvent) AggregateID() uuid.UUID              { return e.ID.UUID() }
+func (e TagCreatedEvent) AggregateType() shared.AggregateType { return shared.AggTag }
+func (e TagCreatedEvent) WorkspaceID() uuid.UUID              { return e.WsID.UUID() }
 
 type TodoCreatedEvent struct {
 	ID        TodoID

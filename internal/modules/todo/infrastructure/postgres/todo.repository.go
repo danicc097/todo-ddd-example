@@ -51,7 +51,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 		WorkspaceID: p.WorkspaceID,
 	})
 	if err != nil {
-		return fmt.Errorf("could not save todo: %w", sharedPg.ParseDBError(err))
+		return fmt.Errorf("failed to upsert todo %s: %w", t.ID(), sharedPg.ParseDBError(err))
 	}
 
 	tagUUIDs := make([]uuid.UUID, len(t.Tags()))
@@ -64,7 +64,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 		Tags:   tagUUIDs,
 	})
 	if err != nil {
-		return fmt.Errorf("could not sync tags: %w", sharedPg.ParseDBError(err))
+		return fmt.Errorf("failed to sync tags for todo %s: %w", t.ID(), sharedPg.ParseDBError(err))
 	}
 
 	for _, tagID := range t.Tags() {
@@ -73,7 +73,7 @@ func (r *TodoRepo) Save(ctx context.Context, t *domain.Todo) error {
 			TagID:  tagID,
 		})
 		if err != nil {
-			return fmt.Errorf("could not add tag to todo: %w", sharedPg.ParseDBError(err))
+			return fmt.Errorf("failed to add tag %s to todo %s: %w", tagID, t.ID(), sharedPg.ParseDBError(err))
 		}
 	}
 
@@ -87,7 +87,7 @@ func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo
 			return nil, domain.ErrTodoNotFound
 		}
 
-		return nil, fmt.Errorf("failed to get todo: %w", sharedPg.ParseDBError(err))
+		return nil, fmt.Errorf("failed to get todo %s: %w", id, sharedPg.ParseDBError(err))
 	}
 
 	return r.mapper.ToDomain(row), nil
@@ -100,7 +100,7 @@ func (r *TodoRepo) FindAllByWorkspace(ctx context.Context, wsID wsDomain.Workspa
 		Offset:      0,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list todos: %w", sharedPg.ParseDBError(err))
+		return nil, fmt.Errorf("failed to list todos for workspace %s: %w", wsID, sharedPg.ParseDBError(err))
 	}
 
 	todos := make([]*domain.Todo, len(rows))
@@ -109,4 +109,14 @@ func (r *TodoRepo) FindAllByWorkspace(ctx context.Context, wsID wsDomain.Workspa
 	}
 
 	return todos, nil
+}
+
+func (r *TodoRepo) Delete(ctx context.Context, id domain.TodoID) error {
+	dbtx := r.getDB(ctx)
+
+	if err := r.q.DeleteTodo(ctx, dbtx, id); err != nil {
+		return fmt.Errorf("failed to delete todo %s: %w", id, sharedPg.ParseDBError(err))
+	}
+
+	return nil
 }

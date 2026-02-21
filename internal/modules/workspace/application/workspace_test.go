@@ -28,7 +28,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 
 	repo := wsPg.NewWorkspaceRepo(pool)
-	up := userAdapters.NewWorkspaceUserGateway(fixtures.UserRepo)
+	up := userAdapters.NewWorkspaceUserProvider(fixtures.UserRepo)
 
 	t.Run("onboard workspace", func(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)

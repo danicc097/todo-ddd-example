@@ -18,6 +18,9 @@ type Querier interface {
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
 	DeleteIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) error
 	DeleteProcessedOutboxEvents(ctx context.Context, db DBTX) error
+	DeleteTag(ctx context.Context, db DBTX, id types.TagID) error
+	DeleteTodo(ctx context.Context, db DBTX, id types.TodoID) error
+	DeleteUser(ctx context.Context, db DBTX, id types.UserID) error
 	DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error
 	GetIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (IdempotencyKeys, error)
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
@@ -35,7 +38,6 @@ type Querier interface {
 	ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListTodosByWorkspaceIDParams) ([]ListTodosByWorkspaceIDRow, error)
 	ListWorkspaces(ctx context.Context, db DBTX, arg ListWorkspacesParams) ([]Workspaces, error)
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
-	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	RemoveMissingTagsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingTagsFromTodoParams) error
 	RemoveWorkspaceMember(ctx context.Context, db DBTX, arg RemoveWorkspaceMemberParams) error

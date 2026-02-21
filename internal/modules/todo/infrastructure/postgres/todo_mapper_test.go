@@ -41,8 +41,8 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 
 		payload := data.(postgres.TodoOutboxDTO)
 
-		assert.Equal(t, id, payload.ID)
-		assert.Equal(t, wsID, payload.WorkspaceID)
+		assert.Equal(t, domain.TodoID(id), payload.ID)
+		assert.Equal(t, wsDomain.WorkspaceID(wsID), payload.WorkspaceID)
 		assert.Equal(t, "Test Todo", payload.Title)
 		assert.Equal(t, "PENDING", payload.Status)
 	})
@@ -65,7 +65,7 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 
 		payload := data.(postgres.TagAddedOutboxDTO)
 
-		assert.Equal(t, todoID, payload.TodoID)
-		assert.Equal(t, tagID, payload.TagID)
+		assert.Equal(t, domain.TodoID(todoID), payload.TodoID)
+		assert.Equal(t, domain.TagID(tagID), payload.TagID)
 	})
 }

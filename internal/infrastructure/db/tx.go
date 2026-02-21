@@ -15,11 +15,6 @@ type txState struct {
 	afterCommitHooks []func(ctx context.Context)
 }
 
-// InjectTx puts a transaction into the context.
-func InjectTx(ctx context.Context, tx pgx.Tx) context.Context {
-	return context.WithValue(ctx, txKey{}, &txState{tx: tx})
-}
-
 // ExtractTx retrieves a transaction from the context, if any.
 func ExtractTx(ctx context.Context) pgx.Tx {
 	if state, ok := ctx.Value(txKey{}).(*txState); ok {

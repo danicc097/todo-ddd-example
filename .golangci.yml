@@ -23,7 +23,6 @@ linters:
     - nlreturn
     - noctx
     - nonamedreturns
-    - revive
     - sqlclosecheck
     - tagalign
     - testpackage
@@ -33,6 +32,10 @@ linters:
     - wsl
     - dogsled
   settings:
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
     paralleltest:
       ignore-missing-subtests: true
     errcheck:

@@ -9,9 +9,9 @@ import (
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	"go.opentelemetry.io/otel/attribute"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -44,6 +44,7 @@ func (_d AuthRepositoryWithTracing) FindByUserID(ctx context.Context, userID use
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.FindByUserID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "FindByUserID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -71,6 +72,7 @@ func (_d AuthRepositoryWithTracing) Save(ctx context.Context, auth *_sourceDomai
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "AuthRepository.Save", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "Save"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {

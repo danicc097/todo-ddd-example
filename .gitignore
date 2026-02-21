@@ -8,3 +8,4 @@ sql/schema.sql
 /todo-cli
 .direnv
 .test_last_run
+tmp/

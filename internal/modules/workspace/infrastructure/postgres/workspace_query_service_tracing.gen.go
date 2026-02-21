@@ -10,9 +10,9 @@ import (
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"go.opentelemetry.io/otel/attribute"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -45,6 +45,7 @@ func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context, limit int32
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.List", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "List"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -73,6 +74,7 @@ func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, use
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListByUserID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "ListByUserID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -100,6 +102,7 @@ func (_d WorkspaceQueryServiceWithTracing) ListTagsByWorkspaceID(ctx context.Con
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListTagsByWorkspaceID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "ListTagsByWorkspaceID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {

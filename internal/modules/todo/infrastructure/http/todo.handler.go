@@ -19,9 +19,9 @@ import (
 
 type TodoHandler struct {
 	createHandler    sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse]
-	completeHandler  sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void]
+	completeHandler  sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse]
 	createTagHandler sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse]
-	assignTagHandler sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void]
+	assignTagHandler sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse]
 
 	// keeping queries nontransactional
 	queryService application.TodoQueryService
@@ -32,9 +32,9 @@ type TodoHandler struct {
 
 func NewTodoHandler(
 	c sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse],
-	comp sharedApp.RequestHandler[application.CompleteTodoCommand, sharedApp.Void],
+	comp sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse],
 	ct sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse],
-	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, sharedApp.Void],
+	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse],
 	qs application.TodoQueryService,
 	hub *ws.Hub,
 	redis *redis.Client,
@@ -70,7 +70,7 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }
 
 func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID, params api.GetWorkspaceTodosParams) {
@@ -175,5 +175,5 @@ func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params 
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }

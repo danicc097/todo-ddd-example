@@ -12,27 +12,29 @@ type AssignTagToTodoCommand struct {
 	TagID  domain.TagID
 }
 
+type AssignTagToTodoResponse struct{}
+
 type AssignTagToTodoHandler struct {
 	repo domain.TodoRepository
 }
 
-var _ application.RequestHandler[AssignTagToTodoCommand, application.Void] = (*AssignTagToTodoHandler)(nil)
+var _ application.RequestHandler[AssignTagToTodoCommand, AssignTagToTodoResponse] = (*AssignTagToTodoHandler)(nil)
 
 func NewAssignTagToTodoHandler(repo domain.TodoRepository) *AssignTagToTodoHandler {
 	return &AssignTagToTodoHandler{repo: repo}
 }
 
-func (h *AssignTagToTodoHandler) Handle(ctx context.Context, cmd AssignTagToTodoCommand) (application.Void, error) {
+func (h *AssignTagToTodoHandler) Handle(ctx context.Context, cmd AssignTagToTodoCommand) (AssignTagToTodoResponse, error) {
 	todo, err := h.repo.FindByID(ctx, cmd.TodoID)
 	if err != nil {
-		return application.Void{}, err
+		return AssignTagToTodoResponse{}, err
 	}
 
 	todo.AddTag(cmd.TagID)
 
 	if err := h.repo.Save(ctx, todo); err != nil {
-		return application.Void{}, err
+		return AssignTagToTodoResponse{}, err
 	}
 
-	return application.Void{}, nil
+	return AssignTagToTodoResponse{}, nil
 }

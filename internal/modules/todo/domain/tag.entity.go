@@ -11,17 +11,28 @@ var ErrTagNotFound = shared.NewDomainError(apperrors.NotFound, "tag not found")
 type TagID = shared.ID[Tag]
 
 type Tag struct {
+	shared.AggregateRoot
+
 	id          TagID
 	name        TagName
 	workspaceID wsDomain.WorkspaceID
 }
 
 func NewTag(name TagName, workspaceID wsDomain.WorkspaceID) *Tag {
-	return &Tag{
-		id:          shared.NewID[Tag](),
+	id := shared.NewID[Tag]()
+	t := &Tag{
+		id:          id,
 		name:        name,
 		workspaceID: workspaceID,
 	}
+
+	t.RecordEvent(TagCreatedEvent{
+		ID:   id,
+		Name: name,
+		WsID: workspaceID,
+	})
+
+	return t
 }
 
 func ReconstituteTag(id TagID, name TagName, workspaceID wsDomain.WorkspaceID) *Tag {

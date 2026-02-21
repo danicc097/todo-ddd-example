@@ -15,19 +15,19 @@ import (
 
 type WorkspaceHandler struct {
 	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse]
-	addMemberHandler    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void]
-	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void]
-	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void]
+	addMemberHandler    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse]
+	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse]
+	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse]
 
 	queryService application.WorkspaceQueryService
 }
 
 func NewWorkspaceHandler(
 	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse],
-	addMemberHandler sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, sharedApp.Void],
-	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, sharedApp.Void],
+	addMemberHandler sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse],
+	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse],
 	qs application.WorkspaceQueryService,
-	deleteHandler sharedApp.RequestHandler[application.DeleteWorkspaceCommand, sharedApp.Void],
+	deleteHandler sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse],
 ) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		onboardHandler:      onboardHandler,

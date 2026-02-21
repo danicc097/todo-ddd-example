@@ -44,7 +44,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (Regi
 		return RegisterUserResponse{}, err
 	}
 
-	user := userDomain.CreateUser(email, name)
+	user := userDomain.NewUser(email, name)
 
 	// non-owasp: should also check passwords against a compromised list and password strength.
 	hash, err := h.hasher.Hash(cmd.Password.ExposeSecret())

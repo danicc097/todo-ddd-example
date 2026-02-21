@@ -214,13 +214,14 @@ func (p *PostgreSQLContainer) CreateTestDatabase(ctx context.Context, t *testing
 	for range 50 {
 		pool, err = pgxpool.New(ctx, testConnStr)
 		if err == nil {
-			if pingErr := pool.Ping(ctx); pingErr == nil {
+			pingErr := pool.Ping(ctx)
+			if pingErr == nil {
 				break
-			} else {
-				err = pingErr
-
-				pool.Close()
 			}
+
+			err = pingErr
+
+			pool.Close()
 		}
 
 		time.Sleep(100 * time.Millisecond)

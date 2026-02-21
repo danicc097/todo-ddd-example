@@ -31,3 +31,7 @@ WHERE
 ORDER BY
   name ASC;
 
+-- name: DeleteTag :exec
+DELETE FROM tags
+WHERE id = $1;
+

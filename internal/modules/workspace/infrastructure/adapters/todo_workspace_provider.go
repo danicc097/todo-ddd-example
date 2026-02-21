@@ -9,15 +9,17 @@ import (
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
-type TodoWorkspaceGateway struct {
+type TodoWorkspaceProvider struct {
 	Repo wsDomain.WorkspaceRepository
 }
 
-func NewTodoWorkspaceGateway(repo wsDomain.WorkspaceRepository) *TodoWorkspaceGateway {
-	return &TodoWorkspaceGateway{Repo: repo}
+var _ todoApp.WorkspaceProvider = (*TodoWorkspaceProvider)(nil)
+
+func NewTodoWorkspaceProvider(repo wsDomain.WorkspaceRepository) *TodoWorkspaceProvider {
+	return &TodoWorkspaceProvider{Repo: repo}
 }
 
-func (g *TodoWorkspaceGateway) IsMember(ctx context.Context, wsID wsDomain.WorkspaceID, userID userDomain.UserID) (bool, error) {
+func (g *TodoWorkspaceProvider) IsMember(ctx context.Context, wsID wsDomain.WorkspaceID, userID userDomain.UserID) (bool, error) {
 	ws, err := g.Repo.FindByID(ctx, wsID)
 	if err != nil {
 		if errors.Is(err, wsDomain.ErrWorkspaceNotFound) {
@@ -31,5 +33,3 @@ func (g *TodoWorkspaceGateway) IsMember(ctx context.Context, wsID wsDomain.Works
 
 	return isMember, nil
 }
-
-var _ todoApp.WorkspaceProvider = (*TodoWorkspaceGateway)(nil)

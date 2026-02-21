@@ -10,9 +10,9 @@ import (
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"go.opentelemetry.io/otel/attribute"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -45,6 +45,7 @@ func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsI
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAllByWorkspace", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "GetAllByWorkspace"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -74,6 +75,7 @@ func (_d TodoQueryServiceWithTracing) GetByID(ctx context.Context, id domain.Tod
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetByID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "GetByID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {

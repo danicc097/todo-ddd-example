@@ -14,6 +14,8 @@ type CompleteTodoCommand struct {
 	ID domain.TodoID
 }
 
+type CompleteTodoResponse struct{}
+
 type WorkspaceProvider interface {
 	IsMember(ctx context.Context, wsID wsDomain.WorkspaceID, userID userDomain.UserID) (bool, error)
 }
@@ -23,32 +25,32 @@ type CompleteTodoHandler struct {
 	wsProv WorkspaceProvider
 }
 
-var _ application.RequestHandler[CompleteTodoCommand, application.Void] = (*CompleteTodoHandler)(nil)
+var _ application.RequestHandler[CompleteTodoCommand, CompleteTodoResponse] = (*CompleteTodoHandler)(nil)
 
 func NewCompleteTodoHandler(repo domain.TodoRepository, wsProv WorkspaceProvider) *CompleteTodoHandler {
 	return &CompleteTodoHandler{repo: repo, wsProv: wsProv}
 }
 
-func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoCommand) (application.Void, error) {
+func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoCommand) (CompleteTodoResponse, error) {
 	meta := causation.FromContext(ctx)
 
 	todo, err := h.repo.FindByID(ctx, cmd.ID)
 	if err != nil {
-		return application.Void{}, err
+		return CompleteTodoResponse{}, err
 	}
 
 	isMember, err := h.wsProv.IsMember(ctx, todo.WorkspaceID(), userDomain.UserID(meta.UserID))
 	if err != nil {
-		return application.Void{}, err
+		return CompleteTodoResponse{}, err
 	}
 
 	if !isMember && !meta.IsSystem() {
-		return application.Void{}, wsDomain.ErrNotOwner
+		return CompleteTodoResponse{}, wsDomain.ErrNotOwner
 	}
 
 	if err := todo.Complete(); err != nil {
-		return application.Void{}, err
+		return CompleteTodoResponse{}, err
 	}
 
-	return application.Void{}, h.repo.Save(ctx, todo)
+	return CompleteTodoResponse{}, h.repo.Save(ctx, todo)
 }

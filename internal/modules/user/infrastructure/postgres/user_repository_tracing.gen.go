@@ -8,9 +8,9 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	"go.opentelemetry.io/otel/attribute"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -38,11 +38,39 @@ func NewUserRepositoryWithTracing(base _sourceDomain.UserRepository, instance st
 	return d
 }
 
+// Delete implements UserRepository
+func (_d UserRepositoryWithTracing) Delete(ctx context.Context, id _sourceDomain.UserID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.Delete", trace.WithAttributes(
+		semconv.DBSystemNamePostgreSQL,
+		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "Delete"),
+	))
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx,
+				"id":  id}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.UserRepository.Delete(ctx, id)
+}
+
 // FindByEmail implements UserRepository
 func (_d UserRepositoryWithTracing) FindByEmail(ctx context.Context, email _sourceDomain.UserEmail) (up1 *_sourceDomain.User, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.FindByEmail", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "FindByEmail"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -70,6 +98,7 @@ func (_d UserRepositoryWithTracing) FindByID(ctx context.Context, id _sourceDoma
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.FindByID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "FindByID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -97,6 +126,7 @@ func (_d UserRepositoryWithTracing) Save(ctx context.Context, user *_sourceDomai
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "UserRepository.Save", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "Save"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {

@@ -57,3 +57,21 @@ func (r *tagRepositoryCache) FindByID(ctx context.Context, id domain.TagID) (*do
 func (r *tagRepositoryCache) FindByName(ctx context.Context, workspaceID wsDomain.WorkspaceID, name string) (*domain.Tag, error) {
 	return r.base.FindByName(ctx, workspaceID, name)
 }
+
+func (r *tagRepositoryCache) Delete(ctx context.Context, id domain.TagID) error {
+	tag, err := r.base.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := r.base.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	db.AfterCommit(ctx, func(ctx context.Context) {
+		r.rdb.Del(ctx, cache.Keys.Tag(id))
+		_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(tag.WorkspaceID()))
+	})
+
+	return nil
+}

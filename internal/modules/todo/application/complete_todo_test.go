@@ -27,7 +27,7 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 	repo := todoPg.NewTodoRepo(pool)
 	wsRepo := wsPg.NewWorkspaceRepo(pool)
-	wsProv := wsAdapters.NewTodoWorkspaceGateway(wsRepo)
+	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
 	baseHandler := application.NewCompleteTodoHandler(repo, wsProv)
 	handler := middleware.Transactional(pool, baseHandler)

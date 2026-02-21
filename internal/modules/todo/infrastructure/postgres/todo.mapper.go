@@ -3,10 +3,9 @@ package postgres
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
@@ -64,43 +63,23 @@ func (m *TodoMapper) ToPersistence(t *domain.Todo) db.Todos {
 }
 
 /**
- * Tags
- */
-
-type TagMapper struct{}
-
-func (m *TagMapper) ToDomain(row db.Tags) *domain.Tag {
-	name, _ := domain.NewTagName(row.Name)
-	return domain.ReconstituteTag(row.ID, name, row.WorkspaceID)
-}
-
-// ToPersistence maps Domain to the primary table struct.
-func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
-	return db.Tags{
-		ID:          t.ID(),
-		Name:        t.Name().String(),
-		WorkspaceID: t.WorkspaceID(),
-	}
-}
-
-/**
  * Events
  */
 
 type TodoOutboxDTO struct {
-	ID           uuid.UUID `json:"id"`
-	WorkspaceID  uuid.UUID `json:"workspace_id"`
-	Title        string    `json:"title"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	EventVersion int       `json:"event_version"`
+	ID           domain.TodoID        `json:"id"`
+	WorkspaceID  wsDomain.WorkspaceID `json:"workspace_id"`
+	Title        string               `json:"title"`
+	Status       string               `json:"status"`
+	CreatedAt    time.Time            `json:"created_at"`
+	EventVersion int                  `json:"event_version"`
 }
 
 type TagAddedOutboxDTO struct {
-	TodoID       uuid.UUID `json:"todo_id"`
-	TagID        uuid.UUID `json:"tag_id"`
-	WorkspaceID  uuid.UUID `json:"workspace_id"`
-	EventVersion int       `json:"event_version"`
+	TodoID       domain.TodoID        `json:"todo_id"`
+	TagID        domain.TagID         `json:"tag_id"`
+	WorkspaceID  wsDomain.WorkspaceID `json:"workspace_id"`
+	EventVersion int                  `json:"event_version"`
 }
 
 func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, error) {
@@ -109,8 +88,8 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, erro
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
 		payload = TodoOutboxDTO{
-			ID:           evt.ID.UUID(),
-			WorkspaceID:  evt.WsID.UUID(),
+			ID:           evt.ID,
+			WorkspaceID:  evt.WsID,
 			Title:        evt.Title.String(),
 			Status:       evt.Status.String(),
 			CreatedAt:    evt.CreatedAt,
@@ -118,8 +97,8 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, erro
 		}
 	case domain.TodoCompletedEvent:
 		payload = TodoOutboxDTO{
-			ID:           evt.ID.UUID(),
-			WorkspaceID:  evt.WsID.UUID(),
+			ID:           evt.ID,
+			WorkspaceID:  evt.WsID,
 			Title:        evt.Title.String(),
 			Status:       evt.Status.String(),
 			CreatedAt:    evt.CreatedAt,
@@ -127,9 +106,9 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, erro
 		}
 	case domain.TagAddedEvent:
 		payload = TagAddedOutboxDTO{
-			TodoID:       evt.TodoID.UUID(),
-			TagID:        evt.TagID.UUID(),
-			WorkspaceID:  evt.WsID.UUID(),
+			TodoID:       evt.TodoID,
+			TagID:        evt.TagID,
+			WorkspaceID:  evt.WsID,
 			EventVersion: 1,
 		}
 	default:

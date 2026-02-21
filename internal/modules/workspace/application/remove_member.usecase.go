@@ -13,25 +13,27 @@ type RemoveWorkspaceMemberCommand struct {
 	MemberID    userDomain.UserID
 }
 
+type RemoveWorkspaceMemberResponse struct{}
+
 type RemoveWorkspaceMemberHandler struct {
 	repo domain.WorkspaceRepository
 }
 
-var _ application.RequestHandler[RemoveWorkspaceMemberCommand, application.Void] = (*RemoveWorkspaceMemberHandler)(nil)
+var _ application.RequestHandler[RemoveWorkspaceMemberCommand, RemoveWorkspaceMemberResponse] = (*RemoveWorkspaceMemberHandler)(nil)
 
 func NewRemoveWorkspaceMemberHandler(repo domain.WorkspaceRepository) *RemoveWorkspaceMemberHandler {
 	return &RemoveWorkspaceMemberHandler{repo: repo}
 }
 
-func (h *RemoveWorkspaceMemberHandler) Handle(ctx context.Context, cmd RemoveWorkspaceMemberCommand) (application.Void, error) {
+func (h *RemoveWorkspaceMemberHandler) Handle(ctx context.Context, cmd RemoveWorkspaceMemberCommand) (RemoveWorkspaceMemberResponse, error) {
 	ws, err := h.repo.FindByID(ctx, cmd.WorkspaceID)
 	if err != nil {
-		return application.Void{}, err
+		return RemoveWorkspaceMemberResponse{}, err
 	}
 
 	if err := ws.RemoveMember(cmd.MemberID); err != nil {
-		return application.Void{}, err
+		return RemoveWorkspaceMemberResponse{}, err
 	}
 
-	return application.Void{}, h.repo.Save(ctx, ws)
+	return RemoveWorkspaceMemberResponse{}, h.repo.Save(ctx, ws)
 }

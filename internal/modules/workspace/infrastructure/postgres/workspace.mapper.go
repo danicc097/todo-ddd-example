@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
@@ -27,12 +25,12 @@ func (m *WorkspaceMapper) ToDomain(w db.Workspaces, members []db.WorkspaceMember
 	}
 
 	name, _ := domain.NewWorkspaceName(w.Name)
-	description, _ := domain.NewWorkspaceDescription(w.Description)
+	desc, _ := domain.NewWorkspaceDescription(w.Description)
 
 	return domain.ReconstituteWorkspace(
 		w.ID,
 		name,
-		description,
+		desc,
 		w.CreatedAt,
 		domainMemberMap,
 	), nil
@@ -50,32 +48,32 @@ func (m *WorkspaceMapper) ToPersistence(w *domain.Workspace) db.Workspaces {
 // Outbox DTOs
 
 type WorkspaceCreatedDTO struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	OwnerID      uuid.UUID `json:"owner_id"`
-	Occurred     time.Time `json:"occurred_at"`
-	EventVersion int       `json:"event_version"`
+	ID           domain.WorkspaceID `json:"id"`
+	Name         string             `json:"name"`
+	OwnerID      userDomain.UserID  `json:"owner_id"`
+	Occurred     time.Time          `json:"occurred_at"`
+	EventVersion int                `json:"event_version"`
 }
 
 type WorkspaceDeletedDTO struct {
-	ID           uuid.UUID `json:"id"`
-	Occurred     time.Time `json:"occurred_at"`
-	EventVersion int       `json:"event_version"`
+	ID           domain.WorkspaceID `json:"id"`
+	Occurred     time.Time          `json:"occurred_at"`
+	EventVersion int                `json:"event_version"`
 }
 
 type MemberAddedDTO struct {
-	WorkspaceID  uuid.UUID `json:"workspace_id"`
-	UserID       uuid.UUID `json:"user_id"`
-	Role         string    `json:"role"`
-	Occurred     time.Time `json:"occurred_at"`
-	EventVersion int       `json:"event_version"`
+	WorkspaceID  domain.WorkspaceID `json:"workspace_id"`
+	UserID       userDomain.UserID  `json:"user_id"`
+	Role         string             `json:"role"`
+	Occurred     time.Time          `json:"occurred_at"`
+	EventVersion int                `json:"event_version"`
 }
 
 type MemberRemovedDTO struct {
-	WorkspaceID  uuid.UUID `json:"workspace_id"`
-	UserID       uuid.UUID `json:"user_id"`
-	Occurred     time.Time `json:"occurred_at"`
-	EventVersion int       `json:"event_version"`
+	WorkspaceID  domain.WorkspaceID `json:"workspace_id"`
+	UserID       userDomain.UserID  `json:"user_id"`
+	Occurred     time.Time          `json:"occurred_at"`
+	EventVersion int                `json:"event_version"`
 }
 
 func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, any, error) {
@@ -84,30 +82,30 @@ func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, 
 	switch evt := event.(type) {
 	case domain.WorkspaceCreatedEvent:
 		payload = WorkspaceCreatedDTO{
-			ID:           evt.ID.UUID(),
+			ID:           evt.ID,
 			Name:         evt.Name.String(),
-			OwnerID:      evt.OwnerID.UUID(),
+			OwnerID:      evt.OwnerID,
 			Occurred:     evt.Occurred,
 			EventVersion: 1,
 		}
 	case domain.MemberAddedEvent:
 		payload = MemberAddedDTO{
-			WorkspaceID:  evt.WsID.UUID(),
-			UserID:       evt.UserID.UUID(),
-			Role:         string(evt.Role),
+			WorkspaceID:  evt.WsID,
+			UserID:       evt.UserID,
+			Role:         evt.Role.String(),
 			Occurred:     evt.Occurred,
 			EventVersion: 1,
 		}
 	case domain.MemberRemovedEvent:
 		payload = MemberRemovedDTO{
-			WorkspaceID:  evt.WsID.UUID(),
-			UserID:       evt.UserID.UUID(),
+			WorkspaceID:  evt.WsID,
+			UserID:       evt.UserID,
 			Occurred:     evt.Occurred,
 			EventVersion: 1,
 		}
 	case domain.WorkspaceDeletedEvent:
 		payload = WorkspaceDeletedDTO{
-			ID:           evt.ID.UUID(),
+			ID:           evt.ID,
 			Occurred:     evt.Occurred,
 			EventVersion: 1,
 		}

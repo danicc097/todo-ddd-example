@@ -43,7 +43,7 @@ func (f *Fixtures) RandomUser(ctx context.Context, t *testing.T) *userDomain.Use
 	require.NoError(t, err)
 
 	name, _ := userDomain.NewUserName("Random User " + uid)
-	user := userDomain.CreateUser(email, name)
+	user := userDomain.NewUser(email, name)
 	require.NoError(t, f.UserRepo.Save(ctx, user))
 
 	return user

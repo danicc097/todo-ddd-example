@@ -20,15 +20,37 @@ type User struct {
 	createdAt time.Time
 }
 
-func NewUser(id UserID, email UserEmail, name UserName, createdAt time.Time) *User {
+func ReconstituteUser(id UserID, email UserEmail, name UserName, createdAt time.Time) *User {
 	return &User{id: id, email: email, name: name, createdAt: createdAt}
 }
 
-func CreateUser(email UserEmail, name UserName) *User {
-	return &User{id: shared.NewID[User](), email: email, name: name, createdAt: time.Now()}
+func NewUser(email UserEmail, name UserName) *User {
+	id := shared.NewID[User]()
+	now := time.Now()
+	u := &User{
+		id:        id,
+		email:     email,
+		name:      name,
+		createdAt: now,
+	}
+	u.RecordEvent(UserCreatedEvent{
+		ID:       id,
+		Email:    email,
+		Name:     name,
+		Occurred: now,
+	})
+
+	return u
 }
 
 func (u *User) ID() UserID           { return u.id }
 func (u *User) Email() UserEmail     { return u.email }
 func (u *User) Name() UserName       { return u.name }
 func (u *User) CreatedAt() time.Time { return u.createdAt }
+
+func (u *User) Delete() {
+	u.RecordEvent(UserDeletedEvent{
+		ID:       u.id,
+		Occurred: time.Now(),
+	})
+}

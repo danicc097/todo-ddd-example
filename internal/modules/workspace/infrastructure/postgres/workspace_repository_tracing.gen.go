@@ -8,9 +8,9 @@ import (
 	"context"
 
 	_sourceDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"go.opentelemetry.io/otel/attribute"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -43,6 +43,7 @@ func (_d WorkspaceRepositoryWithTracing) Delete(ctx context.Context, id _sourceD
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Delete", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "Delete"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -69,6 +70,7 @@ func (_d WorkspaceRepositoryWithTracing) FindByID(ctx context.Context, id _sourc
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.FindByID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "FindByID"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -96,6 +98,7 @@ func (_d WorkspaceRepositoryWithTracing) Save(ctx context.Context, w *_sourceDom
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceRepository.Save", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
+		attribute.String("db.operation", "Save"),
 	))
 	defer func() {
 		if _d._spanDecorator != nil {
