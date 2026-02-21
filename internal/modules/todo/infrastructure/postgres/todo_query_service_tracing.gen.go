@@ -7,7 +7,6 @@ package postgres
 import (
 	"context"
 
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
@@ -42,7 +41,7 @@ func NewTodoQueryServiceWithTracing(base _sourceApplication.TodoQueryService, in
 }
 
 // GetAllByWorkspace implements TodoQueryService
-func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) (ta1 []api.Todo, err error) {
+func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID, limit int32, offset int32) (ta1 []_sourceApplication.TodoReadModel, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetAllByWorkspace", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
@@ -50,8 +49,10 @@ func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsI
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":  ctx,
-				"wsID": wsID}, map[string]interface{}{
+				"ctx":    ctx,
+				"wsID":   wsID,
+				"limit":  limit,
+				"offset": offset}, map[string]interface{}{
 				"ta1": ta1,
 				"err": err})
 		} else if err != nil {
@@ -65,11 +66,11 @@ func (_d TodoQueryServiceWithTracing) GetAllByWorkspace(ctx context.Context, wsI
 
 		_span.End()
 	}()
-	return _d.TodoQueryService.GetAllByWorkspace(ctx, wsID)
+	return _d.TodoQueryService.GetAllByWorkspace(ctx, wsID, limit, offset)
 }
 
 // GetByID implements TodoQueryService
-func (_d TodoQueryServiceWithTracing) GetByID(ctx context.Context, id domain.TodoID) (tp1 *api.Todo, err error) {
+func (_d TodoQueryServiceWithTracing) GetByID(ctx context.Context, id domain.TodoID) (tp1 *_sourceApplication.TodoReadModel, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "TodoQueryService.GetByID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),

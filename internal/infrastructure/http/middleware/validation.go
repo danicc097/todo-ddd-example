@@ -59,7 +59,7 @@ func (m *openapiMiddleware) RequestValidatorWithOptions(options *OAValidatorOpti
 			} else {
 				valErrs := parseValidationErrors(err)
 				appErr := apperrors.New(apperrors.InvalidInput, "OpenAPI request validation failed")
-				appErr.Validation = &valErrs
+				appErr.Validation = any(&valErrs)
 
 				c.Error(appErr)
 			}
@@ -101,7 +101,7 @@ func (m *openapiMiddleware) RequestValidatorWithOptions(options *OAValidatorOpti
 
 			valErrs := parseValidationErrors(err)
 			appErr := apperrors.New(apperrors.Internal, "OpenAPI response validation failed")
-			appErr.Validation = &valErrs
+			appErr.Validation = any(&valErrs)
 
 			c.Error(appErr)
 			c.Abort()

@@ -9,6 +9,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
 var (
@@ -56,6 +58,7 @@ func GetOrFetch[T any](
 	go func() {
 		if b, marshalErr := codec.Marshal(result); marshalErr == nil {
 			bgCtx := trace.ContextWithSpanContext(context.Background(), trace.SpanContextFromContext(ctx))
+			bgCtx = causation.WithMetadata(bgCtx, causation.FromContext(ctx))
 
 			bgCtx, asyncSpan := tracer.Start(bgCtx, "cache.async_update", trace.WithSpanKind(trace.SpanKindInternal))
 			defer asyncSpan.End()

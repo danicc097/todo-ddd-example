@@ -64,11 +64,11 @@ type VerifyTOTPResponse struct {
 type VerifyTOTPHandler struct {
 	repo      domain.AuthRepository
 	guard     TOTPGuard
-	issuer    *crypto.TokenIssuer
+	issuer    domain.TokenIssuer
 	masterKey []byte
 }
 
-func NewVerifyTOTPHandler(repo domain.AuthRepository, guard TOTPGuard, issuer *crypto.TokenIssuer, masterKey []byte) *VerifyTOTPHandler {
+func NewVerifyTOTPHandler(repo domain.AuthRepository, guard TOTPGuard, issuer domain.TokenIssuer, masterKey []byte) *VerifyTOTPHandler {
 	return &VerifyTOTPHandler{repo: repo, guard: guard, issuer: issuer, masterKey: masterKey}
 }
 

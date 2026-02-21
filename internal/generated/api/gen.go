@@ -149,6 +149,12 @@ type WorkspaceRole = workspaceDomain.WorkspaceRole
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = openapi_types.UUID
 
+// Limit defines model for Limit.
+type Limit = int
+
+// Offset defines model for Offset.
+type Offset = int
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *struct {
@@ -177,6 +183,24 @@ type AssignTagToTodoParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// GetUserWorkspacesParams defines parameters for GetUserWorkspaces.
+type GetUserWorkspacesParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListWorkspacesParams defines parameters for ListWorkspaces.
+type ListWorkspacesParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // OnboardWorkspaceParams defines parameters for OnboardWorkspace.
 type OnboardWorkspaceParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -199,6 +223,15 @@ type AddWorkspaceMemberParams struct {
 type CreateTagParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetWorkspaceTodosParams defines parameters for GetWorkspaceTodos.
+type GetWorkspaceTodosParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // CreateTodoParams defines parameters for CreateTodo.
@@ -262,10 +295,10 @@ type ServerInterface interface {
 	GetUserByID(c *gin.Context, id userDomain.UserID)
 	// Get all workspaces for a user
 	// (GET /users/{id}/workspaces)
-	GetUserWorkspaces(c *gin.Context, id userDomain.UserID)
+	GetUserWorkspaces(c *gin.Context, id userDomain.UserID, params GetUserWorkspacesParams)
 	// List all workspaces
 	// (GET /workspaces)
-	ListWorkspaces(c *gin.Context)
+	ListWorkspaces(c *gin.Context, params ListWorkspacesParams)
 	// Onboard a new workspace with initial members
 	// (POST /workspaces)
 	OnboardWorkspace(c *gin.Context, params OnboardWorkspaceParams)
@@ -286,7 +319,7 @@ type ServerInterface interface {
 	CreateTag(c *gin.Context, id workspaceDomain.WorkspaceID, params CreateTagParams)
 	// List all todos for a workspace
 	// (GET /workspaces/{id}/todos)
-	GetWorkspaceTodos(c *gin.Context, id workspaceDomain.WorkspaceID)
+	GetWorkspaceTodos(c *gin.Context, id workspaceDomain.WorkspaceID, params GetWorkspaceTodosParams)
 	// Create a new todo
 	// (POST /workspaces/{id}/todos)
 	CreateTodo(c *gin.Context, id workspaceDomain.WorkspaceID, params CreateTodoParams)
@@ -558,6 +591,25 @@ func (siw *ServerInterfaceWrapper) GetUserWorkspaces(c *gin.Context) {
 
 	c.Set(BearerAuthScopes, []string{})
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserWorkspacesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", c.Request.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", c.Request.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -565,13 +617,34 @@ func (siw *ServerInterfaceWrapper) GetUserWorkspaces(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetUserWorkspaces(c, id)
+	siw.Handler.GetUserWorkspaces(c, id, params)
 }
 
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
 
+	var err error
+
 	c.Set(BearerAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWorkspacesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", c.Request.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", c.Request.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -580,7 +653,7 @@ func (siw *ServerInterfaceWrapper) ListWorkspaces(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ListWorkspaces(c)
+	siw.Handler.ListWorkspaces(c, params)
 }
 
 // OnboardWorkspace operation middleware
@@ -815,6 +888,25 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceTodos(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWorkspaceTodosParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", c.Request.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", c.Request.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -822,7 +914,7 @@ func (siw *ServerInterfaceWrapper) GetWorkspaceTodos(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetWorkspaceTodos(c, id)
+	siw.Handler.GetWorkspaceTodos(c, id, params)
 }
 
 // CreateTodo operation middleware

@@ -8,42 +8,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
-	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
-	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
-
-var errorRegistry = []struct {
-	Code   apperrors.ErrorCode
-	Errors []error
-}{
-	{
-		Code: apperrors.NotFound,
-		Errors: []error{
-			todoDomain.ErrTodoNotFound,
-			todoDomain.ErrTagNotFound,
-			userDomain.ErrUserNotFound,
-			wsDomain.ErrWorkspaceNotFound,
-			wsDomain.ErrMemberNotFound,
-		},
-	},
-	{
-		Code: apperrors.InvalidInput,
-		Errors: []error{
-			todoDomain.ErrTitleEmpty,
-			todoDomain.ErrTitleTooLong,
-			userDomain.ErrInvalidEmail,
-			wsDomain.ErrAtLeastOneOwner,
-			wsDomain.ErrUserAlreadyMember,
-		},
-	},
-	{
-		Code: apperrors.Unprocessable,
-		Errors: []error{
-			todoDomain.ErrInvalidStatus,
-		},
-	},
-}
 
 func errorCodeToHTTP(code apperrors.ErrorCode) int {
 	//exhaustive:enforce
@@ -86,25 +52,10 @@ func ErrorHandler() gin.HandlerFunc {
 				appErr.Message = err.Error()
 			}
 		} else {
-			matched := false
-
-			for _, group := range errorRegistry {
-				for _, targetErr := range group.Errors {
-					if errors.Is(err, targetErr) {
-						// capture the repo's wrapper context
-						appErr = apperrors.New(group.Code, err.Error())
-						matched = true
-
-						break
-					}
-				}
-
-				if matched {
-					break
-				}
-			}
-
-			if !matched {
+			var domainErr sharedDomain.DomainError
+			if errors.As(err, &domainErr) {
+				appErr = apperrors.New(domainErr.Code(), err.Error())
+			} else {
 				// don't leak internal issues
 				appErr = apperrors.New(apperrors.Internal, "Internal Server Error")
 			}

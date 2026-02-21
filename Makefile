@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-race test-e2e lint clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
+KNOWN_TARGETS := test test-race test-e2e lint db-drop-dev clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch
 
 
 
@@ -134,6 +134,13 @@ run-gen-schema:
 
 db-init:
 	$(PGROLL) --postgres-url "$(PG_URL)" init
+
+db-drop-dev:
+	read -p "Type 'DROP' to delete and recreate $(DB_NAME): " ans; \
+	[ "$$ans" = "DROP" ] || (echo "Aborted." && exit 1)
+	docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d template1 -c "DROP DATABASE IF EXISTS $(DB_NAME) WITH (FORCE);"; \
+	docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d template1 -c "CREATE DATABASE $(DB_NAME);"
+	echo "You can now run 'make migrate-up'."
 
 # Idempotent migration target
 migrate-up:

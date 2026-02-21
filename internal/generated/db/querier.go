@@ -18,8 +18,10 @@ type Querier interface {
 	CreateTodo(ctx context.Context, db DBTX, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
+	DeleteIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) error
 	DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error
 	DeleteWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) error
+	GetIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (IdempotencyKeys, error)
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error)
 	GetTagByName(ctx context.Context, db DBTX, arg GetTagByNameParams) (Tags, error)
@@ -32,12 +34,14 @@ type Querier interface {
 	GetWorkspaceByID(ctx context.Context, db DBTX, id types.WorkspaceID) (Workspaces, error)
 	GetWorkspaceMembers(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]WorkspaceMembers, error)
 	ListTagsByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]Tags, error)
-	ListTodosByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]ListTodosByWorkspaceIDRow, error)
-	ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error)
+	ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListTodosByWorkspaceIDParams) ([]ListTodosByWorkspaceIDRow, error)
+	ListWorkspaces(ctx context.Context, db DBTX, arg ListWorkspacesParams) ([]Workspaces, error)
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	ListWorkspacesWithMembers(ctx context.Context, db DBTX) ([]ListWorkspacesWithMembersRow, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
+	TryLockIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (int64, error)
+	UpdateIdempotencyKey(ctx context.Context, db DBTX, arg UpdateIdempotencyKeyParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error
 	UpdateTodo(ctx context.Context, db DBTX, arg UpdateTodoParams) error
 	UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error

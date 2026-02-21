@@ -8,6 +8,7 @@ import (
 
 	auditDomain "github.com/danicc097/todo-ddd-example/internal/modules/audit/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 type Identifiable[ID any] interface {
@@ -18,14 +19,14 @@ type ChangeExtractorFunc[T any] func(entity T) map[string]any
 
 type AuditRepoDecorator[T Identifiable[ID], ID any] struct {
 	auditRepo     auditDomain.AuditRepository
-	aggregateType auditDomain.AuditAggregateType
+	aggregateType shared.AggregateType
 	extractor     ChangeExtractorFunc[T]
 	idToUUID      func(ID) uuid.UUID
 }
 
 func NewAuditRepoDecorator[T Identifiable[ID], ID any](
 	auditRepo auditDomain.AuditRepository,
-	aggType auditDomain.AuditAggregateType,
+	aggType shared.AggregateType,
 	extractor ChangeExtractorFunc[T],
 	idToUUID func(ID) uuid.UUID,
 ) *AuditRepoDecorator[T, ID] {
@@ -82,7 +83,7 @@ func (d *AuditRepoDecorator[T, ID]) log(ctx context.Context, entity T, op auditD
 		&meta.UserID,
 		meta.UserIP,
 		meta.UserAgent,
-		d.aggregateType,
+		shared.AggregateType(d.aggregateType),
 		d.idToUUID(entity.ID()),
 		op,
 		changes,

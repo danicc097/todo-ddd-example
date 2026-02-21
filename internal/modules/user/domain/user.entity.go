@@ -1,13 +1,13 @@
 package domain
 
 import (
-	"errors"
 	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-var ErrUserNotFound = errors.New("user not found")
+var ErrUserNotFound = shared.NewDomainError(apperrors.NotFound, "user not found")
 
 type UserID = shared.ID[User]
 

@@ -21,7 +21,7 @@ func NewTodoHub(r *redis.Client, wsQuery application.WorkspaceQueryService) *Hub
 
 		ids := make([]uuid.UUID, len(workspaces))
 		for i, w := range workspaces {
-			ids[i] = w.Id.UUID()
+			ids[i] = w.ID.UUID()
 		}
 
 		return ids, nil // rooms for todo based on workspaces

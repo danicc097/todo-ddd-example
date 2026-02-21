@@ -49,7 +49,7 @@ type UpsertUserAuthParams struct {
 	TotpStatus       string    `db:"totp_status" json:"totp_status"`
 	TotpSecretCipher []byte    `db:"totp_secret_cipher" json:"totp_secret_cipher"`
 	TotpSecretNonce  []byte    `db:"totp_secret_nonce" json:"totp_secret_nonce"`
-	PasswordHash     *string   `db:"password_hash" json:"password_hash"`
+	PasswordHash     *string   `db:"password_hash" json:"-"`
 }
 
 func (q *Queries) UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error {

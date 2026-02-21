@@ -1,13 +1,15 @@
 package domain
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var (
-	ErrTagNameEmpty   = errors.New("tag name cannot be empty")
-	ErrTagNameTooLong = errors.New("tag name is too long")
+	ErrTagNameEmpty   = shared.NewDomainError(apperrors.InvalidInput, "tag name cannot be empty")
+	ErrTagNameTooLong = shared.NewDomainError(apperrors.InvalidInput, "tag name is too long")
 )
 
 const tagMaxLen = 20

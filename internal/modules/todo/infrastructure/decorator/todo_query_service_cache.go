@@ -2,11 +2,11 @@ package decorator
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
@@ -17,14 +17,14 @@ type todoQueryServiceCache struct {
 	base  application.TodoQueryService
 	rdb   *redis.Client
 	ttl   time.Duration
-	codec cache.Codec[*api.Todo]
+	codec cache.Codec[*application.TodoReadModel]
 }
 
 func NewTodoQueryServiceCache(
 	base application.TodoQueryService,
 	rdb *redis.Client,
 	ttl time.Duration,
-	codec cache.Codec[*api.Todo],
+	codec cache.Codec[*application.TodoReadModel],
 ) application.TodoQueryService {
 	return &todoQueryServiceCache{
 		base:  base,
@@ -34,19 +34,19 @@ func NewTodoQueryServiceCache(
 	}
 }
 
-func (s *todoQueryServiceCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]api.Todo, error) {
-	key := cache.Keys.TodoWorkspaceCollection(wsID)
+func (s *todoQueryServiceCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID, limit, offset int32) ([]application.TodoReadModel, error) {
+	key := fmt.Sprintf("%s:limit:%d:offset:%d", cache.Keys.TodoWorkspaceCollection(wsID), limit, offset)
 	tag := cache.Keys.WorkspaceTag(wsID)
 
-	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, cache.NewCollectionCodec[api.Todo](), func(ctx context.Context) ([]api.Todo, error) {
-		return s.base.GetAllByWorkspace(ctx, wsID)
+	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, cache.NewCollectionCodec[application.TodoReadModel](), func(ctx context.Context) ([]application.TodoReadModel, error) {
+		return s.base.GetAllByWorkspace(ctx, wsID, limit, offset)
 	}, tag)
 }
 
-func (s *todoQueryServiceCache) GetByID(ctx context.Context, id domain.TodoID) (*api.Todo, error) {
+func (s *todoQueryServiceCache) GetByID(ctx context.Context, id domain.TodoID) (*application.TodoReadModel, error) {
 	key := cache.Keys.Todo(id)
 
-	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, s.codec, func(ctx context.Context) (*api.Todo, error) {
+	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, s.codec, func(ctx context.Context) (*application.TodoReadModel, error) {
 		return s.base.GetByID(ctx, id)
 	})
 }

@@ -1,13 +1,15 @@
 package domain
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var (
-	ErrTitleEmpty   = errors.New("title cannot be empty")
-	ErrTitleTooLong = errors.New("title is too long")
+	ErrTitleEmpty   = shared.NewDomainError(apperrors.InvalidInput, "title cannot be empty")
+	ErrTitleTooLong = shared.NewDomainError(apperrors.InvalidInput, "title is too long")
 )
 
 type TodoTitle struct {

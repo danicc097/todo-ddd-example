@@ -1,7 +1,6 @@
 package postgres_test
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -36,14 +35,11 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, sharedDomain.WorkspaceCreated, name)
 
-		var payload map[string]any
+		payload := data.(postgres.WorkspaceCreatedDTO)
 
-		err = json.Unmarshal(data, &payload)
-		require.NoError(t, err)
-
-		assert.Equal(t, id.String(), payload["id"])
-		assert.Equal(t, "Test WS", payload["name"])
-		assert.Equal(t, ownerID.String(), payload["owner_id"])
+		assert.Equal(t, id, payload.ID)
+		assert.Equal(t, "Test WS", payload.Name)
+		assert.Equal(t, ownerID, payload.OwnerID)
 	})
 
 	t.Run("MemberAddedEvent", func(t *testing.T) {
@@ -62,13 +58,10 @@ func TestWorkspaceMapper_MapEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, sharedDomain.WorkspaceMemberAdded, name)
 
-		var payload map[string]any
+		payload := data.(postgres.MemberAddedDTO)
 
-		err = json.Unmarshal(data, &payload)
-		require.NoError(t, err)
-
-		assert.Equal(t, wsID.String(), payload["workspace_id"])
-		assert.Equal(t, userID.String(), payload["user_id"])
-		assert.Equal(t, "OWNER", payload["role"])
+		assert.Equal(t, wsID, payload.WorkspaceID)
+		assert.Equal(t, userID, payload.UserID)
+		assert.Equal(t, "OWNER", payload.Role)
 	})
 }

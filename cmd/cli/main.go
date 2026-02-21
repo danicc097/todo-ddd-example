@@ -17,6 +17,7 @@ import (
 
 var (
 	debug        bool
+	verbose      bool
 	styleSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
 	styleError   = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	styleDebug   = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true)
@@ -43,6 +44,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&apiURL, "url", defaultURL, "API Server URL (also set via API_URL env var)")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "Enable debug output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Show response headers")
 
 	var extraHeaders []string
 	rootCmd.PersistentFlags().StringSliceVarP(&extraHeaders, "header", "H", nil, "Custom headers (e.g. -H \"If-None-Match: W/123\")")

@@ -43,7 +43,7 @@ func debugDump(ctx context.Context, log *domain.AuditLog) {
 		"actor_id":          log.ActorID(),
 		"actor_ip":          log.ActorIP(),
 		"ua_hash":           log.UserAgentHash(),
-		"target_resource":   log.AggregateType() + ":" + log.AggregateID().String(),
+		"target_resource":   log.AggregateType().String() + ":" + log.AggregateID().String(),
 		"action":            log.Operation(),
 		"diff":              log.Changes(),
 		"timestamp":         log.OccurredAt(),

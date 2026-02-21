@@ -5,70 +5,73 @@ import (
 	"context"
 	"sync"
 
-	internal "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	domaina "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
 
 type FakeWorkspaceQueryService struct {
-	ListStub        func(context.Context) ([]internal.Workspace, error)
+	ListStub        func(context.Context, int32, int32) ([]application.WorkspaceReadModel, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 context.Context
+		arg2 int32
+		arg3 int32
 	}
 	listReturns struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}
 	listReturnsOnCall map[int]struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}
-	ListByUserIDStub        func(context.Context, domain.UserID) ([]internal.Workspace, error)
+	ListByUserIDStub        func(context.Context, domain.UserID) ([]application.WorkspaceReadModel, error)
 	listByUserIDMutex       sync.RWMutex
 	listByUserIDArgsForCall []struct {
 		arg1 context.Context
 		arg2 domain.UserID
 	}
 	listByUserIDReturns struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}
 	listByUserIDReturnsOnCall map[int]struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}
-	ListTagsByWorkspaceIDStub        func(context.Context, domaina.WorkspaceID) ([]internal.Tag, error)
+	ListTagsByWorkspaceIDStub        func(context.Context, domaina.WorkspaceID) ([]application.TagReadModel, error)
 	listTagsByWorkspaceIDMutex       sync.RWMutex
 	listTagsByWorkspaceIDArgsForCall []struct {
 		arg1 context.Context
 		arg2 domaina.WorkspaceID
 	}
 	listTagsByWorkspaceIDReturns struct {
-		result1 []internal.Tag
+		result1 []application.TagReadModel
 		result2 error
 	}
 	listTagsByWorkspaceIDReturnsOnCall map[int]struct {
-		result1 []internal.Tag
+		result1 []application.TagReadModel
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeWorkspaceQueryService) List(arg1 context.Context) ([]internal.Workspace, error) {
+func (fake *FakeWorkspaceQueryService) List(arg1 context.Context, arg2 int32, arg3 int32) ([]application.WorkspaceReadModel, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
 		arg1 context.Context
-	}{arg1})
+		arg2 int32
+		arg3 int32
+	}{arg1, arg2, arg3})
 	stub := fake.ListStub
 	fakeReturns := fake.listReturns
-	fake.recordInvocation("List", []interface{}{arg1})
+	fake.recordInvocation("List", []interface{}{arg1, arg2, arg3})
 	fake.listMutex.Unlock()
 	if stub != nil {
-		return stub(arg1)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -82,46 +85,46 @@ func (fake *FakeWorkspaceQueryService) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *FakeWorkspaceQueryService) ListCalls(stub func(context.Context) ([]internal.Workspace, error)) {
+func (fake *FakeWorkspaceQueryService) ListCalls(stub func(context.Context, int32, int32) ([]application.WorkspaceReadModel, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
 }
 
-func (fake *FakeWorkspaceQueryService) ListArgsForCall(i int) context.Context {
+func (fake *FakeWorkspaceQueryService) ListArgsForCall(i int) (context.Context, int32, int32) {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	argsForCall := fake.listArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeWorkspaceQueryService) ListReturns(result1 []internal.Workspace, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListReturns(result1 []application.WorkspaceReadModel, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeWorkspaceQueryService) ListReturnsOnCall(i int, result1 []internal.Workspace, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListReturnsOnCall(i int, result1 []application.WorkspaceReadModel, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
-			result1 []internal.Workspace
+			result1 []application.WorkspaceReadModel
 			result2 error
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeWorkspaceQueryService) ListByUserID(arg1 context.Context, arg2 domain.UserID) ([]internal.Workspace, error) {
+func (fake *FakeWorkspaceQueryService) ListByUserID(arg1 context.Context, arg2 domain.UserID) ([]application.WorkspaceReadModel, error) {
 	fake.listByUserIDMutex.Lock()
 	ret, specificReturn := fake.listByUserIDReturnsOnCall[len(fake.listByUserIDArgsForCall)]
 	fake.listByUserIDArgsForCall = append(fake.listByUserIDArgsForCall, struct {
@@ -147,7 +150,7 @@ func (fake *FakeWorkspaceQueryService) ListByUserIDCallCount() int {
 	return len(fake.listByUserIDArgsForCall)
 }
 
-func (fake *FakeWorkspaceQueryService) ListByUserIDCalls(stub func(context.Context, domain.UserID) ([]internal.Workspace, error)) {
+func (fake *FakeWorkspaceQueryService) ListByUserIDCalls(stub func(context.Context, domain.UserID) ([]application.WorkspaceReadModel, error)) {
 	fake.listByUserIDMutex.Lock()
 	defer fake.listByUserIDMutex.Unlock()
 	fake.ListByUserIDStub = stub
@@ -160,33 +163,33 @@ func (fake *FakeWorkspaceQueryService) ListByUserIDArgsForCall(i int) (context.C
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeWorkspaceQueryService) ListByUserIDReturns(result1 []internal.Workspace, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListByUserIDReturns(result1 []application.WorkspaceReadModel, result2 error) {
 	fake.listByUserIDMutex.Lock()
 	defer fake.listByUserIDMutex.Unlock()
 	fake.ListByUserIDStub = nil
 	fake.listByUserIDReturns = struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeWorkspaceQueryService) ListByUserIDReturnsOnCall(i int, result1 []internal.Workspace, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListByUserIDReturnsOnCall(i int, result1 []application.WorkspaceReadModel, result2 error) {
 	fake.listByUserIDMutex.Lock()
 	defer fake.listByUserIDMutex.Unlock()
 	fake.ListByUserIDStub = nil
 	if fake.listByUserIDReturnsOnCall == nil {
 		fake.listByUserIDReturnsOnCall = make(map[int]struct {
-			result1 []internal.Workspace
+			result1 []application.WorkspaceReadModel
 			result2 error
 		})
 	}
 	fake.listByUserIDReturnsOnCall[i] = struct {
-		result1 []internal.Workspace
+		result1 []application.WorkspaceReadModel
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceID(arg1 context.Context, arg2 domaina.WorkspaceID) ([]internal.Tag, error) {
+func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceID(arg1 context.Context, arg2 domaina.WorkspaceID) ([]application.TagReadModel, error) {
 	fake.listTagsByWorkspaceIDMutex.Lock()
 	ret, specificReturn := fake.listTagsByWorkspaceIDReturnsOnCall[len(fake.listTagsByWorkspaceIDArgsForCall)]
 	fake.listTagsByWorkspaceIDArgsForCall = append(fake.listTagsByWorkspaceIDArgsForCall, struct {
@@ -212,7 +215,7 @@ func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDCallCount() int {
 	return len(fake.listTagsByWorkspaceIDArgsForCall)
 }
 
-func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDCalls(stub func(context.Context, domaina.WorkspaceID) ([]internal.Tag, error)) {
+func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDCalls(stub func(context.Context, domaina.WorkspaceID) ([]application.TagReadModel, error)) {
 	fake.listTagsByWorkspaceIDMutex.Lock()
 	defer fake.listTagsByWorkspaceIDMutex.Unlock()
 	fake.ListTagsByWorkspaceIDStub = stub
@@ -225,28 +228,28 @@ func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDArgsForCall(i int) (
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDReturns(result1 []internal.Tag, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDReturns(result1 []application.TagReadModel, result2 error) {
 	fake.listTagsByWorkspaceIDMutex.Lock()
 	defer fake.listTagsByWorkspaceIDMutex.Unlock()
 	fake.ListTagsByWorkspaceIDStub = nil
 	fake.listTagsByWorkspaceIDReturns = struct {
-		result1 []internal.Tag
+		result1 []application.TagReadModel
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDReturnsOnCall(i int, result1 []internal.Tag, result2 error) {
+func (fake *FakeWorkspaceQueryService) ListTagsByWorkspaceIDReturnsOnCall(i int, result1 []application.TagReadModel, result2 error) {
 	fake.listTagsByWorkspaceIDMutex.Lock()
 	defer fake.listTagsByWorkspaceIDMutex.Unlock()
 	fake.ListTagsByWorkspaceIDStub = nil
 	if fake.listTagsByWorkspaceIDReturnsOnCall == nil {
 		fake.listTagsByWorkspaceIDReturnsOnCall = make(map[int]struct {
-			result1 []internal.Tag
+			result1 []application.TagReadModel
 			result2 error
 		})
 	}
 	fake.listTagsByWorkspaceIDReturnsOnCall[i] = struct {
-		result1 []internal.Tag
+		result1 []application.TagReadModel
 		result2 error
 	}{result1, result2}
 }

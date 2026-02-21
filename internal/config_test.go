@@ -1,107 +1,53 @@
 package internal
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
 
 func TestNewAppConfig(t *testing.T) {
-	type nestedCfg struct {
-		Name string `env:"TEST_CFG_NAME"`
-	}
+	t.Run("correct env", func(t *testing.T) {
+		t.Setenv("DB_USER", "user")
+		t.Setenv("DB_PASS", "pass")
+		t.Setenv("DB_HOST", "localhost")
+		t.Setenv("DB_PORT", "5432")
+		t.Setenv("DB_NAME", "db")
+		t.Setenv("REDIS_ADDR", "localhost:6379")
+		t.Setenv("RABBITMQ_URL", "amqp://localhost")
+		t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+		t.Setenv("LOG_LEVEL", "DEBUG")
+		t.Setenv("ENV", "ci")
+		t.Setenv("PORT", "8080")
+		t.Setenv("MFA_MASTER_KEY", "masterkey")
 
-	type cfg struct {
-		NestedCfg       nestedCfg
-		Length          int     `env:"TEST_CFG_LEN"`
-		OptionalLength  *int    `env:"TEST_CFG_OPT_LEN"`
-		OptionalString  *string `env:"TEST_CFG_STRING_PTR"`
-		BoolWithDefault bool    `env:"TEST_CFG_BOOL_DEFAULT,false"`
-	}
-
-	type params struct {
-		name        string
-		want        *cfg
-		errContains string
-		environ     map[string]string
-	}
-
-	tests := []params{
-		{
-			name:    "correct env",
-			want:    &cfg{NestedCfg: nestedCfg{Name: "name"}, Length: 10, OptionalLength: pointers.New(40), BoolWithDefault: true},
-			environ: map[string]string{"TEST_CFG_NAME": "name", "TEST_CFG_LEN": "10", "TEST_CFG_OPT_LEN": "40", "TEST_CFG_BOOL_DEFAULT": "true"},
-		},
-		{
-			name:    "missing pointer fields is ok",
-			want:    &cfg{NestedCfg: nestedCfg{Name: "name"}, Length: 10, BoolWithDefault: false},
-			environ: map[string]string{"TEST_CFG_NAME": "name", "TEST_CFG_LEN": "10"},
-		},
-		{
-			name:        "bad int conversion",
-			environ:     map[string]string{"TEST_CFG_NAME": "name", "TEST_CFG_LEN": "aaa"},
-			errContains: `could not convert TEST_CFG_LEN to int`,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			for k, v := range tc.environ {
-				t.Setenv(k, v)
-			}
-
-			c := &cfg{}
-
-			err := loadEnvToConfig(c)
-			if tc.errContains != "" {
-				require.ErrorContains(t, err, tc.errContains)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, c)
-		})
-	}
-}
-
-type MyEnum string
-
-const (
-	Value1 MyEnum = "Value1"
-	Value2 MyEnum = "Value2"
-)
-
-func (e *MyEnum) Decode(value string) error {
-	switch value {
-	case "1":
-		*e = Value1
-	case "2":
-		*e = Value2
-	default:
-		return fmt.Errorf("invalid value for MyEnum: %v", value)
-	}
-
-	return nil
-}
-
-func TestEnumDecoderConfig(t *testing.T) {
-	type cfg struct {
-		Enum         MyEnum  `env:"TEST_CFG_ENUM"`
-		OptionalEnum *MyEnum `env:"TEST_CFG_ENUM_OPT"`
-	}
-
-	t.Run("correct decoding", func(t *testing.T) {
-		t.Setenv("TEST_CFG_ENUM", "1")
-		t.Setenv("TEST_CFG_ENUM_OPT", "2")
-
-		c := &cfg{}
-		err := loadEnvToConfig(c)
+		cfg, err := LoadConfig()
 		require.NoError(t, err)
-		assert.Equal(t, Value1, c.Enum)
-		assert.Equal(t, Value2, *c.OptionalEnum)
+
+		assert.Equal(t, "user", cfg.Postgres.User)
+		assert.Equal(t, "pass", cfg.Postgres.Password)
+		assert.Equal(t, "localhost", cfg.Postgres.Host)
+		assert.Equal(t, "5432", cfg.Postgres.Port)
+		assert.Equal(t, "db", cfg.Postgres.DBName)
+		assert.Equal(t, "localhost:6379", cfg.Redis.Addr)
+		assert.Equal(t, "amqp://localhost", cfg.RabbitMQ.URL)
+		assert.Equal(t, "localhost:4317", cfg.OTEL.Endpoint)
+		assert.Equal(t, "DEBUG", cfg.LogLevel)
+		assert.Equal(t, AppEnvCI, cfg.Env)
+		assert.Equal(t, "8080", cfg.Port)
+		assert.Equal(t, "masterkey", cfg.MFAMasterKey)
+	})
+
+	t.Run("defaults", func(t *testing.T) {
+		t.Setenv("DB_USER", "")
+		t.Setenv("LOG_LEVEL", "")
+		t.Setenv("ENV", "")
+
+		cfg, err := LoadConfig()
+		require.NoError(t, err)
+
+		assert.Equal(t, "INFO", cfg.LogLevel)
+		assert.Equal(t, AppEnvDev, cfg.Env)
 	})
 }

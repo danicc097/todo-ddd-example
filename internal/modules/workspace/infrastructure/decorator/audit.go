@@ -8,6 +8,7 @@ import (
 	auditDomain "github.com/danicc097/todo-ddd-example/internal/modules/audit/domain"
 	auditDecorator "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/decorator"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var _ wsDomain.WorkspaceRepository = (*WorkspaceAuditWrapper)(nil)
@@ -31,7 +32,7 @@ func NewWorkspaceAuditWrapper(
 
 	auditor := auditDecorator.NewAuditRepoDecorator(
 		auditRepo,
-		auditDomain.AggWorkspace,
+		shared.AggWorkspace,
 		extractor,
 		func(id wsDomain.WorkspaceID) uuid.UUID {
 			return id.UUID()

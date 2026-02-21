@@ -39,10 +39,6 @@ func (keys) RateLimit(opID, ip string) string {
 	return fmt.Sprintf("ratelimit:%s:%s", opID, ip)
 }
 
-func (keys) Idempotency(key string) string {
-	return "idempotency:" + key
-}
-
 func (keys) TOTPUsedCode(userID types.UserID, code string) string {
 	return fmt.Sprintf("user:%s:used_totp:%s", userID.String(), code)
 }

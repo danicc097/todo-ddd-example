@@ -1,14 +1,14 @@
 package domain
 
 import (
-	"errors"
 	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-var ErrTodoNotFound = errors.New("todo not found")
+var ErrTodoNotFound = shared.NewDomainError(apperrors.NotFound, "todo not found")
 
 type TodoID = shared.ID[Todo]
 

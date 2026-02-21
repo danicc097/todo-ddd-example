@@ -7,7 +7,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 type RegisterCommand struct {
@@ -19,12 +18,14 @@ type RegisterCommand struct {
 type RegisterHandler struct {
 	userRepo userDomain.UserRepository
 	authRepo domain.AuthRepository
+	hasher   domain.PasswordHasher
 }
 
-func NewRegisterHandler(userRepo userDomain.UserRepository, authRepo domain.AuthRepository) *RegisterHandler {
+func NewRegisterHandler(userRepo userDomain.UserRepository, authRepo domain.AuthRepository, hasher domain.PasswordHasher) *RegisterHandler {
 	return &RegisterHandler{
 		userRepo: userRepo,
 		authRepo: authRepo,
+		hasher:   hasher,
 	}
 }
 
@@ -37,7 +38,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (user
 	user := userDomain.CreateUser(email, cmd.Name)
 
 	// non-owasp: should also check passwords against a compromised list and password strength.
-	hash, err := crypto.HashPassword(cmd.Password.ExposeSecret(), crypto.DefaultArgon2Params)
+	hash, err := h.hasher.Hash(cmd.Password.ExposeSecret())
 	if err != nil {
 		return userDomain.UserID{}, err
 	}

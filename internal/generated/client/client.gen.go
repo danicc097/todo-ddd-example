@@ -154,6 +154,12 @@ type WorkspaceRole = workspaceDomain.WorkspaceRole
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = openapi_types.UUID
 
+// Limit defines model for Limit.
+type Limit = int
+
+// Offset defines model for Offset.
+type Offset = int
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *struct {
@@ -182,6 +188,24 @@ type AssignTagToTodoParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// GetUserWorkspacesParams defines parameters for GetUserWorkspaces.
+type GetUserWorkspacesParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListWorkspacesParams defines parameters for ListWorkspaces.
+type ListWorkspacesParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // OnboardWorkspaceParams defines parameters for OnboardWorkspace.
 type OnboardWorkspaceParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -204,6 +228,15 @@ type AddWorkspaceMemberParams struct {
 type CreateTagParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// GetWorkspaceTodosParams defines parameters for GetWorkspaceTodos.
+type GetWorkspaceTodosParams struct {
+	// Limit Maximum number of records to return.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of records to skip.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // CreateTodoParams defines parameters for CreateTodo.
@@ -345,10 +378,10 @@ type ClientInterface interface {
 	GetUserByID(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserWorkspaces request
-	GetUserWorkspaces(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetUserWorkspaces(ctx context.Context, id userDomain.UserID, params *GetUserWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkspaces request
-	ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OnboardWorkspaceWithBody request with any body
 	OnboardWorkspaceWithBody(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -375,7 +408,7 @@ type ClientInterface interface {
 	CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkspaceTodos request
-	GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, params *GetWorkspaceTodosParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateTodoWithBody request with any body
 	CreateTodoWithBody(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -539,8 +572,8 @@ func (c *Client) GetUserByID(ctx context.Context, id userDomain.UserID, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserWorkspaces(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserWorkspacesRequest(c.Server, id)
+func (c *Client) GetUserWorkspaces(ctx context.Context, id userDomain.UserID, params *GetUserWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserWorkspacesRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -551,8 +584,8 @@ func (c *Client) GetUserWorkspaces(ctx context.Context, id userDomain.UserID, re
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListWorkspacesRequest(c.Server)
+func (c *Client) ListWorkspaces(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkspacesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -671,8 +704,8 @@ func (c *Client) CreateTag(ctx context.Context, id workspaceDomain.WorkspaceID, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWorkspaceTodosRequest(c.Server, id)
+func (c *Client) GetWorkspaceTodos(ctx context.Context, id workspaceDomain.WorkspaceID, params *GetWorkspaceTodosParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkspaceTodosRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1076,7 +1109,7 @@ func NewGetUserByIDRequest(server string, id userDomain.UserID) (*http.Request, 
 }
 
 // NewGetUserWorkspacesRequest generates requests for GetUserWorkspaces
-func NewGetUserWorkspacesRequest(server string, id userDomain.UserID) (*http.Request, error) {
+func NewGetUserWorkspacesRequest(server string, id userDomain.UserID, params *GetUserWorkspacesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1101,6 +1134,44 @@ func NewGetUserWorkspacesRequest(server string, id userDomain.UserID) (*http.Req
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -1110,7 +1181,7 @@ func NewGetUserWorkspacesRequest(server string, id userDomain.UserID) (*http.Req
 }
 
 // NewListWorkspacesRequest generates requests for ListWorkspaces
-func NewListWorkspacesRequest(server string) (*http.Request, error) {
+func NewListWorkspacesRequest(server string, params *ListWorkspacesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1126,6 +1197,44 @@ func NewListWorkspacesRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -1425,7 +1534,7 @@ func NewCreateTagRequestWithBody(server string, id workspaceDomain.WorkspaceID, 
 }
 
 // NewGetWorkspaceTodosRequest generates requests for GetWorkspaceTodos
-func NewGetWorkspaceTodosRequest(server string, id workspaceDomain.WorkspaceID) (*http.Request, error) {
+func NewGetWorkspaceTodosRequest(server string, id workspaceDomain.WorkspaceID, params *GetWorkspaceTodosParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1448,6 +1557,44 @@ func NewGetWorkspaceTodosRequest(server string, id workspaceDomain.WorkspaceID) 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -1599,10 +1746,10 @@ type ClientWithResponsesInterface interface {
 	GetUserByIDWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserByIDResponse, error)
 
 	// GetUserWorkspacesWithResponse request
-	GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error)
+	GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, params *GetUserWorkspacesParams, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error)
 
 	// ListWorkspacesWithResponse request
-	ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
+	ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
 
 	// OnboardWorkspaceWithBodyWithResponse request with any body
 	OnboardWorkspaceWithBodyWithResponse(ctx context.Context, params *OnboardWorkspaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardWorkspaceResponse, error)
@@ -1629,7 +1776,7 @@ type ClientWithResponsesInterface interface {
 	CreateTagWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTagParams, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
 
 	// GetWorkspaceTodosWithResponse request
-	GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error)
+	GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *GetWorkspaceTodosParams, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error)
 
 	// CreateTodoWithBodyWithResponse request with any body
 	CreateTodoWithBodyWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *CreateTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTodoResponse, error)
@@ -2173,8 +2320,8 @@ func (c *ClientWithResponses) GetUserByIDWithResponse(ctx context.Context, id us
 }
 
 // GetUserWorkspacesWithResponse request returning *GetUserWorkspacesResponse
-func (c *ClientWithResponses) GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error) {
-	rsp, err := c.GetUserWorkspaces(ctx, id, reqEditors...)
+func (c *ClientWithResponses) GetUserWorkspacesWithResponse(ctx context.Context, id userDomain.UserID, params *GetUserWorkspacesParams, reqEditors ...RequestEditorFn) (*GetUserWorkspacesResponse, error) {
+	rsp, err := c.GetUserWorkspaces(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2182,8 +2329,8 @@ func (c *ClientWithResponses) GetUserWorkspacesWithResponse(ctx context.Context,
 }
 
 // ListWorkspacesWithResponse request returning *ListWorkspacesResponse
-func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
-	rsp, err := c.ListWorkspaces(ctx, reqEditors...)
+func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, params *ListWorkspacesParams, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
+	rsp, err := c.ListWorkspaces(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2269,8 +2416,8 @@ func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, id work
 }
 
 // GetWorkspaceTodosWithResponse request returning *GetWorkspaceTodosResponse
-func (c *ClientWithResponses) GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error) {
-	rsp, err := c.GetWorkspaceTodos(ctx, id, reqEditors...)
+func (c *ClientWithResponses) GetWorkspaceTodosWithResponse(ctx context.Context, id workspaceDomain.WorkspaceID, params *GetWorkspaceTodosParams, reqEditors ...RequestEditorFn) (*GetWorkspaceTodosResponse, error) {
+	rsp, err := c.GetWorkspaceTodos(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

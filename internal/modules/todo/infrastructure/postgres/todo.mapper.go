@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -88,7 +87,7 @@ func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
  * Events
  */
 
-type todoOutboxDTO struct {
+type TodoOutboxDTO struct {
 	ID          uuid.UUID `json:"id"`
 	WorkspaceID uuid.UUID `json:"workspace_id"`
 	Title       string    `json:"title"`
@@ -96,18 +95,18 @@ type todoOutboxDTO struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-type tagAddedOutboxDTO struct {
+type TagAddedOutboxDTO struct {
 	TodoID      uuid.UUID `json:"todo_id"`
 	TagID       uuid.UUID `json:"tag_id"`
 	WorkspaceID uuid.UUID `json:"workspace_id"`
 }
 
-func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, []byte, error) {
+func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, error) {
 	var payload any
 
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
-		payload = todoOutboxDTO{
+		payload = TodoOutboxDTO{
 			ID:          evt.ID.UUID(),
 			WorkspaceID: evt.WorkspaceID.UUID(),
 			Title:       evt.Title,
@@ -115,7 +114,7 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, []byte, e
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TodoCompletedEvent:
-		payload = todoOutboxDTO{
+		payload = TodoOutboxDTO{
 			ID:          evt.ID.UUID(),
 			WorkspaceID: evt.WorkspaceID.UUID(),
 			Title:       evt.Title,
@@ -123,7 +122,7 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, []byte, e
 			CreatedAt:   evt.CreatedAt,
 		}
 	case domain.TagAddedEvent:
-		payload = tagAddedOutboxDTO{
+		payload = TagAddedOutboxDTO{
 			TodoID:      evt.TodoID.UUID(),
 			TagID:       evt.TagID.UUID(),
 			WorkspaceID: evt.WorkspaceID.UUID(),
@@ -132,7 +131,5 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, []byte, e
 		return "", nil, nil
 	}
 
-	b, err := json.Marshal(payload)
-
-	return e.EventName(), b, err
+	return e.EventName(), payload, nil
 }

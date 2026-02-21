@@ -73,7 +73,7 @@ func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params
 	c.JSON(http.StatusCreated, gin.H{"id": todoID.UUID()})
 }
 
-func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID) {
+func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID, params api.GetWorkspaceTodosParams) {
 	revision, err := h.redis.Get(c.Request.Context(), cache.Keys.WorkspaceRevision(id)).Result()
 	if err == nil {
 		etag := fmt.Sprintf(`"W/%s"`, revision)
@@ -86,13 +86,34 @@ func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID)
 		c.Header("ETag", etag)
 	}
 
-	todos, err := h.queryService.GetAllByWorkspace(c.Request.Context(), id)
+	limit := 20
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+
+	offset := 0
+	if params.Offset != nil {
+		offset = *params.Offset
+	}
+
+	todos, err := h.queryService.GetAllByWorkspace(c.Request.Context(), id, int32(limit), int32(offset))
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, todos)
+	apiTodos := make([]api.Todo, len(todos))
+	for i, t := range todos {
+		apiTodos[i] = api.Todo{
+			Id:          t.ID,
+			WorkspaceId: t.WorkspaceID,
+			Title:       t.Title,
+			Status:      api.TodoStatus(t.Status),
+			CreatedAt:   t.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, apiTodos)
 }
 
 func (h *TodoHandler) GetTodoByID(c *gin.Context, id domain.TodoID) {
@@ -102,7 +123,13 @@ func (h *TodoHandler) GetTodoByID(c *gin.Context, id domain.TodoID) {
 		return
 	}
 
-	c.JSON(http.StatusOK, todo)
+	c.JSON(http.StatusOK, api.Todo{
+		Id:          todo.ID,
+		WorkspaceId: todo.WorkspaceID,
+		Title:       todo.Title,
+		Status:      api.TodoStatus(todo.Status),
+		CreatedAt:   todo.CreatedAt,
+	})
 }
 
 func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.CompleteTodoParams) {

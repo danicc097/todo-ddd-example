@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
@@ -33,6 +34,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	authRepo := authPg.NewAuthRepo(pool)
 	totpGuard := authRedis.NewTOTPGuard(redisClient)
 	masterKey := []byte("0123456789abcdef0123456789abcdef")
+	hasher := infraCrypto.NewArgon2PasswordHasher()
 
 	privKeyBytes, _ := os.ReadFile("../../../../private.pem")
 	privKey, _ := jwt.ParseRSAPrivateKeyFromPEM(privKeyBytes)
@@ -40,7 +42,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	uniqueEmail := fmt.Sprintf("auth-%s@example.com", uuid.New().String()[:8])
 
-	registerHandler := application.NewRegisterHandler(userRepo, authRepo)
+	registerHandler := application.NewRegisterHandler(userRepo, authRepo, hasher)
 
 	userID, err := registerHandler.Handle(ctx, application.RegisterCommand{
 		Email:    uniqueEmail,

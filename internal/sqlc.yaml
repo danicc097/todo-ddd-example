@@ -69,6 +69,11 @@ sql:
             go_type:
               import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
               type: "UserID"
+          - column: "user_auth.password_hash"
+            go_type:
+              type: "string"
+              pointer: true
+            go_struct_tag: "json:\"-\""
           - column: "tags.workspace_id"
             go_type:
               import: "github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"

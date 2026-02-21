@@ -1,10 +1,6 @@
 package apperrors
 
-import (
-	"fmt"
-
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
-)
+import "fmt"
 
 type ErrorCode string
 
@@ -23,7 +19,7 @@ type AppError struct {
 	Message    string
 	Op         string
 	Err        error
-	Validation *api.HTTPValidationError
+	Validation any
 }
 
 func (e *AppError) Error() string {

@@ -36,7 +36,8 @@ WHERE
 GROUP BY
   t.id
 ORDER BY
-  t.created_at DESC;
+  t.created_at DESC
+LIMIT $2 OFFSET $3;
 
 -- name: UpdateTodo :exec
 UPDATE

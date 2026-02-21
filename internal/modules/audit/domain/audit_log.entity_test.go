@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/danicc097/todo-ddd-example/internal/modules/audit/domain"
+	auditDomain "github.com/danicc097/todo-ddd-example/internal/modules/audit/domain"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 func TestAuditLog_Instantiation(t *testing.T) {
@@ -24,15 +25,15 @@ func TestAuditLog_Instantiation(t *testing.T) {
 		aggID := uuid.New()
 		changes := map[string]any{"field": "new"}
 
-		log, err := domain.NewAuditLog(
+		log, err := auditDomain.NewAuditLog(
 			corrID,
 			causID,
 			&actorID,
 			ip,
 			ua,
-			domain.AggTodo,
+			shared.AggTodo, // Use shared.AggTodo
 			aggID,
-			domain.OpCreate,
+			auditDomain.OpCreate,
 			changes,
 		)
 
@@ -45,28 +46,23 @@ func TestAuditLog_Instantiation(t *testing.T) {
 		expectedUAHash := sha256.Sum256([]byte(ua))
 		assert.Equal(t, hex.EncodeToString(expectedUAHash[:]), log.UserAgentHash())
 
-		assert.Equal(t, domain.AggTodo.String(), log.AggregateType())
+		assert.Equal(t, shared.AggTodo, log.AggregateType()) // Assert directly with shared.AggTodo
 		assert.Equal(t, aggID, log.AggregateID())
-		assert.Equal(t, domain.OpCreate.String(), log.Operation())
+		assert.Equal(t, auditDomain.OpCreate.String(), log.Operation())
 		assert.Equal(t, changes, log.Changes())
 		assert.NotZero(t, log.OccurredAt())
 	})
 
-	t.Run("invalid aggregate type", func(t *testing.T) {
-		_, err := domain.ParseAuditAggregateType("INVALID")
-		assert.Error(t, err)
-	})
-
 	t.Run("missing correlation id", func(t *testing.T) {
-		_, err := domain.NewAuditLog(
+		_, err := auditDomain.NewAuditLog(
 			"",
 			"causation",
 			nil,
 			"ip",
 			"ua",
-			domain.AggTodo,
+			shared.AggTodo, // Use shared.AggTodo
 			uuid.New(),
-			domain.OpCreate,
+			auditDomain.OpCreate,
 			nil,
 		)
 		assert.Error(t, err)

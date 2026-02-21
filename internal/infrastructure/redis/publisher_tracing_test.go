@@ -1,0 +1,45 @@
+package redis_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/redis"
+	"github.com/danicc097/todo-ddd-example/internal/testutils"
+)
+
+func TestPublisher_Tracing(t *testing.T) {
+	ctx := context.Background()
+	rdb := testutils.GetGlobalRedis(t).Connect(ctx, t)
+
+	exp := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exp))
+
+	oldTP := otel.GetTracerProvider()
+
+	otel.SetTracerProvider(tp)
+	defer otel.SetTracerProvider(oldTP)
+
+	pub := redis.NewPublisher(rdb)
+
+	err := pub.Publish(ctx, "test.event", uuid.New(), []byte("{}"), nil)
+	assert.NoError(t, err)
+
+	spans := exp.GetSpans()
+	found := false
+
+	for _, s := range spans {
+		if s.Name == "redis.publish_event" {
+			found = true
+			break
+		}
+	}
+
+	assert.True(t, found)
+}

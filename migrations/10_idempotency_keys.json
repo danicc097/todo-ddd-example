@@ -1,0 +1,43 @@
+{
+  "operations": [
+    {
+      "create_table": {
+        "name": "idempotency_keys",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "pk": true
+          },
+          {
+            "name": "response_status",
+            "type": "integer",
+            "nullable": false
+          },
+          {
+            "name": "response_headers",
+            "type": "jsonb",
+            "nullable": false
+          },
+          {
+            "name": "response_body",
+            "type": "bytea",
+            "nullable": false
+          },
+          {
+            "name": "locked_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ]
+      }
+    }
+  ]
+}

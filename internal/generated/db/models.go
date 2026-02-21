@@ -12,6 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type IdempotencyKeys struct {
+	ID              uuid.UUID `db:"id" json:"id"`
+	ResponseStatus  int32     `db:"response_status" json:"response_status"`
+	ResponseHeaders []byte    `db:"response_headers" json:"response_headers"`
+	ResponseBody    []byte    `db:"response_body" json:"response_body"`
+	LockedAt        time.Time `db:"locked_at" json:"locked_at"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+}
+
 type Outbox struct {
 	ID            uuid.UUID        `db:"id" json:"id"`
 	EventType     domain.EventType `db:"event_type" json:"event_type"`
@@ -47,7 +56,7 @@ type Todos struct {
 
 type UserAuth struct {
 	UserID           uuid.UUID `db:"user_id" json:"user_id"`
-	PasswordHash     *string   `db:"password_hash" json:"password_hash"`
+	PasswordHash     *string   `db:"password_hash" json:"-"`
 	TotpStatus       string    `db:"totp_status" json:"totp_status"`
 	TotpSecretCipher []byte    `db:"totp_secret_cipher" json:"totp_secret_cipher"`
 	TotpSecretNonce  []byte    `db:"totp_secret_nonce" json:"totp_secret_nonce"`

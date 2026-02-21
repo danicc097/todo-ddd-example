@@ -8,7 +8,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 type LoginCommand struct {
@@ -23,14 +22,16 @@ type LoginResponse struct {
 type LoginHandler struct {
 	userRepo userDomain.UserRepository
 	authRepo domain.AuthRepository
-	issuer   *crypto.TokenIssuer
+	issuer   domain.TokenIssuer
+	hasher   domain.PasswordHasher
 }
 
-func NewLoginHandler(userRepo userDomain.UserRepository, authRepo domain.AuthRepository, issuer *crypto.TokenIssuer) *LoginHandler {
+func NewLoginHandler(userRepo userDomain.UserRepository, authRepo domain.AuthRepository, issuer domain.TokenIssuer, hasher domain.PasswordHasher) *LoginHandler {
 	return &LoginHandler{
 		userRepo: userRepo,
 		authRepo: authRepo,
 		issuer:   issuer,
+		hasher:   hasher,
 	}
 }
 
@@ -52,7 +53,7 @@ func (h *LoginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}
 
-	match, err := crypto.ComparePassword(cmd.Password.ExposeSecret(), auth.PasswordHash())
+	match, err := h.hasher.Compare(cmd.Password.ExposeSecret(), auth.PasswordHash())
 	if err != nil || !match {
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}

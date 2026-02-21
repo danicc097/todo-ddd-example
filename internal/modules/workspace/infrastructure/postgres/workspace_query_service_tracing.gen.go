@@ -7,7 +7,6 @@ package postgres
 import (
 	"context"
 
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	_sourceApplication "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
@@ -42,7 +41,7 @@ func NewWorkspaceQueryServiceWithTracing(base _sourceApplication.WorkspaceQueryS
 }
 
 // List implements WorkspaceQueryService
-func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.Workspace, err error) {
+func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context, limit int32, offset int32) (wa1 []_sourceApplication.WorkspaceReadModel, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.List", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
@@ -50,7 +49,9 @@ func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx": ctx}, map[string]interface{}{
+				"ctx":    ctx,
+				"limit":  limit,
+				"offset": offset}, map[string]interface{}{
 				"wa1": wa1,
 				"err": err})
 		} else if err != nil {
@@ -64,11 +65,11 @@ func (_d WorkspaceQueryServiceWithTracing) List(ctx context.Context) (wa1 []api.
 
 		_span.End()
 	}()
-	return _d.WorkspaceQueryService.List(ctx)
+	return _d.WorkspaceQueryService.List(ctx, limit, offset)
 }
 
 // ListByUserID implements WorkspaceQueryService
-func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, userID userDomain.UserID) (wa1 []api.Workspace, err error) {
+func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, userID userDomain.UserID) (wa1 []_sourceApplication.WorkspaceReadModel, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListByUserID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),
@@ -95,7 +96,7 @@ func (_d WorkspaceQueryServiceWithTracing) ListByUserID(ctx context.Context, use
 }
 
 // ListTagsByWorkspaceID implements WorkspaceQueryService
-func (_d WorkspaceQueryServiceWithTracing) ListTagsByWorkspaceID(ctx context.Context, workspaceID domain.WorkspaceID) (ta1 []api.Tag, err error) {
+func (_d WorkspaceQueryServiceWithTracing) ListTagsByWorkspaceID(ctx context.Context, workspaceID domain.WorkspaceID) (ta1 []_sourceApplication.TagReadModel, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WorkspaceQueryService.ListTagsByWorkspaceID", trace.WithAttributes(
 		semconv.DBSystemNamePostgreSQL,
 		semconv.PeerServiceKey.String("postgres"),

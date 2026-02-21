@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -57,6 +58,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -117,6 +124,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -155,6 +168,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -208,6 +227,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -245,6 +270,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -285,6 +316,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -331,6 +368,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -393,6 +436,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -435,6 +484,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -464,7 +519,15 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 			paramid := userDomain.UserID(uuid.MustParse(args[0]))
 
-			resp, err := c.GetUserWorkspacesWithResponse(ctx, paramid)
+			params := &client.GetUserWorkspacesParams{}
+			if val, _ := cmd.Flags().GetInt("limit"); val != 0 {
+				params.Limit = &val
+			}
+			if val, _ := cmd.Flags().GetInt("offset"); val != 0 {
+				params.Offset = &val
+			}
+
+			resp, err := c.GetUserWorkspacesWithResponse(ctx, paramid, params)
 			if err != nil {
 				return err
 			}
@@ -473,6 +536,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -486,6 +555,8 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			return nil
 		},
 	}
+	cmdGetUserWorkspaces.Flags().Int("limit", 0, "Maximum number of records to return.")
+	cmdGetUserWorkspaces.Flags().Int("offset", 0, "Number of records to skip.")
 
 	rootCmd.AddCommand(cmdGetUserWorkspaces)
 
@@ -502,7 +573,15 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing ListWorkspaces"))
 			}
 
-			resp, err := c.ListWorkspacesWithResponse(ctx)
+			params := &client.ListWorkspacesParams{}
+			if val, _ := cmd.Flags().GetInt("limit"); val != 0 {
+				params.Limit = &val
+			}
+			if val, _ := cmd.Flags().GetInt("offset"); val != 0 {
+				params.Offset = &val
+			}
+
+			resp, err := c.ListWorkspacesWithResponse(ctx, params)
 			if err != nil {
 				return err
 			}
@@ -511,6 +590,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -524,6 +609,8 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			return nil
 		},
 	}
+	cmdListWorkspaces.Flags().Int("limit", 0, "Maximum number of records to return.")
+	cmdListWorkspaces.Flags().Int("offset", 0, "Number of records to skip.")
 
 	rootCmd.AddCommand(cmdListWorkspaces)
 
@@ -570,6 +657,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -610,6 +703,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -671,6 +770,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -715,6 +820,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -753,6 +864,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -814,6 +931,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			}
 
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
 			if len(resp.Body) > 0 {
 				fmt.Printf("%s\n", string(resp.Body))
 			}
@@ -845,7 +968,15 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 			paramid := workspaceDomain.WorkspaceID(uuid.MustParse(args[0]))
 
-			resp, err := c.GetWorkspaceTodosWithResponse(ctx, paramid)
+			params := &client.GetWorkspaceTodosParams{}
+			if val, _ := cmd.Flags().GetInt("limit"); val != 0 {
+				params.Limit = &val
+			}
+			if val, _ := cmd.Flags().GetInt("offset"); val != 0 {
+				params.Offset = &val
+			}
+
+			resp, err := c.GetWorkspaceTodosWithResponse(ctx, paramid, params)
 			if err != nil {
 				return err
 			}
@@ -854,6 +985,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {
@@ -867,6 +1004,8 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			return nil
 		},
 	}
+	cmdGetWorkspaceTodos.Flags().Int("limit", 0, "Maximum number of records to return.")
+	cmdGetWorkspaceTodos.Flags().Int("offset", 0, "Number of records to skip.")
 
 	rootCmd.AddCommand(cmdGetWorkspaceTodos)
 
@@ -913,6 +1052,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {

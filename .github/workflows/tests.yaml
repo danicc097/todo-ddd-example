@@ -67,11 +67,12 @@ jobs:
         run: |
           go test -tags e2e -v ./tests/e2e/...
 
-      - name: Verify example flow
+      - name: Verify example flows
         run: |
           make gen-cli
           sudo apt-get install oathtool libpam-oath
           ./scripts/example-flow.sh
+          ./scripts/test-idempotency.sh
 
       - name: Debug on failure
         if: failure()

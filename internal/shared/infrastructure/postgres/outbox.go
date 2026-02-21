@@ -48,7 +48,18 @@ func SaveDomainEvents(
 		envelope := EventEnvelope{
 			Event:     string(eventName),
 			Timestamp: e.OccurredAt(),
-			Data:      rawPayload,
+		}
+
+		// handle both cases where mapper might already return bytes or a struct
+		if b, ok := rawPayload.([]byte); ok {
+			envelope.Data = b
+		} else {
+			b, err := json.Marshal(rawPayload)
+			if err != nil {
+				return err
+			}
+
+			envelope.Data = b
 		}
 
 		payload, err := json.Marshal(envelope)
@@ -67,7 +78,7 @@ func SaveDomainEvents(
 		if err := q.SaveOutboxEvent(ctx, dbtx, db.SaveOutboxEventParams{
 			ID:            uuid.New(),
 			EventType:     eventName,
-			AggregateType: e.AggregateType(),
+			AggregateType: e.AggregateType().String(),
 			AggregateID:   e.AggregateID(),
 			Payload:       payload,
 			Headers:       headersJSON,

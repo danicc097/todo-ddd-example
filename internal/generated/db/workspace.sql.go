@@ -136,10 +136,16 @@ FROM
   workspaces
 ORDER BY
   created_at DESC
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListWorkspaces(ctx context.Context, db DBTX) ([]Workspaces, error) {
-	rows, err := db.Query(ctx, ListWorkspaces)
+type ListWorkspacesParams struct {
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListWorkspaces(ctx context.Context, db DBTX, arg ListWorkspacesParams) ([]Workspaces, error) {
+	rows, err := db.Query(ctx, ListWorkspaces, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

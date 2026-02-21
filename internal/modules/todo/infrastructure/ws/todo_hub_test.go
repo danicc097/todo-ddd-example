@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application/applicationfakes"
 	wsdomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
@@ -50,9 +50,9 @@ func TestTodoHub_Integration(t *testing.T) {
 	userID := uuid.New()
 
 	mockWS := &applicationfakes.FakeWorkspaceQueryService{
-		ListByUserIDStub: func(ctx context.Context, ui userDomain.UserID) ([]api.Workspace, error) {
-			return []api.Workspace{
-				{Id: wsdomain.WorkspaceID(wsID1)},
+		ListByUserIDStub: func(ctx context.Context, ui userDomain.UserID) ([]wsApp.WorkspaceReadModel, error) {
+			return []wsApp.WorkspaceReadModel{
+				{ID: wsdomain.WorkspaceID(wsID1)},
 			}, nil
 		},
 	}

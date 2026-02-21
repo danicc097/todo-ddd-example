@@ -1,11 +1,13 @@
 package domain
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-var ErrInvalidEmail = errors.New("invalid email address")
+var ErrInvalidEmail = shared.NewDomainError(apperrors.InvalidInput, "invalid email address")
 
 type UserEmail struct {
 	value string

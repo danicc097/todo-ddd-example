@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
@@ -26,19 +25,23 @@ func NewTodoQueryService(pool *pgxpool.Pool) application.TodoQueryService {
 	}
 }
 
-func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]api.Todo, error) {
-	rows, err := s.q.ListTodosByWorkspaceID(ctx, s.pool, wsID)
+func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID, limit, offset int32) ([]application.TodoReadModel, error) {
+	rows, err := s.q.ListTodosByWorkspaceID(ctx, s.pool, db.ListTodosByWorkspaceIDParams{
+		WorkspaceID: wsID,
+		Limit:       limit,
+		Offset:      offset,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	todos := make([]api.Todo, len(rows))
+	todos := make([]application.TodoReadModel, len(rows))
 	for i, r := range rows {
-		todos[i] = api.Todo{
-			Id:          r.ID,
-			WorkspaceId: r.WorkspaceID,
+		todos[i] = application.TodoReadModel{
+			ID:          r.ID,
+			WorkspaceID: r.WorkspaceID,
 			Title:       r.Title,
-			Status:      api.TodoStatus(r.Status),
+			Status:      r.Status,
 			CreatedAt:   r.CreatedAt,
 		}
 	}
@@ -46,7 +49,7 @@ func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.
 	return todos, nil
 }
 
-func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*api.Todo, error) {
+func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*application.TodoReadModel, error) {
 	row, err := s.q.GetTodoByID(ctx, s.pool, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -56,10 +59,11 @@ func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*api.
 		return nil, err
 	}
 
-	return &api.Todo{
-		Id:        row.ID,
-		Title:     row.Title,
-		Status:    api.TodoStatus(row.Status),
-		CreatedAt: row.CreatedAt,
+	return &application.TodoReadModel{
+		ID:          row.ID,
+		WorkspaceID: row.WorkspaceID,
+		Title:       row.Title,
+		Status:      row.Status,
+		CreatedAt:   row.CreatedAt,
 	}, nil
 }

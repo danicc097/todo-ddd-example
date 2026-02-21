@@ -1,7 +1,6 @@
 package postgres_test
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -38,15 +37,12 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, sharedDomain.TodoCreated, name)
 
-		var payload map[string]any
+		payload := data.(postgres.TodoOutboxDTO)
 
-		err = json.Unmarshal(data, &payload)
-		require.NoError(t, err)
-
-		assert.Equal(t, id.String(), payload["id"])
-		assert.Equal(t, wsID.String(), payload["workspace_id"])
-		assert.Equal(t, "Test Todo", payload["title"])
-		assert.Equal(t, "PENDING", payload["status"])
+		assert.Equal(t, id, payload.ID)
+		assert.Equal(t, wsID, payload.WorkspaceID)
+		assert.Equal(t, "Test Todo", payload.Title)
+		assert.Equal(t, "PENDING", payload.Status)
 	})
 
 	t.Run("TagAddedEvent", func(t *testing.T) {
@@ -64,12 +60,9 @@ func TestTodoMapper_MapEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, sharedDomain.TodoTagAdded, name)
 
-		var payload map[string]any
+		payload := data.(postgres.TagAddedOutboxDTO)
 
-		err = json.Unmarshal(data, &payload)
-		require.NoError(t, err)
-
-		assert.Equal(t, todoID.String(), payload["todo_id"])
-		assert.Equal(t, tagID.String(), payload["tag_id"])
+		assert.Equal(t, todoID, payload.TodoID)
+		assert.Equal(t, tagID, payload.TagID)
 	})
 }

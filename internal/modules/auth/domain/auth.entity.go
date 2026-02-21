@@ -3,13 +3,15 @@ package domain
 import (
 	"errors"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var (
-	ErrInvalidOTP         = errors.New("invalid OTP code")
-	ErrAuthNotFound       = errors.New("auth record not found")
-	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrInvalidOTP         = shared.NewDomainError(apperrors.Unauthorized, "invalid OTP code")
+	ErrAuthNotFound       = shared.NewDomainError(apperrors.NotFound, "auth record not found")
+	ErrInvalidCredentials = shared.NewDomainError(apperrors.Unauthorized, "invalid email or password")
 )
 
 const (

@@ -130,7 +130,14 @@ GROUP BY
   t.id
 ORDER BY
   t.created_at DESC
+LIMIT $2 OFFSET $3
 `
+
+type ListTodosByWorkspaceIDParams struct {
+	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	Limit       int32             `db:"limit" json:"limit"`
+	Offset      int32             `db:"offset" json:"offset"`
+}
 
 type ListTodosByWorkspaceIDRow struct {
 	ID          types.TodoID      `db:"id" json:"id"`
@@ -141,8 +148,8 @@ type ListTodosByWorkspaceIDRow struct {
 	Tags        []uuid.UUID       `db:"tags" json:"tags"`
 }
 
-func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, workspaceID types.WorkspaceID) ([]ListTodosByWorkspaceIDRow, error) {
-	rows, err := db.Query(ctx, ListTodosByWorkspaceID, workspaceID)
+func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListTodosByWorkspaceIDParams) ([]ListTodosByWorkspaceIDRow, error) {
+	rows, err := db.Query(ctx, ListTodosByWorkspaceID, arg.WorkspaceID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

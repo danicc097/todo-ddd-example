@@ -26,7 +26,8 @@ SELECT
 FROM
   workspaces
 ORDER BY
-  created_at DESC;
+  created_at DESC
+LIMIT $1 OFFSET $2;
 
 -- name: DeleteWorkspace :exec
 DELETE FROM workspaces

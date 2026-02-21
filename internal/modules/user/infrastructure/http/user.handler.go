@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	workspaceApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
@@ -34,12 +35,21 @@ func (h *UserHandler) GetUserByID(c *gin.Context, id userDomain.UserID) {
 	c.JSON(http.StatusOK, h.mapper.ToResponse(user))
 }
 
-func (h *UserHandler) GetUserWorkspaces(c *gin.Context, id userDomain.UserID) {
+func (h *UserHandler) GetUserWorkspaces(c *gin.Context, id userDomain.UserID, params api.GetUserWorkspacesParams) {
 	workspaces, err := h.workspaceQueryService.ListByUserID(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, workspaces)
+	apiWorkspaces := make([]api.Workspace, len(workspaces))
+	for i, w := range workspaces {
+		apiWorkspaces[i] = api.Workspace{
+			Id:          w.ID,
+			Name:        w.Name,
+			Description: w.Description,
+		}
+	}
+
+	c.JSON(http.StatusOK, apiWorkspaces)
 }

@@ -1,8 +1,11 @@
 package domain
 
-import "errors"
+import (
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
+	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
+)
 
-var ErrInvalidStatus = errors.New("invalid status transition")
+var ErrInvalidStatus = shared.NewDomainError(apperrors.Unprocessable, "invalid status transition")
 
 type TodoStatus string
 

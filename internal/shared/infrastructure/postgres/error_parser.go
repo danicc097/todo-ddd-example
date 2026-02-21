@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 
 	"github.com/jackc/pgerrcode"
@@ -10,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
-	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var errorUniqueViolationRegex = regexp.MustCompile(`\((.*)\)=\((.*)\)`)
@@ -23,35 +22,17 @@ func ParseDBError(err error) error {
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// fallback if repo doesn't map to specific entity not found
-		return apperrors.New(apperrors.NotFound, "resource not found")
+		return sharedDomain.NewDomainError(apperrors.NotFound, "resource not found")
 	}
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case pgerrcode.ForeignKeyViolation:
-			switch pgErr.ConstraintName {
-			case "fk_wm_user":
-				return wsDomain.ErrMemberNotFound
-			case "fk_wm_workspace":
-				return wsDomain.ErrWorkspaceNotFound
-			}
-
-			return apperrors.New(apperrors.InvalidInput, "invalid reference for "+pgErr.TableName)
+			return sharedDomain.WrapDomainError(err, apperrors.InvalidInput)
 
 		case pgerrcode.UniqueViolation:
-			switch pgErr.ConstraintName {
-			case "workspace_members_pkey":
-				return wsDomain.ErrUserAlreadyMember
-			}
-
-			matches := errorUniqueViolationRegex.FindStringSubmatch(pgErr.Detail)
-			if len(matches) > 2 {
-				msg := fmt.Sprintf("%s %q already exists", matches[1], matches[2]) // uses column name atm
-				return apperrors.New(apperrors.Conflict, msg)
-			}
-
-			return apperrors.New(apperrors.Conflict, "resource already exists")
+			return sharedDomain.WrapDomainError(err, apperrors.Conflict)
 		}
 
 		return apperrors.Wrap(err, apperrors.Internal, "database error occurred")

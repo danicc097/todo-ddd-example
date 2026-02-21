@@ -14,15 +14,19 @@ type CompleteTodoCommand struct {
 	ID domain.TodoID
 }
 
+type WorkspaceGateway interface {
+	IsMember(ctx context.Context, wsID wsDomain.WorkspaceID, userID userDomain.UserID) (bool, error)
+}
+
 type CompleteTodoHandler struct {
 	repo   domain.TodoRepository
-	wsRepo wsDomain.WorkspaceRepository
+	wsGate WorkspaceGateway
 }
 
 var _ application.RequestHandler[CompleteTodoCommand, application.Void] = (*CompleteTodoHandler)(nil)
 
-func NewCompleteTodoHandler(repo domain.TodoRepository, wsRepo wsDomain.WorkspaceRepository) *CompleteTodoHandler {
-	return &CompleteTodoHandler{repo: repo, wsRepo: wsRepo}
+func NewCompleteTodoHandler(repo domain.TodoRepository, wsGate WorkspaceGateway) *CompleteTodoHandler {
+	return &CompleteTodoHandler{repo: repo, wsGate: wsGate}
 }
 
 func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoCommand) (application.Void, error) {
@@ -33,12 +37,10 @@ func (h *CompleteTodoHandler) Handle(ctx context.Context, cmd CompleteTodoComman
 		return application.Void{}, err
 	}
 
-	ws, err := h.wsRepo.FindByID(ctx, todo.WorkspaceID())
+	isMember, err := h.wsGate.IsMember(ctx, todo.WorkspaceID(), userDomain.UserID(meta.UserID))
 	if err != nil {
 		return application.Void{}, err
 	}
-
-	_, isMember := ws.Members()[userDomain.UserID(meta.UserID)]
 
 	if !isMember && !meta.IsSystem() {
 		return application.Void{}, wsDomain.ErrNotOwner

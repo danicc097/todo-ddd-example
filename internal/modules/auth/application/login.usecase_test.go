@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
@@ -28,11 +29,12 @@ func TestLoginHandler_Handle_Integration(t *testing.T) {
 
 	userRepo := userPg.NewUserRepo(pool)
 	authRepo := authPg.NewAuthRepo(pool)
+	hasher := infraCrypto.NewArgon2PasswordHasher()
 
 	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	issuer := crypto.NewTokenIssuer(privKey, "test")
 
-	handler := application.NewLoginHandler(userRepo, authRepo, issuer)
+	handler := application.NewLoginHandler(userRepo, authRepo, issuer, hasher)
 
 	t.Run("success", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)

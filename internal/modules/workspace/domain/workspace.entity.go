@@ -1,19 +1,19 @@
 package domain
 
 import (
-	"errors"
 	"time"
 
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 var (
-	ErrAtLeastOneOwner   = errors.New("workspace must have at least one owner")
-	ErrUserAlreadyMember = errors.New("user is already a member")
-	ErrMemberNotFound    = errors.New("member not found")
-	ErrWorkspaceNotFound = errors.New("workspace not found")
-	ErrNotOwner          = errors.New("only the owner can perform this action")
+	ErrAtLeastOneOwner   = shared.NewDomainError(apperrors.InvalidInput, "workspace must have at least one owner")
+	ErrUserAlreadyMember = shared.NewDomainError(apperrors.InvalidInput, "user is already a member")
+	ErrMemberNotFound    = shared.NewDomainError(apperrors.NotFound, "member not found")
+	ErrWorkspaceNotFound = shared.NewDomainError(apperrors.NotFound, "workspace not found")
+	ErrNotOwner          = shared.NewDomainError(apperrors.Unauthorized, "only the owner can perform this action")
 )
 
 type WorkspaceID = shared.ID[Workspace]

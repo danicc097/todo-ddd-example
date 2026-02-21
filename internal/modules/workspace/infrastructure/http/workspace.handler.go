@@ -74,14 +74,33 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 	c.JSON(http.StatusCreated, gin.H{"id": id.UUID()})
 }
 
-func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
-	list, err := h.queryService.List(c.Request.Context())
+func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspacesParams) {
+	limit := 20
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+
+	offset := 0
+	if params.Offset != nil {
+		offset = *params.Offset
+	}
+
+	list, err := h.queryService.List(c.Request.Context(), int32(limit), int32(offset))
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, list)
+	apiWorkspaces := make([]api.Workspace, len(list))
+	for i, w := range list {
+		apiWorkspaces[i] = api.Workspace{
+			Id:          w.ID,
+			Name:        w.Name,
+			Description: w.Description,
+		}
+	}
+
+	c.JSON(http.StatusOK, apiWorkspaces)
 }
 
 func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id domain.WorkspaceID) {
@@ -140,5 +159,13 @@ func (h *WorkspaceHandler) GetWorkspaceTags(c *gin.Context, id domain.WorkspaceI
 		return
 	}
 
-	c.JSON(http.StatusOK, tags)
+	apiTags := make([]api.Tag, len(tags))
+	for i, t := range tags {
+		apiTags[i] = api.Tag{
+			Id:   t.ID,
+			Name: t.Name,
+		}
+	}
+
+	c.JSON(http.StatusOK, apiTags)
 }

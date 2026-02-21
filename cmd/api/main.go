@@ -29,6 +29,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
+	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
 	infraMessaging "github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
@@ -51,6 +52,7 @@ import (
 	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
+	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsDecorator "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/decorator"
 	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
@@ -100,13 +102,13 @@ func swaggerUIHandler(url string) gin.HandlerFunc {
 	}
 }
 
-func SecurityHeaders() gin.HandlerFunc {
+func SecurityHeaders(env internal.AppEnv) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff") // prevent script injection
 		c.Header("X-Frame-Options", "DENY")           // prevent clickjacking
 
 		isDocs := c.Request.URL.Path == "/api/v1/docs"
-		isProd := internal.Config.Env == internal.AppEnvProd
+		isProd := env == internal.AppEnvProd
 
 		if isProd || !isDocs {
 			c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
@@ -131,7 +133,8 @@ func main() {
 		}
 	}
 
-	if err := internal.NewAppConfig(); err != nil {
+	cfg, err := internal.LoadConfig()
+	if err != nil {
 		slog.Error("failed to load config", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -139,9 +142,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	isProd := internal.Config.Env == "production"
+	isProd := cfg.Env == "production"
 
-	shutdownLogger, err := logger.Init(ctx, internal.Config.LogLevel, isProd)
+	shutdownLogger, err := logger.Init(ctx, cfg.LogLevel, isProd, cfg.OTEL.Endpoint)
 	if err != nil {
 		os.Stderr.WriteString("logger init failed: " + err.Error() + "\n")
 		os.Exit(1)
@@ -152,11 +155,11 @@ func main() {
 	}()
 
 	pgUrl := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		internal.Config.Postgres.User,
-		internal.Config.Postgres.Password,
-		internal.Config.Postgres.Host,
-		internal.Config.Postgres.Port,
-		internal.Config.Postgres.DBName,
+		cfg.Postgres.User,
+		cfg.Postgres.Password,
+		cfg.Postgres.Host,
+		cfg.Postgres.Port,
+		cfg.Postgres.DBName,
 	)
 
 	var pool *pgxpool.Pool
@@ -181,7 +184,7 @@ func main() {
 
 	defer pool.Close()
 
-	redisClient := rdb.NewClient(&rdb.Options{Addr: internal.Config.Redis.Addr})
+	redisClient := rdb.NewClient(&rdb.Options{Addr: cfg.Redis.Addr})
 	defer redisClient.Close()
 
 	if err := redisotel.InstrumentTracing(redisClient, redisotel.WithAttributes(
@@ -230,7 +233,7 @@ func main() {
 	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(cachedWsRepo, auditRepo)
 	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
 
-	if len(internal.Config.MFAMasterKey) != 32 {
+	if len(cfg.MFAMasterKey) != 32 {
 		slog.Error("MFA_MASTER_KEY must be exactly 32 bytes")
 		os.Exit(1)
 	}
@@ -265,11 +268,11 @@ func main() {
 	baseAuthRepo := authPg.NewAuthRepo(pool)
 	authRepo := authPg.NewAuthRepositoryWithTracing(baseAuthRepo, "todo-ddd-api")
 
-	masterKey := []byte(internal.Config.MFAMasterKey)
+	masterKey := []byte(cfg.MFAMasterKey)
 	totpGuard := authRedis.NewTOTPGuard(redisClient)
 
 	mqConn, err := rabbitmq.NewConn(
-		internal.Config.RabbitMQ.URL,
+		cfg.RabbitMQ.URL,
 		rabbitmq.WithConnectionOptionsReconnectInterval(5*time.Second),
 	)
 	if err != nil {
@@ -308,12 +311,14 @@ func main() {
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
 
+	wsGate := wsAdapters.NewTodoWorkspaceGateway(wsRepo)
+
 	hub := ws.NewTodoHub(redisClient, workspaceQueryService)
 
 	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo)
 	createTodoHandler := sharedMiddleware.Transactional(pool, createTodoBase)
 
-	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo, wsRepo)
+	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo, wsGate)
 	completeTodoHandler := sharedMiddleware.Transactional(pool, completeTodoBase)
 
 	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
@@ -324,17 +329,19 @@ func main() {
 
 	// queries bypass tx
 	baseTodoQueryService := todoPg.NewTodoQueryService(pool)
-	apiTodoCodec := cache.NewMsgpackCodec[*api.Todo]()
+	todoReadModelCodec := cache.NewMsgpackCodec[*todoApp.TodoReadModel]()
 	cachedTodoQueryService := todoDecorator.NewTodoQueryServiceCache(
 		baseTodoQueryService,
 		redisClient,
 		5*time.Minute,
-		apiTodoCodec,
+		todoReadModelCodec,
 	)
 	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, "todo-ddd-api")
 
-	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenIssuer)
-	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo)
+	passwordHasher := infraCrypto.NewArgon2PasswordHasher()
+
+	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenIssuer, passwordHasher)
+	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher)
 	registerHandlerTx := sharedMiddleware.Transactional(pool, registerHandler)
 
 	initiateTOTPHandler := authApp.NewInitiateTOTPHandler(authRepo, masterKey)
@@ -371,12 +378,12 @@ func main() {
 
 	r := gin.New()
 	r.Use(otelgin.Middleware("todo-ddd-api"))
-	r.Use(SecurityHeaders())
+	r.Use(middleware.ErrorHandler())
+	r.Use(SecurityHeaders(cfg.Env))
 	r.Use(middleware.StructuredLogger())
 	r.Use(gin.Recovery())
-	r.Use(middleware.Idempotency(redisClient))
+	r.Use(middleware.DBIdempotency(pool))
 	r.Use(middleware.IdentityAndMFAResolver(tokenVerifier))
-	r.Use(middleware.ErrorHandler())
 
 	// non-owasp: missing cors based on consumers
 
@@ -442,12 +449,12 @@ func main() {
 	r.GET("/ws", th.WS)
 
 	srv := &http.Server{
-		Addr:    ":" + internal.Config.Port,
+		Addr:    ":" + cfg.Port,
 		Handler: r,
 	}
 
 	go func() {
-		slog.InfoContext(ctx, "Application server starting", slog.String("port", internal.Config.Port))
+		slog.InfoContext(ctx, "Application server starting", slog.String("port", cfg.Port))
 
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server listen error", slog.String("error", err.Error()))

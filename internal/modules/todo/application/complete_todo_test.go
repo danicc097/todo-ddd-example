@@ -11,6 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
@@ -26,8 +27,9 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	fixtures := testfixtures.NewFixtures(pool)
 	repo := todoPg.NewTodoRepo(pool)
 	wsRepo := wsPg.NewWorkspaceRepo(pool)
+	wsGate := wsAdapters.NewTodoWorkspaceGateway(wsRepo)
 
-	baseHandler := application.NewCompleteTodoHandler(repo, wsRepo)
+	baseHandler := application.NewCompleteTodoHandler(repo, wsGate)
 	handler := middleware.Transactional(pool, baseHandler)
 
 	t.Run("completes", func(t *testing.T) {

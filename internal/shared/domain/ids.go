@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 
 	"github.com/google/uuid"
@@ -45,14 +44,6 @@ func (id *ID[T]) UnmarshalJSON(data []byte) error {
 	*id = ID[T](u)
 
 	return nil
-}
-
-func (id ID[T]) Value() (driver.Value, error) {
-	return uuid.UUID(id).Value()
-}
-
-func (id *ID[T]) Scan(src any) error {
-	return (*uuid.UUID)(id).Scan(src)
 }
 
 func (id *ID[T]) UnmarshalText(data []byte) error {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/google/uuid"
@@ -102,6 +103,12 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
 			} else {
 				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
 			}
 
 			if len(resp.Body) > 0 {

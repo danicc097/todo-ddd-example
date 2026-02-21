@@ -13,6 +13,15 @@ ALTER SCHEMA public OWNER TO pg_database_owner;
 COMMENT ON SCHEMA public IS 'standard public schema';
 SET default_tablespace = '';
 SET default_table_access_method = heap;
+CREATE TABLE public.idempotency_keys (
+    id uuid NOT NULL,
+    response_status integer NOT NULL,
+    response_headers jsonb NOT NULL,
+    response_body bytea NOT NULL,
+    locked_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+ALTER TABLE public.idempotency_keys OWNER TO postgres;
 CREATE TABLE public.outbox (
     id uuid NOT NULL,
     event_type text NOT NULL,
@@ -74,6 +83,8 @@ CREATE TABLE public.workspaces (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public.workspaces OWNER TO postgres;
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.outbox
     ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.tags

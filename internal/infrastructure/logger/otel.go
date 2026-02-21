@@ -16,11 +16,9 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/danicc097/todo-ddd-example/internal"
 )
 
-func Init(ctx context.Context, level string, isProduction bool) (func(context.Context) error, error) {
+func Init(ctx context.Context, level string, isProduction bool, endpoint string) (func(context.Context) error, error) {
 	hostname, _ := os.Hostname()
 
 	res, _ := resource.Merge(
@@ -31,8 +29,6 @@ func Init(ctx context.Context, level string, isProduction bool) (func(context.Co
 			semconv.ServiceInstanceIDKey.String(hostname),
 		),
 	)
-
-	endpoint := internal.Config.OTEL.Endpoint
 
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {

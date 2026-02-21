@@ -2,11 +2,11 @@ package internal
 
 import (
 	"fmt"
-	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 var (
@@ -22,7 +22,8 @@ const (
 	AppEnvCI   AppEnv = "ci"
 )
 
-func (e *AppEnv) Decode(value string) error {
+func (e *AppEnv) UnmarshalText(text []byte) error {
+	value := string(text)
 	switch value {
 	case string(AppEnvDev), string(AppEnvProd), string(AppEnvCI):
 		*e = AppEnv(value)
@@ -34,44 +35,44 @@ func (e *AppEnv) Decode(value string) error {
 }
 
 type PostgresConfig struct {
-	User     string `env:"DB_USER"`
-	Password string `env:"DB_PASS"`
-	Host     string `env:"DB_HOST"`
-	Port     string `env:"DB_PORT"`
-	DBName   string `env:"DB_NAME"`
+	User     string `mapstructure:"DB_USER"`
+	Password string `mapstructure:"DB_PASS"`
+	Host     string `mapstructure:"DB_HOST"`
+	Port     string `mapstructure:"DB_PORT"`
+	DBName   string `mapstructure:"DB_NAME"`
 }
 
 type RedisConfig struct {
-	Addr string `env:"REDIS_ADDR"`
+	Addr string `mapstructure:"REDIS_ADDR"`
 }
 
 type RabbitMQConfig struct {
-	URL string `env:"RABBITMQ_URL"`
+	URL string `mapstructure:"RABBITMQ_URL"`
 }
 
 type OTELConfig struct {
-	Endpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	Endpoint string `mapstructure:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 }
 
 type AppConfig struct {
-	Postgres     PostgresConfig
-	Redis        RedisConfig
-	RabbitMQ     RabbitMQConfig
-	OTEL         OTELConfig
-	LogLevel     string `env:"LOG_LEVEL,INFO"`
-	Env          AppEnv `env:"ENV,development"`
-	Port         string `env:"PORT"`
-	MFAMasterKey string `env:"MFA_MASTER_KEY"`
+	Postgres     PostgresConfig `mapstructure:",squash"`
+	Redis        RedisConfig    `mapstructure:",squash"`
+	RabbitMQ     RabbitMQConfig `mapstructure:",squash"`
+	OTEL         OTELConfig     `mapstructure:",squash"`
+	LogLevel     string         `mapstructure:"LOG_LEVEL"`
+	Env          AppEnv         `mapstructure:"ENV"`
+	Port         string         `mapstructure:"PORT"`
+	MFAMasterKey string         `mapstructure:"MFA_MASTER_KEY"`
 }
 
+// NewAppConfig initializes the global Config variable.
 func NewAppConfig() error {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	cfg := &AppConfig{}
-
-	if err := loadEnvToConfig(cfg); err != nil {
-		return fmt.Errorf("loadEnvToConfig: %w", err)
+	cfg, err := LoadConfig()
+	if err != nil {
+		return err
 	}
 
 	Config = cfg
@@ -79,186 +80,50 @@ func NewAppConfig() error {
 	return nil
 }
 
-var decoderType = reflect.TypeFor[Decoder]()
+// LoadConfig loads configuration from environment variables.
+func LoadConfig() (*AppConfig, error) {
+	v := viper.New()
 
-type Decoder interface {
-	Decode(value string) error
-}
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-func loadEnvToConfig(config any) error {
-	cfg := reflect.ValueOf(config)
+	bindEnvs(v, AppConfig{})
 
-	if cfg.Kind() == reflect.Pointer {
-		cfg = cfg.Elem()
+	v.SetDefault("LOG_LEVEL", "INFO")
+	v.SetDefault("ENV", "development")
+
+	cfg := &AppConfig{}
+
+	if err := v.Unmarshal(cfg); err != nil {
+		return nil, fmt.Errorf("viper unmarshal: %w", err)
 	}
 
-	for idx := 0; idx < cfg.NumField(); idx++ {
-		fType := cfg.Type().Field(idx)
-		fld := cfg.Field(idx)
+	return cfg, nil
+}
 
-		if fld.Kind() == reflect.Struct {
-			if !fld.CanInterface() {
-				continue
-			}
+func bindEnvs(v *viper.Viper, iface any, parts ...string) {
+	ifv := reflect.ValueOf(iface)
 
-			if err := loadEnvToConfig(fld.Addr().Interface()); err != nil {
-				return fmt.Errorf("nested struct %q env loading: %w", fType.Name, err)
-			}
-		}
+	ift := reflect.TypeOf(iface)
+	for i := 0; i < ift.NumField(); i++ {
+		vfield := ifv.Field(i)
+		tfield := ift.Field(i)
 
-		if !fld.CanSet() {
+		tv, ok := tfield.Tag.Lookup("mapstructure")
+		if !ok {
 			continue
 		}
 
-		if envtag, ok := fType.Tag.Lookup("env"); ok && len(envtag) > 0 {
-			isPtr := fld.Kind() == reflect.Pointer
-
-			var ptr reflect.Type
-			if isPtr {
-				ptr = fld.Type()
-			} else {
-				ptr = reflect.PtrTo(fType.Type)
-			}
-
-			if ptr.Implements(decoderType) {
-				envvar, _ := splitEnvTag(envtag)
-
-				val, _ := os.LookupEnv(envvar)
-				if val == "" && isPtr {
-					continue
-				}
-
-				var (
-					decoder Decoder
-					ok      bool
-				)
-
-				if isPtr {
-					decoder, ok = reflect.New(ptr.Elem()).Interface().(Decoder)
-				} else {
-					decoder, ok = fld.Addr().Interface().(Decoder)
-				}
-
-				if !ok {
-					return fmt.Errorf("%q: could not find Decoder method", ptr.Elem())
-				}
-
-				if err := setDecoderValue(decoder, fType.Tag.Get("env"), fld); err != nil {
-					return fmt.Errorf("could not decode %q: %w", fType.Name, err)
-				}
-
-				if isPtr {
-					fld.Set(reflect.ValueOf(decoder))
-				} else {
-					fld.Set(reflect.ValueOf(decoder).Elem())
-				}
-
-				continue
-			}
-
-			if err := setEnvToField(envtag, fld); err != nil {
-				return fmt.Errorf("could not set %q to %q: %w", envtag, fType.Name, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func setDecoderValue(decoder Decoder, envTag string, field reflect.Value) error {
-	envvar, defaultVal := splitEnvTag(envTag)
-	val, present := os.LookupEnv(envvar)
-
-	if !present && field.Kind() != reflect.Pointer {
-		if defaultVal == "" {
-			return fmt.Errorf("%s is not set but required", envvar)
+		if tv == ",squash" {
+			bindEnvs(v, vfield.Interface(), parts...)
+			continue
 		}
 
-		val = defaultVal
-	}
-
-	var isPtr bool
-
-	kind := field.Kind()
-
-	if kind == reflect.Pointer {
-		kind = field.Type().Elem().Kind()
-		isPtr = true
-	}
-
-	if val == "" && isPtr && kind != reflect.String {
-		return nil
-	}
-
-	return decoder.Decode(val)
-}
-
-func splitEnvTag(s string) (string, string) {
-	x := strings.Split(s, ",")
-	if len(x) == 1 {
-		return x[0], ""
-	}
-
-	return x[0], x[1]
-}
-
-func setEnvToField(envTag string, field reflect.Value) error {
-	envvar, defaultVal := splitEnvTag(envTag)
-	val, present := os.LookupEnv(envvar)
-
-	if !present && field.Kind() != reflect.Pointer {
-		if defaultVal == "" {
-			return fmt.Errorf("%s is not set but required", envvar)
+		switch vfield.Kind() {
+		case reflect.Struct:
+			bindEnvs(v, vfield.Interface(), append(parts, tv)...)
+		default:
+			v.BindEnv(strings.Join(append(parts, tv), "."))
 		}
-
-		val = defaultVal
-	}
-
-	var isPtr bool
-
-	kind := field.Kind()
-	if kind == reflect.Pointer {
-		kind = field.Type().Elem().Kind()
-		isPtr = true
-	}
-
-	if val == "" && isPtr && kind != reflect.String {
-		return nil
-	}
-
-	switch kind {
-	case reflect.String:
-		if !present && isPtr {
-			setVal[*string](false, field, nil)
-			return nil
-		}
-
-		setVal(isPtr, field, val)
-	case reflect.Int:
-		v, err := strconv.Atoi(val)
-		if err != nil {
-			return fmt.Errorf("could not convert %s to int: %w", envvar, err)
-		}
-
-		setVal(isPtr, field, v)
-	case reflect.Bool:
-		v, err := strconv.ParseBool(val)
-		if err != nil {
-			return fmt.Errorf("could not convert %s to bool: %w", envvar, err)
-		}
-
-		setVal(isPtr, field, v)
-	default:
-		return fmt.Errorf("unsupported type for env tag %q: %T", envvar, field.Interface())
-	}
-
-	return nil
-}
-
-func setVal[T any](isPtr bool, field reflect.Value, v T) {
-	if isPtr {
-		field.Set(reflect.ValueOf(&v))
-	} else {
-		field.Set(reflect.ValueOf(v))
 	}
 }

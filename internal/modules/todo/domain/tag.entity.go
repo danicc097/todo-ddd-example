@@ -1,13 +1,12 @@
 package domain
 
 import (
-	"errors"
-
+	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-var ErrTagNotFound = errors.New("tag not found")
+var ErrTagNotFound = shared.NewDomainError(apperrors.NotFound, "tag not found")
 
 type TagID = shared.ID[Tag]
 

@@ -20,6 +20,8 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
 
+// Relay polls the database for outbox events and publishes them to the message broker.
+// It provides deliveries with a dead letter queue cutoff.
 type Relay struct {
 	pool         *pgxpool.Pool
 	q            *db.Queries
@@ -67,7 +69,6 @@ func (r *Relay) Start(ctx context.Context) {
 			r.updateMetrics(ctx)
 		case <-ticker.C:
 			r.wg.Add(1)
-			// Ensure the DB tx finishes even if main ctx is cancelled
 			r.processEvents(context.WithoutCancel(ctx))
 			r.wg.Done()
 		}
@@ -83,7 +84,7 @@ func (r *Relay) updateMetrics(ctx context.Context) {
 }
 
 func (r *Relay) processEvents(ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	tx, err := r.pool.Begin(ctx)
@@ -114,58 +115,62 @@ func (r *Relay) processEvents(ctx context.Context) {
 	slog.DebugContext(ctx, "processing outbox batch", slog.Int("count", len(events)))
 
 	for _, event := range events {
-		var headers map[string]string
-		if err := json.Unmarshal(event.Headers, &headers); err != nil {
-			slog.ErrorContext(ctx, "failed to unmarshal headers", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
-			// skip malformed
-			continue
-		}
-
-		slog.DebugContext(ctx, "extracted headers from outbox", slog.String("id", event.ID.String()), slog.Any("headers", headers))
-
-		carrier := propagation.MapCarrier(headers)
-		extractedCtx := otel.GetTextMapPropagator().Extract(ctx, carrier)
-
-		pubCtx, span := r.tracer.Start(extractedCtx, "outbox.publish_event",
-			trace.WithSpanKind(trace.SpanKindProducer),
-			trace.WithLinks(trace.LinkFromContext(ctx)),
-			trace.WithAttributes(
-				attribute.String("event.type", string(event.EventType)),
-				attribute.String("aggregate.id", event.AggregateID.String()),
-				attribute.String("aggregate.type", event.AggregateType),
-			),
-		)
-
-		pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
-
-		err = r.broker.Publish(pubCtx, string(event.EventType), event.AggregateID, event.Payload, headers)
-		if err != nil {
-			span.RecordError(err)
-		}
-
-		span.End()
-		cancel()
-
-		if err == nil {
-			if err := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); err != nil {
-				slog.ErrorContext(ctx, "failed to mark event processed", slog.String("error", err.Error()))
-				return // abort tx
-			}
-
-			continue
-		}
-
-		slog.WarnContext(ctx, "event publish failed, updating retries", slog.String("id", event.ID.String()), slog.String("error", err.Error()))
-
-		if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
-			ID:        event.ID,
-			LastError: pointers.New(err.Error()),
-		}); dbErr != nil {
-			slog.ErrorContext(ctx, "failed to update retries", slog.String("error", dbErr.Error()))
-		}
+		r.processSingleEvent(ctx, tx, event)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		slog.ErrorContext(ctx, "failed to commit outbox transaction", slog.String("error", err.Error()))
+		slog.ErrorContext(ctx, "failed to commit outbox batch locks", slog.String("error", err.Error()))
+	}
+}
+
+func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Outbox) {
+	var headers map[string]string
+
+	idAtrr := slog.String("event_id", event.ID.String())
+
+	if err := json.Unmarshal(event.Headers, &headers); err != nil {
+		slog.ErrorContext(ctx, "failed to unmarshal headers, discarding event", idAtrr, slog.String("error", err.Error()))
+		_ = r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
+			ID:        event.ID,
+			LastError: pointers.New("fatal: invalid header JSON"),
+		})
+
+		return
+	}
+
+	carrier := propagation.MapCarrier(headers)
+	extractedCtx := otel.GetTextMapPropagator().Extract(ctx, carrier)
+
+	pubCtx, span := r.tracer.Start(extractedCtx, "outbox.publish_event",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithLinks(trace.LinkFromContext(ctx)),
+		trace.WithAttributes(
+			attribute.String("event.type", string(event.EventType)),
+			attribute.String("aggregate.id", event.AggregateID.String()),
+			attribute.String("aggregate.type", event.AggregateType),
+		),
+	)
+	defer span.End()
+
+	pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
+	defer cancel()
+
+	err := r.broker.Publish(pubCtx, string(event.EventType), event.AggregateID, event.Payload, headers)
+	if err == nil {
+		if dbErr := r.q.MarkOutboxEventProcessed(ctx, tx, event.ID); dbErr != nil {
+			slog.ErrorContext(ctx, "failed to mark event processed", idAtrr, slog.String("error", dbErr.Error()))
+		}
+
+		return
+	}
+
+	span.RecordError(err)
+	slog.WarnContext(ctx, "event publish failed, updating retries", idAtrr, slog.String("error", err.Error()))
+
+	if dbErr := r.q.UpdateOutboxRetries(ctx, tx, db.UpdateOutboxRetriesParams{
+		ID:        event.ID,
+		LastError: pointers.New(err.Error()),
+	}); dbErr != nil {
+		slog.ErrorContext(ctx, "failed to update retries", idAtrr, slog.String("error", dbErr.Error()))
 	}
 }

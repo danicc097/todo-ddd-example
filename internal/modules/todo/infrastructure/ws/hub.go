@@ -195,9 +195,18 @@ func (h *Hub) run() {
 			if clients, ok := h.rooms[roomID]; ok {
 				for client := range clients {
 					select {
-					case client.send <- message:
-					default:
-						client.conn.Close()
+					case client.send <- message: // happy path
+					default: // queue is full
+						select {
+						case <-client.send: // drop oldest message if buffer is full
+						default:
+						}
+
+						select {
+						case client.send <- message: // try again
+						default: // still full
+							client.conn.Close()
+						}
 					}
 				}
 			}
@@ -232,7 +241,7 @@ func (h *Hub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		hub:    h,
 		conn:   conn,
-		send:   make(chan []byte, 256),
+		send:   make(chan []byte, 1024),
 		rooms:  roomMap,
 		userID: meta.UserID,
 	}

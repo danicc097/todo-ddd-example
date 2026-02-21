@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -105,7 +106,11 @@ func (r *TodoRepo) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo
 }
 
 func (r *TodoRepo) FindAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID) ([]*domain.Todo, error) {
-	rows, err := r.q.ListTodosByWorkspaceID(ctx, r.getDB(ctx), wsID)
+	rows, err := r.q.ListTodosByWorkspaceID(ctx, r.getDB(ctx), db.ListTodosByWorkspaceIDParams{
+		WorkspaceID: wsID,
+		Limit:       math.MaxInt32,
+		Offset:      0,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list todos: %w", sharedPg.ParseDBError(err))
 	}

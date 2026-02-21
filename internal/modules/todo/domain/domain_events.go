@@ -24,10 +24,10 @@ type TodoCreatedEvent struct {
 	Occurred    time.Time
 }
 
-func (e TodoCreatedEvent) EventName() shared.EventType { return shared.TodoCreated }
-func (e TodoCreatedEvent) OccurredAt() time.Time       { return e.Occurred }
-func (e TodoCreatedEvent) AggregateID() uuid.UUID      { return e.ID.UUID() }
-func (e TodoCreatedEvent) AggregateType() string       { return "TODO" }
+func (e TodoCreatedEvent) EventName() shared.EventType         { return shared.TodoCreated }
+func (e TodoCreatedEvent) OccurredAt() time.Time               { return e.Occurred }
+func (e TodoCreatedEvent) AggregateID() uuid.UUID              { return e.ID.UUID() }
+func (e TodoCreatedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
 
 type TodoCompletedEvent struct {
 	ID          TodoID
@@ -38,10 +38,10 @@ type TodoCompletedEvent struct {
 	Occurred    time.Time
 }
 
-func (e TodoCompletedEvent) EventName() shared.EventType { return shared.TodoCompleted }
-func (e TodoCompletedEvent) OccurredAt() time.Time       { return e.Occurred }
-func (e TodoCompletedEvent) AggregateID() uuid.UUID      { return e.ID.UUID() }
-func (e TodoCompletedEvent) AggregateType() string       { return "TODO" }
+func (e TodoCompletedEvent) EventName() shared.EventType         { return shared.TodoCompleted }
+func (e TodoCompletedEvent) OccurredAt() time.Time               { return e.Occurred }
+func (e TodoCompletedEvent) AggregateID() uuid.UUID              { return e.ID.UUID() }
+func (e TodoCompletedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
 
 type TagAddedEvent struct {
 	TodoID      TodoID
@@ -50,7 +50,7 @@ type TagAddedEvent struct {
 	Occurred    time.Time
 }
 
-func (e TagAddedEvent) EventName() shared.EventType { return shared.TodoTagAdded }
-func (e TagAddedEvent) OccurredAt() time.Time       { return e.Occurred }
-func (e TagAddedEvent) AggregateID() uuid.UUID      { return e.TodoID.UUID() }
-func (e TagAddedEvent) AggregateType() string       { return "TODO" }
+func (e TagAddedEvent) EventName() shared.EventType         { return shared.TodoTagAdded }
+func (e TagAddedEvent) OccurredAt() time.Time               { return e.Occurred }
+func (e TagAddedEvent) AggregateID() uuid.UUID              { return e.TodoID.UUID() }
+func (e TagAddedEvent) AggregateType() shared.AggregateType { return shared.AggTodo }
