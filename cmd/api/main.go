@@ -57,6 +57,7 @@ import (
 	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	wsRedis "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/redis"
+	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedMiddleware "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
@@ -311,20 +312,20 @@ func main() {
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, "todo-ddd-api")
 
-	wsGate := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
+	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
 	hub := ws.NewTodoHub(redisClient, workspaceQueryService)
 
-	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo)
+	createTodoBase := todoApp.NewCreateTodoHandler(todoRepo, wsProv)
 	createTodoHandler := sharedMiddleware.Transactional(pool, createTodoBase)
 
-	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo, wsGate)
+	completeTodoBase := todoApp.NewCompleteTodoHandler(todoRepo, wsProv)
 	completeTodoHandler := sharedMiddleware.Transactional(pool, completeTodoBase)
 
 	createTagBase := todoApp.NewCreateTagHandler(tagRepo)
 	createTagHandler := sharedMiddleware.Transactional(pool, createTagBase)
 
-	assignTagToTodoBase := todoApp.NewAssignTagToTodoHandler(todoRepo)
+	assignTagToTodoBase := todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo)
 	assignTagToTodoHandler := sharedMiddleware.Transactional(pool, assignTagToTodoBase)
 
 	// queries bypass tx
@@ -408,7 +409,11 @@ func main() {
 		ValidateResponse: true,
 		Options: openapi3filter.Options{
 			AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
-				return nil
+				if c := causation.FromContext(ctx); c.IsUser() || c.IsSystem() {
+					return nil
+				}
+
+				return errors.New("unauthorized")
 			},
 		},
 	})

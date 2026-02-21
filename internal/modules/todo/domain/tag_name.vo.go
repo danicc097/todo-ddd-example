@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
@@ -34,23 +33,4 @@ func NewTagName(val string) (TagName, error) {
 
 func (t TagName) String() string {
 	return t.value
-}
-
-func (t TagName) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.value)
-}
-
-func (t TagName) MarshalText() ([]byte, error) {
-	return []byte(t.value), nil
-}
-
-func (t *TagName) UnmarshalText(text []byte) error {
-	vo, err := NewTagName(string(text))
-	if err != nil {
-		return err
-	}
-
-	*t = vo
-
-	return nil
 }

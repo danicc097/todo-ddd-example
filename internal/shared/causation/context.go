@@ -15,12 +15,13 @@ const (
 
 // Metadata carries traceability info.
 type Metadata struct {
-	CorrelationID string    // original request ID
-	CausationID   string    // ID of the event that triggered this
-	UserID        uuid.UUID // who
-	UserIP        string    // where
-	UserAgent     string    // how
-	MFAVerified   bool
+	CorrelationID   string    // original request ID
+	CausationID     string    // ID of the event that triggered this
+	UserID          uuid.UUID // who
+	UserIP          string    // where
+	UserAgent       string    // how
+	IsSystemRequest bool
+	MFAVerified     bool
 }
 
 func (m Metadata) IsUser() bool {
@@ -28,7 +29,7 @@ func (m Metadata) IsUser() bool {
 }
 
 func (m Metadata) IsSystem() bool {
-	return m.UserIP == systemID
+	return m.IsSystemRequest
 }
 
 func FromContext(ctx context.Context) Metadata {

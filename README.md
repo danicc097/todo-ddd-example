@@ -13,7 +13,8 @@
   - Spec-defined rate limiting.
   - Idempotency keys to let clients safely handle non-idempotent request retries.
 - **Observability:** **OpenTelemetry** with **Jaeger** and **Prometheus**.
-- **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node WebSocket synchronization. Transactional outbox pattern and dead letter queue implementations.
+- **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node
+  WebSocket synchronization. Transactional outbox pattern with at-least-once delivery.
 - **Tooling:** Custom generated CLI client from the OpenAPI spec with completion if using `direnv`.
 - **Infra:** **Docker swarm** for multinode deployment with Caddy.
 - **CI:** See `.github/workflows/tests.yaml`.

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -28,23 +27,4 @@ func NewWorkspaceDescription(val string) (WorkspaceDescription, error) {
 
 func (d WorkspaceDescription) String() string {
 	return d.value
-}
-
-func (d WorkspaceDescription) MarshalJSON() ([]byte, error) {
-	return json.Marshal(d.value)
-}
-
-func (d WorkspaceDescription) MarshalText() ([]byte, error) {
-	return []byte(d.value), nil
-}
-
-func (d *WorkspaceDescription) UnmarshalText(text []byte) error {
-	vo, err := NewWorkspaceDescription(string(text))
-	if err != nil {
-		return err
-	}
-
-	*d = vo
-
-	return nil
 }

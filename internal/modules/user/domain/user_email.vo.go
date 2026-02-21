@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
@@ -25,23 +24,4 @@ func NewUserEmail(val string) (UserEmail, error) {
 
 func (e UserEmail) String() string {
 	return e.value
-}
-
-func (e UserEmail) MarshalJSON() ([]byte, error) {
-	return json.Marshal(e.value)
-}
-
-func (e UserEmail) MarshalText() ([]byte, error) {
-	return []byte(e.value), nil
-}
-
-func (e *UserEmail) UnmarshalText(text []byte) error {
-	vo, err := NewUserEmail(string(text))
-	if err != nil {
-		return err
-	}
-
-	*e = vo
-
-	return nil
 }
