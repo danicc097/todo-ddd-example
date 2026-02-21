@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 )
@@ -37,8 +38,10 @@ func (r *tagRepositoryCache) Save(ctx context.Context, tag *domain.Tag) error {
 		return err
 	}
 
-	r.rdb.Del(ctx, cache.Keys.Tag(tag.ID()))
-	_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(tag.WorkspaceID()))
+	db.AfterCommit(ctx, func(ctx context.Context) {
+		r.rdb.Del(ctx, cache.Keys.Tag(tag.ID()))
+		_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(tag.WorkspaceID()))
+	})
 
 	return nil
 }

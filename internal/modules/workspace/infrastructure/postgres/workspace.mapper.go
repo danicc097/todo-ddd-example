@@ -50,28 +50,32 @@ func (m *WorkspaceMapper) ToPersistence(w *domain.Workspace) db.Workspaces {
 // Outbox DTOs
 
 type WorkspaceCreatedDTO struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	OwnerID  uuid.UUID `json:"owner_id"`
-	Occurred time.Time `json:"occurred_at"`
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	OwnerID      uuid.UUID `json:"owner_id"`
+	Occurred     time.Time `json:"occurred_at"`
+	EventVersion int       `json:"event_version"`
 }
 
 type WorkspaceDeletedDTO struct {
-	ID       uuid.UUID `json:"id"`
-	Occurred time.Time `json:"occurred_at"`
+	ID           uuid.UUID `json:"id"`
+	Occurred     time.Time `json:"occurred_at"`
+	EventVersion int       `json:"event_version"`
 }
 
 type MemberAddedDTO struct {
-	WorkspaceID uuid.UUID `json:"workspace_id"`
-	UserID      uuid.UUID `json:"user_id"`
-	Role        string    `json:"role"`
-	Occurred    time.Time `json:"occurred_at"`
+	WorkspaceID  uuid.UUID `json:"workspace_id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Role         string    `json:"role"`
+	Occurred     time.Time `json:"occurred_at"`
+	EventVersion int       `json:"event_version"`
 }
 
 type MemberRemovedDTO struct {
-	WorkspaceID uuid.UUID `json:"workspace_id"`
-	UserID      uuid.UUID `json:"user_id"`
-	Occurred    time.Time `json:"occurred_at"`
+	WorkspaceID  uuid.UUID `json:"workspace_id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Occurred     time.Time `json:"occurred_at"`
+	EventVersion int       `json:"event_version"`
 }
 
 func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, any, error) {
@@ -80,28 +84,32 @@ func (m *WorkspaceMapper) MapEvent(event shared.DomainEvent) (shared.EventType, 
 	switch evt := event.(type) {
 	case domain.WorkspaceCreatedEvent:
 		payload = WorkspaceCreatedDTO{
-			ID:       evt.ID.UUID(),
-			Name:     evt.Name.String(),
-			OwnerID:  evt.OwnerID.UUID(),
-			Occurred: evt.Occurred,
+			ID:           evt.ID.UUID(),
+			Name:         evt.Name.String(),
+			OwnerID:      evt.OwnerID.UUID(),
+			Occurred:     evt.Occurred,
+			EventVersion: 1,
 		}
 	case domain.MemberAddedEvent:
 		payload = MemberAddedDTO{
-			WorkspaceID: evt.WsID.UUID(),
-			UserID:      evt.UserID.UUID(),
-			Role:        string(evt.Role),
-			Occurred:    evt.Occurred,
+			WorkspaceID:  evt.WsID.UUID(),
+			UserID:       evt.UserID.UUID(),
+			Role:         string(evt.Role),
+			Occurred:     evt.Occurred,
+			EventVersion: 1,
 		}
 	case domain.MemberRemovedEvent:
 		payload = MemberRemovedDTO{
-			WorkspaceID: evt.WsID.UUID(),
-			UserID:      evt.UserID.UUID(),
-			Occurred:    evt.Occurred,
+			WorkspaceID:  evt.WsID.UUID(),
+			UserID:       evt.UserID.UUID(),
+			Occurred:     evt.Occurred,
+			EventVersion: 1,
 		}
 	case domain.WorkspaceDeletedEvent:
 		payload = WorkspaceDeletedDTO{
-			ID:       evt.ID.UUID(),
-			Occurred: evt.Occurred,
+			ID:           evt.ID.UUID(),
+			Occurred:     evt.Occurred,
+			EventVersion: 1,
 		}
 	default:
 		slog.Warn("received unmapped event type, skipping outbox persistence", slog.Any("event_type", event.EventName()))

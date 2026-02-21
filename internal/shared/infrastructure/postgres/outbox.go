@@ -18,6 +18,7 @@ import (
 
 type EventEnvelope struct {
 	Event     string          `json:"event"`
+	Version   int             `json:"version"`
 	Timestamp time.Time       `json:"timestamp"`
 	Data      json.RawMessage `json:"data"`
 }
@@ -48,6 +49,7 @@ func SaveDomainEvents(
 
 		envelope := EventEnvelope{
 			Event:     string(eventName),
+			Version:   1,
 			Timestamp: e.OccurredAt(),
 		}
 

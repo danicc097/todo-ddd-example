@@ -88,17 +88,19 @@ func (m *TagMapper) ToPersistence(t *domain.Tag) db.Tags {
  */
 
 type TodoOutboxDTO struct {
-	ID          uuid.UUID `json:"id"`
-	WorkspaceID uuid.UUID `json:"workspace_id"`
-	Title       string    `json:"title"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	WorkspaceID  uuid.UUID `json:"workspace_id"`
+	Title        string    `json:"title"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	EventVersion int       `json:"event_version"`
 }
 
 type TagAddedOutboxDTO struct {
-	TodoID      uuid.UUID `json:"todo_id"`
-	TagID       uuid.UUID `json:"tag_id"`
-	WorkspaceID uuid.UUID `json:"workspace_id"`
+	TodoID       uuid.UUID `json:"todo_id"`
+	TagID        uuid.UUID `json:"tag_id"`
+	WorkspaceID  uuid.UUID `json:"workspace_id"`
+	EventVersion int       `json:"event_version"`
 }
 
 func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, error) {
@@ -107,25 +109,28 @@ func (m *TodoMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, erro
 	switch evt := e.(type) {
 	case domain.TodoCreatedEvent:
 		payload = TodoOutboxDTO{
-			ID:          evt.ID.UUID(),
-			WorkspaceID: evt.WsID.UUID(),
-			Title:       evt.Title.String(),
-			Status:      evt.Status.String(),
-			CreatedAt:   evt.CreatedAt,
+			ID:           evt.ID.UUID(),
+			WorkspaceID:  evt.WsID.UUID(),
+			Title:        evt.Title.String(),
+			Status:       evt.Status.String(),
+			CreatedAt:    evt.CreatedAt,
+			EventVersion: 1,
 		}
 	case domain.TodoCompletedEvent:
 		payload = TodoOutboxDTO{
-			ID:          evt.ID.UUID(),
-			WorkspaceID: evt.WsID.UUID(),
-			Title:       evt.Title.String(),
-			Status:      evt.Status.String(),
-			CreatedAt:   evt.CreatedAt,
+			ID:           evt.ID.UUID(),
+			WorkspaceID:  evt.WsID.UUID(),
+			Title:        evt.Title.String(),
+			Status:       evt.Status.String(),
+			CreatedAt:    evt.CreatedAt,
+			EventVersion: 1,
 		}
 	case domain.TagAddedEvent:
 		payload = TagAddedOutboxDTO{
-			TodoID:      evt.TodoID.UUID(),
-			TagID:       evt.TagID.UUID(),
-			WorkspaceID: evt.WsID.UUID(),
+			TodoID:       evt.TodoID.UUID(),
+			TagID:        evt.TagID.UUID(),
+			WorkspaceID:  evt.WsID.UUID(),
+			EventVersion: 1,
 		}
 	default:
 		return "", nil, nil

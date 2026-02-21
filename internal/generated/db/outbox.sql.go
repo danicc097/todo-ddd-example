@@ -12,6 +12,16 @@ import (
 	"github.com/google/uuid"
 )
 
+const DeleteProcessedOutboxEvents = `-- name: DeleteProcessedOutboxEvents :exec
+DELETE FROM outbox
+WHERE processed_at < NOW() - INTERVAL '7 days'
+`
+
+func (q *Queries) DeleteProcessedOutboxEvents(ctx context.Context, db DBTX) error {
+	_, err := db.Exec(ctx, DeleteProcessedOutboxEvents)
+	return err
+}
+
 const GetOutboxLag = `-- name: GetOutboxLag :one
 SELECT
   COUNT(*) AS total_lag,

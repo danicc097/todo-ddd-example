@@ -46,3 +46,7 @@ FROM
 WHERE
   processed_at IS NULL;
 
+-- name: DeleteProcessedOutboxEvents :exec
+DELETE FROM outbox
+WHERE processed_at < NOW() - INTERVAL '7 days';
+

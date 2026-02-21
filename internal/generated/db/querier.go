@@ -17,6 +17,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
 	DeleteIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) error
+	DeleteProcessedOutboxEvents(ctx context.Context, db DBTX) error
 	DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error
 	GetIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (IdempotencyKeys, error)
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)

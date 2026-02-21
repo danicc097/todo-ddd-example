@@ -14,14 +14,12 @@ import (
 type UserHandler struct {
 	getUserUC             *application.GetUserUseCase
 	workspaceQueryService workspaceApp.WorkspaceQueryService
-	mapper                *UserRestMapper
 }
 
 func NewUserHandler(g *application.GetUserUseCase, wqs workspaceApp.WorkspaceQueryService) *UserHandler {
 	return &UserHandler{
 		getUserUC:             g,
 		workspaceQueryService: wqs,
-		mapper:                &UserRestMapper{},
 	}
 }
 
@@ -32,7 +30,11 @@ func (h *UserHandler) GetUserByID(c *gin.Context, id userDomain.UserID) {
 		return
 	}
 
-	c.JSON(http.StatusOK, h.mapper.ToResponse(user))
+	c.JSON(http.StatusOK, api.User{
+		Id:    user.ID,
+		Email: user.Email,
+		Name:  user.Name,
+	})
 }
 
 func (h *UserHandler) GetUserWorkspaces(c *gin.Context, id userDomain.UserID, params api.GetUserWorkspacesParams) {

@@ -54,9 +54,11 @@ func (r *Relay) Start(ctx context.Context) {
 
 	ticker := time.NewTicker(1 * time.Second)
 	metricsTicker := time.NewTicker(5 * time.Second)
+	cleanupTicker := time.NewTicker(1 * time.Hour)
 
 	defer ticker.Stop()
 	defer metricsTicker.Stop()
+	defer cleanupTicker.Stop()
 
 	for {
 		select {
@@ -68,6 +70,10 @@ func (r *Relay) Start(ctx context.Context) {
 			return
 		case <-metricsTicker.C:
 			r.updateMetrics(ctx)
+		case <-cleanupTicker.C:
+			if err := r.q.DeleteProcessedOutboxEvents(ctx, r.pool); err != nil {
+				slog.ErrorContext(ctx, "failed to cleanup outbox", slog.String("error", err.Error()))
+			}
 		case <-ticker.C:
 			r.wg.Add(1)
 			r.processEvents(context.WithoutCancel(ctx))
