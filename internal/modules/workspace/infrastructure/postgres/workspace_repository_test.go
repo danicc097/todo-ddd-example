@@ -9,6 +9,7 @@ import (
 
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -39,7 +40,7 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 
 		var count int
 
-		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = 'workspace.created' AND aggregate_id = $1", ws.ID().UUID()).Scan(&count)
+		err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM outbox WHERE event_type = $1 AND aggregate_id = $2", sharedDomain.WorkspaceCreated, ws.ID().UUID()).Scan(&count)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})

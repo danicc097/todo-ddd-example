@@ -4,15 +4,17 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"errors"
+	"fmt"
 	"io"
 )
 
-var ErrInvalidKey = errors.New("encryption key must be exactly 32 bytes for AES-256")
+var ErrInvalidKey = fmt.Errorf("encryption key must be exactly %d bytes for AES-256", MasterKeyLength)
+
+const MasterKeyLength = 32
 
 // Encrypt payload using AES-256-GCM. Returns the ciphertext and nonce.
 func Encrypt(payload []byte, masterKey []byte) (ciphertext []byte, nonce []byte, err error) {
-	if len(masterKey) != 32 {
+	if len(masterKey) != MasterKeyLength {
 		return nil, nil, ErrInvalidKey
 	}
 
@@ -38,7 +40,7 @@ func Encrypt(payload []byte, masterKey []byte) (ciphertext []byte, nonce []byte,
 
 // Decrypt ciphertext using AES-256-GCM and the provided nonce.
 func Decrypt(ciphertext []byte, nonce []byte, masterKey []byte) ([]byte, error) {
-	if len(masterKey) != 32 {
+	if len(masterKey) != MasterKeyLength {
 		return nil, ErrInvalidKey
 	}
 

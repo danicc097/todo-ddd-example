@@ -18,6 +18,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
+	"github.com/danicc097/todo-ddd-example/internal/shared/logging"
 	"github.com/danicc097/todo-ddd-example/internal/utils/pointers"
 )
 
@@ -133,7 +134,7 @@ func (r *Relay) processEvents(ctx context.Context) {
 func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Outbox) {
 	var rawHeaders map[string]string
 
-	idAttr := slog.String("event_id", event.ID.String())
+	idAttr := logging.EventIDAttr(event.ID)
 
 	unmarshalErr := json.Unmarshal(event.Headers, &rawHeaders)
 

@@ -30,6 +30,7 @@ import (
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/logger"
 	infraMessaging "github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
@@ -234,8 +235,8 @@ func main() {
 	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(cachedWsRepo, auditRepo)
 	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, "todo-ddd-api")
 
-	if len(cfg.MFAMasterKey) != 32 {
-		slog.Error("MFA_MASTER_KEY must be exactly 32 bytes")
+	if len(cfg.MFAMasterKey) != crypto.MasterKeyLength {
+		slog.Error(crypto.ErrInvalidKey.Error())
 		os.Exit(1)
 	}
 
@@ -420,11 +421,11 @@ func main() {
 
 	r.Use(func(c *gin.Context) {
 		p := c.Request.URL.Path
-		if p == "/ws" ||
-			p == "/api/v1/ping" ||
-			p == "/api/v1/docs" ||
-			p == "/favicon.ico" ||
-			p == "/openapi.yaml" {
+		if p == infraHttp.RouteWS ||
+			p == infraHttp.RoutePing ||
+			p == infraHttp.RouteDocs ||
+			p == infraHttp.RouteFavicon ||
+			p == infraHttp.RouteOpenAPISpec {
 			c.Next()
 			return
 		}
@@ -438,10 +439,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	r.GET("/openapi.yaml", func(c *gin.Context) {
+	r.GET(infraHttp.RouteOpenAPISpec, func(c *gin.Context) {
 		c.Data(http.StatusOK, "application/x-yaml", explodedSpec)
 	})
-	r.GET("/api/v1/docs", swaggerUIHandler("/openapi.yaml"))
+	r.GET(infraHttp.RouteDocs, swaggerUIHandler(infraHttp.RouteOpenAPISpec))
 
 	handler := &CompositeHandler{
 		TodoHandler:      th,
@@ -449,13 +450,17 @@ func main() {
 		WorkspaceHandler: wh,
 		AuthHandler:      ah,
 	}
-	api.RegisterHandlers(r.Group("/api/v1"), handler)
+	api.RegisterHandlers(r.Group(infraHttp.APIV1Prefix), handler)
 
-	r.GET("/ws", th.WS)
+	r.GET(infraHttp.RouteWS, th.WS)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
+		// ReadTimeout:       10 * time.Second,
+		ReadHeaderTimeout: 1 * time.Second,
+		// WriteTimeout:      10 * time.Second,
+		// IdleTimeout:       10 * time.Second,
 	}
 
 	go func() {
@@ -466,6 +471,11 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	if cfg.Env != internal.AppEnvProd {
+		docsURL := fmt.Sprintf("http://localhost:%s%s", cfg.Port, infraHttp.RouteDocs)
+		slog.InfoContext(ctx, "API server started", slog.String("docs_url", docsURL))
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

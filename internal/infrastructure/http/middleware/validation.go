@@ -22,6 +22,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal"
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 )
 
 type ErrorH func(c *gin.Context, message string, statusCode int)
@@ -209,8 +210,12 @@ func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.Validatio
 
 		var valStr string
 
-		// redact sensitive fields
-		if len(loc) > 0 && (loc[len(loc)-1] == "password" || loc[len(loc)-1] == "code") {
+		lastLoc := ""
+		if len(loc) > 0 {
+			lastLoc = loc[len(loc)-1]
+		}
+
+		if _, ok := infraHttp.SensitiveFields[lastLoc]; ok {
 			valStr = "***REDACTED***"
 		} else if b, jsonErr := json.Marshal(schemaErr.Value); jsonErr == nil {
 			valStr = string(b)

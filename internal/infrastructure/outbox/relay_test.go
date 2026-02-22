@@ -13,7 +13,6 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
-	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -25,7 +24,7 @@ func TestOutboxRelay_RetryLogic(t *testing.T) {
 
 	q := db.New()
 	eventID := uuid.New()
-	eventType := sharedDomain.EventType("test.poison.message." + eventID.String())
+	eventType := testutils.RandomEventType()
 	payload := []byte(`{"data": "bad"}`)
 
 	err := q.SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
@@ -75,7 +74,7 @@ func TestOutboxRelay_FatalErrorBackoff(t *testing.T) {
 
 	q := db.New()
 	eventID := uuid.New()
-	eventType := sharedDomain.EventType("test.fatal." + eventID.String())
+	eventType := testutils.RandomEventType()
 
 	err := q.SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
 		ID:            eventID,
@@ -133,7 +132,7 @@ func TestOutboxRelay_GracefulShutdown(t *testing.T) {
 	relay := outbox.NewRelay(pool, broker)
 
 	eventID := uuid.New()
-	eventType := sharedDomain.EventType("test.slow." + eventID.String())
+	eventType := testutils.RandomEventType()
 
 	_ = db.New().SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
 		ID:            eventID,

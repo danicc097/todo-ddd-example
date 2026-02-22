@@ -14,7 +14,6 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/outbox"
-	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -37,7 +36,7 @@ func TestOutboxRelay_Tracing(t *testing.T) {
 	relay := outbox.NewRelay(pool, broker)
 
 	eventID := uuid.New()
-	eventType := sharedDomain.EventType("test.tracing." + eventID.String())
+	eventType := testutils.RandomEventType()
 
 	_ = db.New().SaveOutboxEvent(ctx, pool, db.SaveOutboxEventParams{
 		ID:            eventID,

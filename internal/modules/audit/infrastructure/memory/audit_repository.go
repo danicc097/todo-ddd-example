@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -43,7 +44,7 @@ func debugDump(ctx context.Context, log *domain.AuditLog) {
 		"actor_id":          log.ActorID(),
 		"actor_ip":          log.ActorIP(),
 		"ua_hash":           log.UserAgentHash(),
-		"target_resource":   log.AggregateType().String() + ":" + log.AggregateID().String(),
+		"target_resource":   fmt.Sprintf("%s:%s", log.AggregateType(), log.AggregateID()),
 		"action":            log.Operation(),
 		"diff":              log.Changes(),
 		"timestamp":         log.OccurredAt(),

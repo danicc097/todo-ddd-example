@@ -2,7 +2,6 @@ package decorator
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -35,7 +34,7 @@ func NewTodoQueryServiceCache(
 }
 
 func (s *todoQueryServiceCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID, limit, offset int32) ([]application.TodoReadModel, error) {
-	key := fmt.Sprintf("%s:limit:%d:offset:%d", cache.Keys.TodoWorkspaceCollection(wsID), limit, offset)
+	key := cache.Keys.TodoWorkspaceCollectionPaginated(wsID, limit, offset)
 	tag := cache.Keys.WorkspaceTag(wsID)
 
 	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, cache.NewCollectionCodec[application.TodoReadModel](), func(ctx context.Context) ([]application.TodoReadModel, error) {

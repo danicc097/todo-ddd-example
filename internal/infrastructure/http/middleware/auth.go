@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
@@ -13,14 +14,14 @@ import (
 // IdentityAndMFAResolver verifies the RS256 JWT and establishes identity.
 func IdentityAndMFAResolver(verifier *crypto.TokenVerifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+		authHeader := c.GetHeader(infraHttp.AuthorizationHeader)
 		if authHeader == "" {
 			c.Next()
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
+		if len(parts) != 2 || parts[0] != infraHttp.BearerScheme {
 			c.Next()
 			return
 		}

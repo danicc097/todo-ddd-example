@@ -11,38 +11,51 @@ type keys struct{}
 // Keys defines cache keys construction.
 var Keys keys
 
+const (
+	prefixTodo      = "todo_query"
+	prefixTag       = "tag"
+	prefixWorkspace = "ws"
+	prefixRateLimit = "ratelimit"
+	prefixUser      = "user"
+	prefixCacheTags = "cache_tags"
+)
+
 func (keys) Todo(id types.TodoID) string {
-	return fmt.Sprintf("todo_query:%s", id)
+	return fmt.Sprintf("%s:%s", prefixTodo, id)
 }
 
 func (keys) TodoWorkspaceCollection(wsID types.WorkspaceID) string {
-	return fmt.Sprintf("todo_query:collection:GetAllByWorkspace:%s", wsID)
+	return fmt.Sprintf("%s:collection:GetAllByWorkspace:%s", prefixTodo, wsID)
+}
+
+func (keys) TodoWorkspaceCollectionPaginated(wsID types.WorkspaceID, limit, offset int32) string {
+	return fmt.Sprintf("%s:limit:%d:offset:%d", keys{}.TodoWorkspaceCollection(wsID), limit, offset)
 }
 
 func (keys) Tag(id types.TagID) string {
-	return fmt.Sprintf("tag:%s", id)
+	return fmt.Sprintf("%s:%s", prefixTag, id)
 }
 
 func (keys) Workspace(id types.WorkspaceID) string {
-	return fmt.Sprintf("ws:%s", id)
+	return fmt.Sprintf("%s:%s", prefixWorkspace, id)
 }
 
 func (keys) WorkspaceRevision(id types.WorkspaceID) string {
-	return fmt.Sprintf("ws:%s:revision", id)
+	return fmt.Sprintf("%s:%s:revision", prefixWorkspace, id)
 }
 
 func (keys) RateLimit(opID, ip string) string {
-	return fmt.Sprintf("ratelimit:%s:%s", opID, ip)
+	return fmt.Sprintf("%s:%s:%s", prefixRateLimit, opID, ip)
 }
 
 func (keys) TOTPUsedCode(userID types.UserID, code string) string {
-	return fmt.Sprintf("user:%s:used_totp:%s", userID.String(), code)
+	return fmt.Sprintf("%s:%s:used_totp:%s", prefixUser, userID, code)
 }
 
 func (keys) WorkspaceTag(wsID types.WorkspaceID) string {
-	return "ws:" + wsID.String()
+	return fmt.Sprintf("%s:%s", prefixWorkspace, wsID)
 }
 
 func (keys) TagSet(tag string) string {
-	return "cache_tags:" + tag
+	return fmt.Sprintf("%s:%s", prefixCacheTags, tag)
 }

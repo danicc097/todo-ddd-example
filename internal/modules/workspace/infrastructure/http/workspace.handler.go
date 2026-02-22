@@ -7,6 +7,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
@@ -75,7 +76,7 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspacesParams) {
-	limit := 20
+	limit := infraHttp.DefaultPaginationLimit
 	if params.Limit != nil {
 		limit = *params.Limit
 	}

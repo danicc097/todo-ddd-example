@@ -1,6 +1,8 @@
 package messaging
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
@@ -20,9 +22,9 @@ func (keys) WorkspaceTodoAPIUpdatesChannelPrefix() string {
 }
 
 func (keys) WorkspaceTodoAPIUpdatesChannel(wsID uuid.UUID) string {
-	return keys{}.WorkspaceTodoAPIUpdatesChannelPrefix() + wsID.String()
+	return fmt.Sprintf("%s%s", keys{}.WorkspaceTodoAPIUpdatesChannelPrefix(), wsID)
 }
 
 func (keys) EventRoutingKey(eventType sharedDomain.EventType, aggID uuid.UUID) string {
-	return string(eventType) + "." + aggID.String()
+	return fmt.Sprintf("%s.%s", eventType, aggID)
 }

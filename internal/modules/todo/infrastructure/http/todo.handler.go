@@ -10,6 +10,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
@@ -86,7 +87,7 @@ func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID,
 		c.Header("ETag", etag)
 	}
 
-	limit := 20
+	limit := infraHttp.DefaultPaginationLimit
 	if params.Limit != nil {
 		limit = *params.Limit
 	}

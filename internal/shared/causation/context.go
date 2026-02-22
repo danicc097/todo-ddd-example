@@ -13,6 +13,16 @@ const (
 	systemID        = "system"
 )
 
+// Standard logging attribute keys.
+const (
+	AttrCorrelationID = "correlation_id"
+	AttrCausationID   = "causation_id"
+	AttrUserID        = "user_id"
+	AttrUserIP        = "user_ip"
+	AttrUserAgent     = "user_agent"
+	AttrEventID       = "event_id"
+)
+
 // Metadata carries traceability info.
 type Metadata struct {
 	CorrelationID   string    // original request ID

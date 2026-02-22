@@ -64,12 +64,10 @@ info:
   version: 1.0.0
   description: A Todo api with delusions of grandeur.
 servers:
+  - url: http://localhost:8099/api/v1
+    description: Local development server
   - url: http://127.0.0.1:8090/api/v1
     description: Local swarm server
-  - url: http://localhost:8099/api/v1
-    description: Local development server (localhost)
-  - url: http://127.0.0.1:8099/api/v1
-    description: Local development server (IP)
 
 paths:
   /ping:

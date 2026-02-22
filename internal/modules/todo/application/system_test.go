@@ -3,7 +3,6 @@ package application_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -294,7 +293,7 @@ func TestSystem_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		entityRedisKey := cache.Keys.Todo(todo.ID())
-		collectionRedisKey := fmt.Sprintf("%s:limit:%d:offset:%d", cache.Keys.TodoWorkspaceCollection(ws.ID()), 10, 0)
+		collectionRedisKey := cache.Keys.TodoWorkspaceCollectionPaginated(ws.ID(), 10, 0)
 
 		require.Eventually(t, func() bool {
 			return rdb.Exists(testCtx, entityRedisKey).Val() == 1 && rdb.Exists(testCtx, collectionRedisKey).Val() == 1

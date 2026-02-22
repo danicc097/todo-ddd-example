@@ -17,10 +17,10 @@ import (
 
 type mockEvent struct {
 	id   uuid.UUID
-	name string
+	name domain.EventType
 }
 
-func (e mockEvent) EventName() domain.EventType         { return domain.EventType(e.name) }
+func (e mockEvent) EventName() domain.EventType         { return e.name }
 func (e mockEvent) OccurredAt() time.Time               { return time.Now() }
 func (e mockEvent) AggregateID() uuid.UUID              { return e.id }
 func (e mockEvent) AggregateType() domain.AggregateType { return "MOCK" }
@@ -46,7 +46,7 @@ func TestSaveDomainEvents_Integration(t *testing.T) {
 	queries := db.New()
 
 	t.Run("saves events to outbox", func(t *testing.T) {
-		uniqueEventType := "test.event." + uuid.New().String()
+		uniqueEventType := testutils.RandomEventType()
 
 		agg := &mockAggregate{
 			events: []domain.DomainEvent{
