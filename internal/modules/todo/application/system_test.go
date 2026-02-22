@@ -70,7 +70,32 @@ func (c *eventCatcher) HasRedis(snippet string) bool {
 	return false
 }
 
-func setupEnv(t *testing.T) (*pgxpool.Pool, *redis.Client, *rabbitmq.Conn, *testfixtures.Fixtures, string) {
+type testEnv struct {
+	pool         *pgxpool.Pool
+	rdb          *redis.Client
+	rmqConn      *rabbitmq.Conn
+	fixtures     *testfixtures.Fixtures
+	exchangeName string
+	multiBroker  messaging.Broker
+}
+
+func (e *testEnv) StartRelay(t *testing.T, broker messaging.Broker) {
+	t.Helper()
+
+	b := broker
+	if b == nil {
+		b = e.multiBroker
+	}
+
+	relay := outbox.NewRelay(e.pool, b)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go relay.Start(ctx)
+
+	t.Cleanup(cancel)
+}
+
+func setupEnv(t *testing.T) *testEnv {
 	t.Helper()
 
 	ctx := context.Background()
@@ -92,38 +117,40 @@ func setupEnv(t *testing.T) (*pgxpool.Pool, *redis.Client, *rabbitmq.Conn, *test
 	redisPub := infraRedis.NewPublisher(rdb)
 	multiBroker := messaging.NewMultiBroker(rabbitPub, redisPub)
 
-	relay := outbox.NewRelay(pool, multiBroker)
-
-	relayCtx, relayCancel := context.WithCancel(context.Background())
-	go relay.Start(relayCtx) // global for test suite
-
-	t.Cleanup(relayCancel)
-
-	return pool, rdb, rmqConn, fixtures, exchangeName
+	return &testEnv{
+		pool:         pool,
+		rdb:          rdb,
+		rmqConn:      rmqConn,
+		fixtures:     fixtures,
+		exchangeName: exchangeName,
+		multiBroker:  multiBroker,
+	}
 }
 
 func TestSystem_Integration(t *testing.T) {
 	t.Parallel()
 
-	pool, rdb, rmqConn, fixtures, exchangeName := setupEnv(t)
+	env := setupEnv(t)
+	env.StartRelay(t, nil)
+
 	rmqContainer := testutils.GetGlobalRabbitMQ(t)
 
-	baseTodoRepo := todoPg.NewTodoRepo(pool)
+	baseTodoRepo := todoPg.NewTodoRepo(env.pool)
 	todoCodec := todoRedis.NewTodoCacheCodec()
-	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(baseTodoRepo, rdb, 5*time.Minute, todoCodec)
+	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(baseTodoRepo, env.rdb, 5*time.Minute, todoCodec)
 
-	baseQueryService := todoPg.NewTodoQueryService(pool)
+	baseQueryService := todoPg.NewTodoQueryService(env.pool)
 	queryModelCodec := cache.NewMsgpackCodec[*application.TodoReadModel]()
-	cachedQueryService := todoDecorator.NewTodoQueryServiceCache(baseQueryService, rdb, 5*time.Minute, queryModelCodec)
+	cachedQueryService := todoDecorator.NewTodoQueryServiceCache(baseQueryService, env.rdb, 5*time.Minute, queryModelCodec)
 
-	wsRepo := wsPg.NewWorkspaceRepo(pool)
+	wsRepo := wsPg.NewWorkspaceRepo(env.pool)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
 	createTodoBase := application.NewCreateTodoHandler(cachedTodoRepo, wsProv)
-	createTodoHandler := middleware.Transactional(pool, createTodoBase)
+	createTodoHandler := middleware.Transactional(env.pool, createTodoBase)
 
 	completeTodoBase := application.NewCompleteTodoHandler(cachedTodoRepo, wsProv)
-	completeTodoHandler := middleware.Transactional(pool, completeTodoBase)
+	completeTodoHandler := middleware.Transactional(env.pool, completeTodoBase)
 
 	t.Run("success commits db invalidates cache and publishes", func(t *testing.T) {
 		t.Parallel()
@@ -131,16 +158,20 @@ func TestSystem_Integration(t *testing.T) {
 		testCtx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		user := fixtures.RandomUser(testCtx, t)
-		ws := fixtures.RandomWorkspace(testCtx, t, user.ID())
+		user := env.fixtures.RandomUser(testCtx, t)
+		ws := env.fixtures.RandomWorkspace(testCtx, t, user.ID())
 		userCtx := causation.WithMetadata(testCtx, causation.Metadata{UserID: user.ID().UUID()})
 
-		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, rmqConn, exchangeName, "topic", "#")
+		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, env.rmqConn, env.exchangeName, "topic", "#")
 		t.Cleanup(func() { rmqConsumer.Close() })
 
-		pubsub := rdb.Subscribe(testCtx, messaging.Keys.WorkspaceTodoAPIUpdatesChannel(ws.ID().UUID()))
+		pubsub := env.rdb.Subscribe(testCtx, messaging.Keys.WorkspaceTodoAPIUpdatesChannel(ws.ID().UUID()))
 
 		t.Cleanup(func() { _ = pubsub.Close() })
+
+		// wait (blocking) for confirmation before continuing
+		_, err := pubsub.Receive(testCtx)
+		require.NoError(t, err)
 
 		catcher := &eventCatcher{}
 
@@ -191,7 +222,7 @@ func TestSystem_Integration(t *testing.T) {
 		assert.Equal(t, cmd.Title, saved.Title().String())
 
 		require.Eventually(t, func() bool {
-			return rdb.Exists(testCtx, cache.Keys.Todo(resp.ID)).Val() == 1
+			return env.rdb.Exists(testCtx, cache.Keys.Todo(resp.ID)).Val() == 1
 		}, 5*time.Second, 50*time.Millisecond, "todo cache missing")
 
 		expectedKey := messaging.Keys.EventRoutingKey(sharedDomain.TodoCreated, resp.ID.UUID())
@@ -211,9 +242,9 @@ func TestSystem_Integration(t *testing.T) {
 		testCtx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		user := fixtures.RandomUser(testCtx, t)
-		ws := fixtures.RandomWorkspace(testCtx, t, user.ID())
-		todo := fixtures.RandomTodo(testCtx, t, ws.ID())
+		user := env.fixtures.RandomUser(testCtx, t)
+		ws := env.fixtures.RandomWorkspace(testCtx, t, user.ID())
+		todo := env.fixtures.RandomTodo(testCtx, t, ws.ID())
 		userCtx := causation.WithMetadata(testCtx, causation.Metadata{UserID: user.ID().UUID()})
 
 		_, err := cachedTodoRepo.FindByID(testCtx, todo.ID())
@@ -222,10 +253,10 @@ func TestSystem_Integration(t *testing.T) {
 		redisKey := cache.Keys.Todo(todo.ID())
 
 		require.Eventually(t, func() bool {
-			return rdb.Exists(testCtx, redisKey).Val() == 1
+			return env.rdb.Exists(testCtx, redisKey).Val() == 1
 		}, 5*time.Second, 50*time.Millisecond, "cache should be warmed")
 
-		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, rmqConn, exchangeName, "topic", "#")
+		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, env.rmqConn, env.exchangeName, "topic", "#")
 		t.Cleanup(func() { rmqConsumer.Close() })
 
 		catcher := &eventCatcher{}
@@ -247,7 +278,7 @@ func TestSystem_Integration(t *testing.T) {
 			}
 		}()
 
-		_, err = infraDB.RunInTx(testCtx, pool, func(txCtx context.Context) (any, error) {
+		_, err = infraDB.RunInTx(testCtx, env.pool, func(txCtx context.Context) (any, error) {
 			require.NoError(t, todo.Complete())
 			_ = cachedTodoRepo.Save(txCtx, todo)
 
@@ -269,7 +300,7 @@ func TestSystem_Integration(t *testing.T) {
 		fresh, _ := baseTodoRepo.FindByID(testCtx, todo.ID())
 		assert.Equal(t, domain.StatusPending, fresh.Status())
 
-		require.Equal(t, int64(1), rdb.Exists(testCtx, redisKey).Val())
+		require.Equal(t, int64(1), env.rdb.Exists(testCtx, redisKey).Val())
 
 		expectedRolledBackKey := messaging.Keys.EventRoutingKey(sharedDomain.TodoCompleted, todo.ID().UUID())
 		assert.False(t, catcher.HasRMQ(expectedRolledBackKey, todo.ID().UUID().String()), "rolled back event was published")
@@ -281,9 +312,9 @@ func TestSystem_Integration(t *testing.T) {
 		testCtx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		user := fixtures.RandomUser(testCtx, t)
-		ws := fixtures.RandomWorkspace(testCtx, t, user.ID())
-		todo := fixtures.RandomTodo(testCtx, t, ws.ID())
+		user := env.fixtures.RandomUser(testCtx, t)
+		ws := env.fixtures.RandomWorkspace(testCtx, t, user.ID())
+		todo := env.fixtures.RandomTodo(testCtx, t, ws.ID())
 		userCtx := causation.WithMetadata(testCtx, causation.Metadata{UserID: user.ID().UUID()})
 
 		_, err := cachedTodoRepo.FindByID(testCtx, todo.ID())
@@ -296,14 +327,14 @@ func TestSystem_Integration(t *testing.T) {
 		collectionRedisKey := cache.Keys.TodoWorkspaceCollectionPaginated(ws.ID(), 10, 0)
 
 		require.Eventually(t, func() bool {
-			return rdb.Exists(testCtx, entityRedisKey).Val() == 1 && rdb.Exists(testCtx, collectionRedisKey).Val() == 1
+			return env.rdb.Exists(testCtx, entityRedisKey).Val() == 1 && env.rdb.Exists(testCtx, collectionRedisKey).Val() == 1
 		}, 5*time.Second, 50*time.Millisecond, "caches should be primed")
 
 		_, err = completeTodoHandler.Handle(userCtx, application.CompleteTodoCommand{ID: todo.ID()})
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			return rdb.Exists(testCtx, entityRedisKey).Val() == 0 && rdb.Exists(testCtx, collectionRedisKey).Val() == 0
+			return env.rdb.Exists(testCtx, entityRedisKey).Val() == 0 && env.rdb.Exists(testCtx, collectionRedisKey).Val() == 0
 		}, 5*time.Second, 50*time.Millisecond, "caches should be fully invalidated")
 	})
 
@@ -313,10 +344,10 @@ func TestSystem_Integration(t *testing.T) {
 		testCtx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		user := fixtures.RandomUser(testCtx, t)
+		user := env.fixtures.RandomUser(testCtx, t)
 		userCtx := causation.WithMetadata(testCtx, causation.Metadata{UserID: user.ID().UUID()})
 
-		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, rmqConn, exchangeName, "topic", "#")
+		rmqChan, rmqConsumer := rmqContainer.StartTestConsumer(t, env.rmqConn, env.exchangeName, "topic", "#")
 		t.Cleanup(func() { rmqConsumer.Close() })
 
 		catcher := &eventCatcher{}
@@ -338,8 +369,34 @@ func TestSystem_Integration(t *testing.T) {
 			}
 		}()
 
-		userProv := userAdapters.NewWorkspaceUserProvider(fixtures.UserRepo)
-		onboardHandler := middleware.Transactional(pool, wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv))
+		userProv := userAdapters.NewWorkspaceUserProvider(env.fixtures.UserRepo)
+		onboardHandler := middleware.Transactional(env.pool, wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv))
+
+		// we don't know the id yet - listen to all
+		pubsub := env.rdb.PSubscribe(testCtx, messaging.Keys.TodoAPIUpdatesChannel()+"*")
+
+		t.Cleanup(func() { _ = pubsub.Close() })
+
+		// wait (blocking) for confirmation before continuing
+		_, err := pubsub.Receive(testCtx)
+		require.NoError(t, err)
+
+		go func() {
+			for {
+				select {
+				case <-testCtx.Done():
+					return
+				case m, ok := <-pubsub.Channel():
+					if !ok {
+						return
+					}
+
+					catcher.Lock()
+					catcher.redis = append(catcher.redis, m)
+					catcher.Unlock()
+				}
+			}
+		}()
 
 		cmd := wsApp.OnboardWorkspaceCommand{
 			Name:    "Atomic ws",
@@ -355,5 +412,83 @@ func TestSystem_Integration(t *testing.T) {
 		require.Eventually(t, func() bool {
 			return catcher.HasRMQ(wsKey, resp.ID.UUID().String()) && catcher.HasRMQ(memKey, resp.ID.UUID().String())
 		}, 5*time.Second, 50*time.Millisecond, "failed to receive multiple events for aggregate")
+
+		require.Eventually(t, func() bool {
+			return catcher.HasRedis(resp.ID.UUID().String())
+		}, 5*time.Second, 50*time.Millisecond, "failed to receive onboarding events in Redis")
 	})
+}
+
+func TestAtLeastOnce_Integration(t *testing.T) {
+	t.Parallel()
+
+	env := setupEnv(t)
+
+	baseTodoRepo := todoPg.NewTodoRepo(env.pool)
+	// don't need real cache for at least once test
+	wsRepo := wsPg.NewWorkspaceRepo(env.pool)
+	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
+
+	createTodoBase := application.NewCreateTodoHandler(baseTodoRepo, wsProv)
+	createTodoHandler := middleware.Transactional(env.pool, createTodoBase)
+
+	testCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	user := env.fixtures.RandomUser(testCtx, t)
+	ws := env.fixtures.RandomWorkspace(testCtx, t, user.ID())
+	userCtx := causation.WithMetadata(testCtx, causation.Metadata{UserID: user.ID().UUID()})
+
+	var (
+		mu            sync.Mutex
+		attempts      = make(map[sharedDomain.EventType]int)
+		totalAttempts int
+	)
+
+	// fails only the first attempt
+	failBroker := messaging.BrokerPublishFunc(func(ctx context.Context, args messaging.PublishArgs) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		totalAttempts++
+		attempts[args.EventType]++
+
+		t.Logf("Broker publish attempt %d for event %s (total attempts: %d)", attempts[args.EventType], args.EventType, totalAttempts)
+
+		if args.EventType == sharedDomain.UserCreated && attempts[args.EventType] == 1 {
+			// fast-forward backoff to bypass db exponential delay
+			go func(aggID uuid.UUID) {
+				for range 50 {
+					select {
+					case <-testCtx.Done():
+						return
+					case <-time.After(10 * time.Millisecond):
+					}
+
+					// only clears backoff once the relay has actually committed the retry count
+					res, err := env.pool.Exec(testCtx, "UPDATE outbox SET last_attempted_at = '1970-01-01' WHERE aggregate_id = $1 AND retries > 0", aggID)
+					if err == nil && res.RowsAffected() > 0 {
+						break
+					}
+				}
+			}(args.AggID)
+
+			return errors.New("broker failure")
+		}
+
+		return nil
+	})
+
+	env.StartRelay(t, failBroker)
+
+	cmd := application.CreateTodoCommand{Title: "Retry", WorkspaceID: ws.ID()}
+	_, err := createTodoHandler.Handle(userCtx, cmd)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+
+		return attempts[sharedDomain.UserCreated] >= 2
+	}, 5*time.Second, 100*time.Millisecond, "relay did not retry failed user.created event")
 }
