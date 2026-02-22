@@ -177,7 +177,7 @@ func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Out
 	defer cancel()
 
 	args := messaging.PublishArgs{
-		EventType: string(event.EventType),
+		EventType: event.EventType,
 		AggID:     event.AggregateID,
 		Payload:   event.Payload,
 		Headers:   headers,

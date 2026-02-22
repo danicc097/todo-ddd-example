@@ -4,10 +4,12 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 type PublishArgs struct {
-	EventType string
+	EventType sharedDomain.EventType
 	AggID     uuid.UUID
 	Payload   []byte
 	Headers   map[Header]string

@@ -10,13 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
 func TestMultiBroker_Publish(t *testing.T) {
 	t.Parallel()
 
 	args := messaging.PublishArgs{
-		EventType: "test",
+		EventType: sharedDomain.EventType("test"),
 		AggID:     uuid.New(),
 		Payload:   nil,
 		Headers:   nil,

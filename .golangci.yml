@@ -31,6 +31,8 @@ linters:
     - wastedassign
     - wsl
     - dogsled
+    - gocognit
+    - maintidx
   settings:
     revive:
       rules:

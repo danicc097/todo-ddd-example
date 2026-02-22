@@ -13,6 +13,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/redis"
+	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -33,7 +34,7 @@ func TestPublisher_Tracing(t *testing.T) {
 	pub := redis.NewPublisher(rdb)
 
 	err := pub.Publish(ctx, messaging.PublishArgs{
-		EventType: "test.event",
+		EventType: sharedDomain.EventType("test.event"),
 		AggID:     uuid.New(),
 		Payload:   []byte("{}"),
 		Headers:   make(map[messaging.Header]string),

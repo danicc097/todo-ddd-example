@@ -2,7 +2,6 @@ package rabbitmq
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/otel"
@@ -35,18 +34,18 @@ func NewPublisher(conn *rabbitmq.Conn, exchange string) (*Publisher, error) {
 }
 
 func (p *Publisher) Publish(ctx context.Context, args messaging.PublishArgs) error {
+	routingKey := messaging.Keys.EventRoutingKey(args.EventType, args.AggID)
+
 	ctx, span := otel.Tracer("rabbitmq").Start(ctx, "rabbitmq.publish",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
 			attribute.String("messaging.system", "rabbitmq"),
 			attribute.String("messaging.destination.name", p.exchange),
-			attribute.String("messaging.rabbitmq.routing_key", fmt.Sprintf("%s.%s", args.EventType, args.AggID.String())),
+			attribute.String("messaging.rabbitmq.routing_key", routingKey),
 			attribute.String("peer.service", "rabbitmq"),
 		),
 	)
 	defer span.End()
-
-	routingKey := fmt.Sprintf("%s.%s", args.EventType, args.AggID.String())
 
 	amqpHeaders := rabbitmq.Table{}
 	for k, v := range args.Headers {
