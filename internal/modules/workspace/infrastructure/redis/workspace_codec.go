@@ -54,13 +54,13 @@ func (c *WorkspaceCacheCodec) Unmarshal(data []byte) (*domain.Workspace, error) 
 	name, _ := domain.NewWorkspaceName(dto.Name)
 	description, _ := domain.NewWorkspaceDescription(dto.Description)
 
-	w := domain.ReconstituteWorkspace(
-		dto.ID,
-		name,
-		description,
-		dto.CreatedAt,
-		dto.Members,
-	)
+	w := domain.ReconstituteWorkspace(domain.ReconstituteWorkspaceArgs{
+		ID:          dto.ID,
+		Name:        name,
+		Description: description,
+		CreatedAt:   dto.CreatedAt,
+		Members:     dto.Members,
+	})
 
 	return w, nil
 }

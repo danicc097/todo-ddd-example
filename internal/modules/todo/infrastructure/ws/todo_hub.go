@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 )
@@ -25,5 +26,8 @@ func NewTodoHub(r *redis.Client, wsQuery application.WorkspaceQueryService) *Hub
 		return ids, nil // rooms for todo based on workspaces
 	}
 
-	return NewHub(r, permProvider)
+	return NewHub(r, permProvider, Config{
+		GlobalChannel:          messaging.Keys.TodoAPIUpdatesChannel(),
+		WorkspaceChannelPrefix: messaging.Keys.WorkspaceTodoAPIUpdatesChannelPrefix(),
+	})
 }

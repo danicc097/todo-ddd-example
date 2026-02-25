@@ -14,7 +14,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
-	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -26,11 +26,11 @@ func TestOnboardWorkspaceHandler_Handle_Integration(t *testing.T) {
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
 
-	repo := wsPg.NewWorkspaceRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := wsPg.NewWorkspaceRepo(pool, uow)
 	up := userAdapters.NewWorkspaceUserProvider(fixtures.UserRepo)
 
-	baseHandler := application.NewOnboardWorkspaceHandler(repo, up)
-	handler := middleware.Transactional(pool, baseHandler)
+	handler := application.NewOnboardWorkspaceHandler(repo, up, uow)
 
 	t.Run("system created", func(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)

@@ -12,6 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type DailySchedules struct {
+	UserID      uuid.UUID `db:"user_id" json:"user_id"`
+	Date        time.Time `db:"date" json:"date"`
+	MaxCapacity int32     `db:"max_capacity" json:"max_capacity"`
+	Version     int32     `db:"version" json:"version"`
+}
+
 type IdempotencyKeys struct {
 	ID              uuid.UUID `db:"id" json:"id"`
 	ResponseStatus  int32     `db:"response_status" json:"response_status"`
@@ -35,10 +42,32 @@ type Outbox struct {
 	LastAttemptedAt *time.Time       `db:"last_attempted_at" json:"last_attempted_at"`
 }
 
+type ScheduleTasks struct {
+	UserID     uuid.UUID `db:"user_id" json:"user_id"`
+	Date       time.Time `db:"date" json:"date"`
+	TodoID     uuid.UUID `db:"todo_id" json:"todo_id"`
+	EnergyCost int32     `db:"energy_cost" json:"energy_cost"`
+}
+
 type Tags struct {
 	ID          types.TagID       `db:"id" json:"id"`
 	Name        string            `db:"name" json:"name"`
 	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+}
+
+type TodoCompletionLogs struct {
+	ID         uuid.UUID `db:"id" json:"id"`
+	TodoID     uuid.UUID `db:"todo_id" json:"todo_id"`
+	ActorID    uuid.UUID `db:"actor_id" json:"actor_id"`
+	OccurredAt time.Time `db:"occurred_at" json:"occurred_at"`
+}
+
+type TodoFocusSessions struct {
+	ID        uuid.UUID  `db:"id" json:"id"`
+	TodoID    uuid.UUID  `db:"todo_id" json:"todo_id"`
+	UserID    *uuid.UUID `db:"user_id" json:"user_id"`
+	StartTime time.Time  `db:"start_time" json:"start_time"`
+	EndTime   *time.Time `db:"end_time" json:"end_time"`
 }
 
 type TodoTags struct {
@@ -47,12 +76,17 @@ type TodoTags struct {
 }
 
 type Todos struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-	UpdatedAt   time.Time         `db:"updated_at" json:"updated_at"`
+	ID                 types.TodoID      `db:"id" json:"id"`
+	Title              string            `db:"title" json:"title"`
+	Status             string            `db:"status" json:"status"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID        types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
+	DueDate            *time.Time        `db:"due_date" json:"due_date"`
+	RecurrenceInterval *string           `db:"recurrence_interval" json:"recurrence_interval"`
+	RecurrenceAmount   *int32            `db:"recurrence_amount" json:"recurrence_amount"`
+	LastCompletedAt    *time.Time        `db:"last_completed_at" json:"last_completed_at"`
+	DeletedAt          *time.Time        `db:"deleted_at" json:"deleted_at"`
 }
 
 type UserAuth struct {

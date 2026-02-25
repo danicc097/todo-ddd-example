@@ -20,8 +20,15 @@ type User struct {
 	createdAt time.Time
 }
 
-func ReconstituteUser(id UserID, email UserEmail, name UserName, createdAt time.Time) *User {
-	return &User{id: id, email: email, name: name, createdAt: createdAt}
+type ReconstituteUserArgs struct {
+	ID        UserID
+	Email     UserEmail
+	Name      UserName
+	CreatedAt time.Time
+}
+
+func ReconstituteUser(args ReconstituteUserArgs) *User {
+	return &User{id: args.ID, email: args.Email, name: args.Name, createdAt: args.CreatedAt}
 }
 
 func NewUser(email UserEmail, name UserName) *User {

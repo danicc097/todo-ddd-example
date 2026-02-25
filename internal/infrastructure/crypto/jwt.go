@@ -4,10 +4,15 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+)
+
+const (
+	tokenAudience = "todo-ddd-api-clients"
 )
 
 type AuthClaims struct {
@@ -15,6 +20,38 @@ type AuthClaims struct {
 
 	UserID      uuid.UUID `json:"uid"`
 	MFAVerified bool      `json:"mfa"`
+}
+
+type TokenProvider struct {
+	Issuer   *TokenIssuer
+	Verifier *TokenVerifier
+}
+
+func NewTokenProvider(privKeyPath, pubKeyPath, issuerName string) (*TokenProvider, error) {
+	privKeyBytes, err := os.ReadFile(privKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read private key: %w", err)
+	}
+
+	privKey, err := jwt.ParseRSAPrivateKeyFromPEM(privKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
+
+	pubKeyBytes, err := os.ReadFile(pubKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read public key: %w", err)
+	}
+
+	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	return &TokenProvider{
+		Issuer:   NewTokenIssuer(privKey, issuerName),
+		Verifier: NewTokenVerifier(pubKey),
+	}, nil
 }
 
 // TokenIssuer handles signing JWTs using a private RSA key.
@@ -32,7 +69,7 @@ func (i *TokenIssuer) Issue(userID uuid.UUID, mfaVerified bool, duration time.Du
 	claims := AuthClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    i.issuer,
-			Audience:  jwt.ClaimStrings{"todo-ddd-api-clients"},
+			Audience:  jwt.ClaimStrings{tokenAudience},
 			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),

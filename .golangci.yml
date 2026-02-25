@@ -33,6 +33,7 @@ linters:
     - dogsled
     - gocognit
     - maintidx
+    - cyclop
   settings:
     revive:
       rules:
@@ -54,6 +55,7 @@ linters:
         - github.com/danicc097/todo-ddd-example/internal/generated/api.*
         - .*Event
         - .*Args
+        - .*DTO
         - github.com/danicc097/todo-ddd-example/internal/generated/db.*Params
     ireturn:
       allow:

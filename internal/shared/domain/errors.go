@@ -6,6 +6,8 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 )
 
+var ErrConcurrentUpdate = NewDomainError(apperrors.Conflict, "concurrent update detected")
+
 // DomainError defines errors originating in the domain layer.
 type DomainError interface {
 	error

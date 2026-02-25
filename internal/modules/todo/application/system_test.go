@@ -26,13 +26,14 @@ import (
 	todoDecorator "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	todoRedis "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	userAdapters "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/adapters"
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
-	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -135,7 +136,8 @@ func TestSystem_Integration(t *testing.T) {
 
 	rmqContainer := testutils.GetGlobalRabbitMQ(t)
 
-	baseTodoRepo := todoPg.NewTodoRepo(env.pool)
+	uow := sharedPg.NewUnitOfWork(env.pool)
+	baseTodoRepo := todoPg.NewTodoRepo(env.pool, uow)
 	todoCodec := todoRedis.NewTodoCacheCodec()
 	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(baseTodoRepo, env.rdb, 5*time.Minute, todoCodec)
 
@@ -143,14 +145,11 @@ func TestSystem_Integration(t *testing.T) {
 	queryModelCodec := cache.NewMsgpackCodec[*application.TodoReadModel]()
 	cachedQueryService := todoDecorator.NewTodoQueryServiceCache(baseQueryService, env.rdb, 5*time.Minute, queryModelCodec)
 
-	wsRepo := wsPg.NewWorkspaceRepo(env.pool)
+	wsRepo := wsPg.NewWorkspaceRepo(env.pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
-	createTodoBase := application.NewCreateTodoHandler(cachedTodoRepo, wsProv)
-	createTodoHandler := middleware.Transactional(env.pool, createTodoBase)
-
-	completeTodoBase := application.NewCompleteTodoHandler(cachedTodoRepo, wsProv)
-	completeTodoHandler := middleware.Transactional(env.pool, completeTodoBase)
+	createTodoHandler := application.NewCreateTodoHandler(cachedTodoRepo, wsProv, uow)
+	completeTodoHandler := application.NewCompleteTodoHandler(cachedTodoRepo, wsProv, uow)
 
 	t.Run("success commits db invalidates cache and publishes", func(t *testing.T) {
 		t.Parallel()
@@ -279,7 +278,7 @@ func TestSystem_Integration(t *testing.T) {
 		}()
 
 		_, err = infraDB.RunInTx(testCtx, env.pool, func(txCtx context.Context) (any, error) {
-			require.NoError(t, todo.Complete())
+			require.NoError(t, todo.Complete(userDomain.UserID(user.ID()), time.Now()))
 			_ = cachedTodoRepo.Save(txCtx, todo)
 
 			return nil, errors.New("simulated fault")
@@ -370,7 +369,7 @@ func TestSystem_Integration(t *testing.T) {
 		}()
 
 		userProv := userAdapters.NewWorkspaceUserProvider(env.fixtures.UserRepo)
-		onboardHandler := middleware.Transactional(env.pool, wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv))
+		onboardHandler := wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv, uow)
 
 		// we don't know the id yet - listen to all
 		pubsub := env.rdb.PSubscribe(testCtx, messaging.Keys.TodoAPIUpdatesChannel()+"*")
@@ -424,13 +423,13 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 
 	env := setupEnv(t)
 
-	baseTodoRepo := todoPg.NewTodoRepo(env.pool)
+	uow := sharedPg.NewUnitOfWork(env.pool)
+	baseTodoRepo := todoPg.NewTodoRepo(env.pool, uow)
 	// don't need real cache for at least once test
-	wsRepo := wsPg.NewWorkspaceRepo(env.pool)
+	wsRepo := wsPg.NewWorkspaceRepo(env.pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
-	createTodoBase := application.NewCreateTodoHandler(baseTodoRepo, wsProv)
-	createTodoHandler := middleware.Transactional(env.pool, createTodoBase)
+	createTodoHandler := application.NewCreateTodoHandler(baseTodoRepo, wsProv, uow)
 
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -455,7 +454,7 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 
 		t.Logf("Broker publish attempt %d for event %s (total attempts: %d)", attempts[args.EventType], args.EventType, totalAttempts)
 
-		if args.EventType == sharedDomain.UserCreated && attempts[args.EventType] == 1 {
+		if args.EventType == sharedDomain.TodoCreated && attempts[args.EventType] == 1 {
 			// fast-forward backoff to bypass db exponential delay
 			go func(aggID uuid.UUID) {
 				for range 50 {
@@ -489,6 +488,6 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
 
-		return attempts[sharedDomain.UserCreated] >= 2
-	}, 5*time.Second, 100*time.Millisecond, "relay did not retry failed user.created event")
+		return attempts[sharedDomain.TodoCreated] >= 2
+	}, 5*time.Second, 100*time.Millisecond, "relay did not retry failed todo.created event")
 }

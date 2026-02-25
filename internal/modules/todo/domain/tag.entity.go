@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	shared "github.com/danicc097/todo-ddd-example/internal/shared/domain"
@@ -27,16 +29,23 @@ func NewTag(name TagName, workspaceID wsDomain.WorkspaceID) *Tag {
 	}
 
 	t.RecordEvent(TagCreatedEvent{
-		ID:   id,
-		Name: name,
-		WsID: workspaceID,
+		ID:       id,
+		Name:     name,
+		WsID:     workspaceID,
+		Occurred: time.Now(),
 	})
 
 	return t
 }
 
-func ReconstituteTag(id TagID, name TagName, workspaceID wsDomain.WorkspaceID) *Tag {
-	return &Tag{id: id, name: name, workspaceID: workspaceID}
+type ReconstituteTagArgs struct {
+	ID          TagID
+	Name        TagName
+	WorkspaceID wsDomain.WorkspaceID
+}
+
+func ReconstituteTag(args ReconstituteTagArgs) *Tag {
+	return &Tag{id: args.ID, name: args.Name, workspaceID: args.WorkspaceID}
 }
 
 func (t *Tag) ID() TagID                         { return t.id }

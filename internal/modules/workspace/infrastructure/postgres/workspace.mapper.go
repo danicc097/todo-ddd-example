@@ -27,13 +27,13 @@ func (m *WorkspaceMapper) ToDomain(w db.Workspaces, members []db.WorkspaceMember
 	name, _ := domain.NewWorkspaceName(w.Name)
 	desc, _ := domain.NewWorkspaceDescription(w.Description)
 
-	return domain.ReconstituteWorkspace(
-		w.ID,
-		name,
-		desc,
-		w.CreatedAt,
-		domainMemberMap,
-	), nil
+	return domain.ReconstituteWorkspace(domain.ReconstituteWorkspaceArgs{
+		ID:          w.ID,
+		Name:        name,
+		Description: desc,
+		CreatedAt:   w.CreatedAt,
+		Members:     domainMemberMap,
+	}), nil
 }
 
 func (m *WorkspaceMapper) ToPersistence(w *domain.Workspace) db.Workspaces {

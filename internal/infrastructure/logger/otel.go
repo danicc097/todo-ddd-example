@@ -16,6 +16,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 )
 
 func Init(ctx context.Context, level string, isProduction bool, endpoint string) (func(context.Context) error, error) {
@@ -25,7 +27,7 @@ func Init(ctx context.Context, level string, isProduction bool, endpoint string)
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("todo-ddd-api"),
+			semconv.ServiceNameKey.String(messaging.Keys.ServiceName()),
 			semconv.ServiceInstanceIDKey.String(hostname),
 		),
 	)

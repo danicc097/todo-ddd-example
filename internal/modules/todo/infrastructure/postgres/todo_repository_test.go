@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,9 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -30,7 +33,8 @@ func TestTodoRepo_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
-	repo := todoPg.NewTodoRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := todoPg.NewTodoRepo(pool, uow)
 
 	user := fixtures.RandomUser(ctx, t)
 	ws := fixtures.RandomWorkspace(ctx, t, user.ID())
@@ -46,13 +50,32 @@ func TestTodoRepo_Integration(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		require.NoError(t, todo.Complete())
+		now := time.Now()
+		require.NoError(t, todo.Complete(userDomain.UserID(user.ID()), now))
 		err := repo.Save(ctx, todo)
 		require.NoError(t, err)
 
 		updated, err := repo.FindByID(ctx, todo.ID())
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusCompleted, updated.Status())
+	})
+
+	t.Run("focus sessions", func(t *testing.T) {
+		ftodo := mustCreateTodo(t, "Focus Todo", ws.ID())
+		sessionID := domain.FocusSessionID(uuid.New())
+		require.NoError(t, ftodo.StartFocus(user.ID(), sessionID))
+		require.NoError(t, repo.Save(ctx, ftodo))
+
+		found, err := repo.FindByID(ctx, ftodo.ID())
+		require.NoError(t, err)
+		assert.Len(t, found.Sessions(), 1)
+		assert.True(t, found.Sessions()[0].IsActive())
+
+		require.NoError(t, found.StopFocus(time.Now()))
+		require.NoError(t, repo.Save(ctx, found))
+
+		found2, _ := repo.FindByID(ctx, ftodo.ID())
+		assert.False(t, found2.Sessions()[0].IsActive())
 	})
 
 	t.Run("find all", func(t *testing.T) {

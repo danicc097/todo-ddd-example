@@ -15,7 +15,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 )
 
@@ -141,9 +140,15 @@ type Hub struct {
 	stop         chan struct{}
 	wg           sync.WaitGroup
 	pubsub       *redis.PubSub
+	config       Config
 }
 
-func NewHub(r *redis.Client, pp PermissionProvider) *Hub {
+type Config struct {
+	GlobalChannel          string
+	WorkspaceChannelPrefix string
+}
+
+func NewHub(r *redis.Client, pp PermissionProvider, cfg Config) *Hub {
 	h := &Hub{
 		clients:      make(map[*Client]bool),
 		rooms:        make(map[uuid.UUID]map[*Client]bool),
@@ -154,7 +159,8 @@ func NewHub(r *redis.Client, pp PermissionProvider) *Hub {
 		redis:        r,
 		permProvider: pp,
 		stop:         make(chan struct{}),
-		pubsub:       r.Subscribe(context.Background(), messaging.Keys.TodoAPIUpdatesChannel()), // always listen to updates channel (global events)
+		pubsub:       r.Subscribe(context.Background(), cfg.GlobalChannel), // always listen to these channels
+		config:       cfg,
 	}
 
 	h.wg.Add(3)
@@ -186,7 +192,7 @@ func (h *Hub) run() {
 					h.rooms[roomID] = make(map[*Client]bool)
 
 					h.pubsubCmds <- pubsubCmd{
-						channelName: messaging.Keys.WorkspaceTodoAPIUpdatesChannel(roomID),
+						channelName: h.config.WorkspaceChannelPrefix + roomID.String(),
 						isSubscribe: true,
 					}
 				}
@@ -204,7 +210,7 @@ func (h *Hub) run() {
 						delete(h.rooms, roomID)
 
 						h.pubsubCmds <- pubsubCmd{
-							channelName: messaging.Keys.WorkspaceTodoAPIUpdatesChannel(roomID),
+							channelName: h.config.WorkspaceChannelPrefix + roomID.String(),
 							isSubscribe: false,
 						}
 					}
@@ -315,8 +321,8 @@ func (h *Hub) listenRedis() {
 
 	ch := h.pubsub.Channel()
 
-	globalChannel := messaging.Keys.TodoAPIUpdatesChannel()
-	wsChannelPrefix := messaging.Keys.WorkspaceTodoAPIUpdatesChannelPrefix()
+	globalChannel := h.config.GlobalChannel
+	wsChannelPrefix := h.config.WorkspaceChannelPrefix
 
 	for {
 		select {

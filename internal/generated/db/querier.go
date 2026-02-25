@@ -12,7 +12,10 @@ import (
 )
 
 type Querier interface {
-	AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error
+	BulkAddTagsToTodo(ctx context.Context, db DBTX, arg BulkAddTagsToTodoParams) error
+	BulkUpsertFocusSessions(ctx context.Context, db DBTX, arg BulkUpsertFocusSessionsParams) error
+	BulkUpsertScheduleTasks(ctx context.Context, db DBTX, arg BulkUpsertScheduleTasksParams) error
+	BulkUpsertWorkspaceMembers(ctx context.Context, db DBTX, arg BulkUpsertWorkspaceMembersParams) error
 	CreateTag(ctx context.Context, db DBTX, arg CreateTagParams) (Tags, error)
 	CreateUser(ctx context.Context, db DBTX, arg CreateUserParams) (Users, error)
 	CreateWorkspace(ctx context.Context, db DBTX, arg CreateWorkspaceParams) (Workspaces, error)
@@ -22,11 +25,15 @@ type Querier interface {
 	DeleteTodo(ctx context.Context, db DBTX, id types.TodoID) error
 	DeleteUser(ctx context.Context, db DBTX, id types.UserID) error
 	DeleteWorkspace(ctx context.Context, db DBTX, id types.WorkspaceID) error
+	GetDailySchedule(ctx context.Context, db DBTX, arg GetDailyScheduleParams) (DailySchedules, error)
 	GetIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (IdempotencyKeys, error)
 	GetOutboxLag(ctx context.Context, db DBTX) (GetOutboxLagRow, error)
+	GetScheduleTasks(ctx context.Context, db DBTX, arg GetScheduleTasksParams) ([]ScheduleTasks, error)
+	GetSchedulesByTodoID(ctx context.Context, db DBTX, todoID uuid.UUID) ([]GetSchedulesByTodoIDRow, error)
 	GetTagByID(ctx context.Context, db DBTX, id types.TagID) (Tags, error)
 	GetTagByName(ctx context.Context, db DBTX, arg GetTagByNameParams) (Tags, error)
-	GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error)
+	GetTodoAggregateByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoAggregateByIDRow, error)
+	GetTodoReadModelByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoReadModelByIDRow, error)
 	// lock per tx in replica: e.g. 200 rows - a locks 100, b locks next 100, ...
 	GetUnprocessedOutboxEvents(ctx context.Context, db DBTX) ([]Outbox, error)
 	GetUserAuth(ctx context.Context, db DBTX, userID uuid.UUID) (UserAuth, error)
@@ -39,16 +46,19 @@ type Querier interface {
 	ListWorkspaces(ctx context.Context, db DBTX, arg ListWorkspacesParams) ([]Workspaces, error)
 	ListWorkspacesByUserID(ctx context.Context, db DBTX, userID types.UserID) ([]Workspaces, error)
 	MarkOutboxEventProcessed(ctx context.Context, db DBTX, id uuid.UUID) error
+	RemoveMissingFocusSessionsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingFocusSessionsFromTodoParams) error
 	RemoveMissingTagsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingTagsFromTodoParams) error
+	RemoveMissingTasksFromSchedule(ctx context.Context, db DBTX, arg RemoveMissingTasksFromScheduleParams) error
 	RemoveWorkspaceMember(ctx context.Context, db DBTX, arg RemoveWorkspaceMemberParams) error
 	SaveOutboxEvent(ctx context.Context, db DBTX, arg SaveOutboxEventParams) error
 	TryLockIdempotencyKey(ctx context.Context, db DBTX, id uuid.UUID) (int64, error)
 	UpdateIdempotencyKey(ctx context.Context, db DBTX, arg UpdateIdempotencyKeyParams) error
 	UpdateOutboxRetries(ctx context.Context, db DBTX, arg UpdateOutboxRetriesParams) error
-	UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (UpsertTodoRow, error)
+	UpsertDailySchedule(ctx context.Context, db DBTX, arg UpsertDailyScheduleParams) (DailySchedules, error)
+	UpsertFocusSession(ctx context.Context, db DBTX, arg UpsertFocusSessionParams) error
+	UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (Todos, error)
 	UpsertUserAuth(ctx context.Context, db DBTX, arg UpsertUserAuthParams) error
 	UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorkspaceParams) (Workspaces, error)
-	UpsertWorkspaceMember(ctx context.Context, db DBTX, arg UpsertWorkspaceMemberParams) error
 }
 
 var _ Querier = (*Queries)(nil)

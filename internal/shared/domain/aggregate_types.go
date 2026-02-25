@@ -7,6 +7,7 @@ const (
 	AggTodo      AggregateType = "TODO"
 	AggUser      AggregateType = "USER"
 	AggTag       AggregateType = "TAG"
+	AggSchedule  AggregateType = "SCHEDULE"
 )
 
 func (a AggregateType) String() string {

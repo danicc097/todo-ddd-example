@@ -11,6 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
@@ -18,13 +19,15 @@ type UserRepo struct {
 	q      *db.Queries
 	pool   *pgxpool.Pool
 	mapper *UserMapper
+	uow    application.UnitOfWork
 }
 
-func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
+func NewUserRepo(pool *pgxpool.Pool, uow application.UnitOfWork) *UserRepo {
 	return &UserRepo{
 		q:      db.New(),
 		pool:   pool,
 		mapper: &UserMapper{},
+		uow:    uow,
 	}
 }
 
@@ -45,7 +48,9 @@ func (r *UserRepo) Save(ctx context.Context, u *domain.User) error {
 		return fmt.Errorf("failed to save user %s: %w", u.ID(), sharedPg.ParseDBError(err))
 	}
 
-	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, u)
+	r.uow.Collect(ctx, r.mapper, u)
+
+	return nil
 }
 
 func (r *UserRepo) FindByID(ctx context.Context, id domain.UserID) (*domain.User, error) {
@@ -88,5 +93,7 @@ func (r *UserRepo) Delete(ctx context.Context, id domain.UserID) error {
 
 	u.Delete()
 
-	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, u)
+	r.uow.Collect(ctx, r.mapper, u)
+
+	return nil
 }

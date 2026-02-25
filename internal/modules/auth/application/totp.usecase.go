@@ -7,11 +7,12 @@ import (
 
 	"github.com/pquerna/otp/totp"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 type TOTPGuard interface {
@@ -36,7 +37,7 @@ func (h *InitiateTOTPHandler) Handle(ctx context.Context, _ application.Void) (s
 		return "", err
 	}
 
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Todo-DDD-App", AccountName: userID.String()})
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: messaging.Keys.AppDisplayName(), AccountName: userID.String()})
 	if err != nil {
 		return "", err
 	}

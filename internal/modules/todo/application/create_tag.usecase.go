@@ -19,12 +19,13 @@ type CreateTagResponse struct {
 
 type CreateTagHandler struct {
 	repo domain.TagRepository
+	uow  application.UnitOfWork
 }
 
 var _ application.RequestHandler[CreateTagCommand, CreateTagResponse] = (*CreateTagHandler)(nil)
 
-func NewCreateTagHandler(repo domain.TagRepository) *CreateTagHandler {
-	return &CreateTagHandler{repo: repo}
+func NewCreateTagHandler(repo domain.TagRepository, uow application.UnitOfWork) *CreateTagHandler {
+	return &CreateTagHandler{repo: repo, uow: uow}
 }
 
 func (h *CreateTagHandler) Handle(ctx context.Context, cmd CreateTagCommand) (CreateTagResponse, error) {
@@ -33,11 +34,19 @@ func (h *CreateTagHandler) Handle(ctx context.Context, cmd CreateTagCommand) (Cr
 		return CreateTagResponse{}, err
 	}
 
-	tag := domain.NewTag(tn, cmd.WorkspaceID)
+	var res CreateTagResponse
 
-	if err := h.repo.Save(ctx, tag); err != nil {
-		return CreateTagResponse{}, err
-	}
+	err = h.uow.Execute(ctx, func(ctx context.Context) error {
+		tag := domain.NewTag(tn, cmd.WorkspaceID)
 
-	return CreateTagResponse{ID: tag.ID()}, nil
+		if err := h.repo.Save(ctx, tag); err != nil {
+			return err
+		}
+
+		res = CreateTagResponse{ID: tag.ID()}
+
+		return nil
+	})
+
+	return res, err
 }

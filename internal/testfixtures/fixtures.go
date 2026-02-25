@@ -15,6 +15,7 @@ import (
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
 // Fixtures help create randomized data for real DB testing.
@@ -26,10 +27,12 @@ type Fixtures struct {
 }
 
 func NewFixtures(pool *pgxpool.Pool) *Fixtures {
+	uow := sharedPg.NewUnitOfWork(pool)
+
 	return &Fixtures{
-		UserRepo:      userPg.NewUserRepo(pool),
-		WorkspaceRepo: wsPg.NewWorkspaceRepo(pool),
-		TodoRepo:      todoPg.NewTodoRepo(pool),
+		UserRepo:      userPg.NewUserRepo(pool, uow),
+		WorkspaceRepo: wsPg.NewWorkspaceRepo(pool, uow),
+		TodoRepo:      todoPg.NewTodoRepo(pool, uow),
 		TagRepo:       todoPg.NewTagRepo(pool),
 	}
 }

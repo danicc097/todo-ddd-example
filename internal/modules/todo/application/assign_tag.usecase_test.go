@@ -11,7 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
-	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -23,11 +23,11 @@ func TestAssignTagToTodoHandler_Handle_Integration(t *testing.T) {
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
 
-	repo := todoPg.NewTodoRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := todoPg.NewTodoRepo(pool, uow)
 	tagRepo := todoPg.NewTagRepo(pool)
 
-	baseHandler := application.NewAssignTagToTodoHandler(repo, tagRepo)
-	handler := middleware.Transactional(pool, baseHandler)
+	handler := application.NewAssignTagToTodoHandler(repo, tagRepo, uow)
 
 	t.Run("success", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)

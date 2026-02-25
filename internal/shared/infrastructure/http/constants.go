@@ -1,6 +1,11 @@
 package http
 
 const (
+	IdempotencyKeyHeader   = "Idempotency-Key"
+	AuthorizationHeader    = "Authorization"
+	BearerScheme           = "Bearer"
+	DefaultPaginationLimit = 20
+
 	APIV1Prefix = "/api/v1"
 
 	RouteWS          = "/ws"
@@ -9,3 +14,8 @@ const (
 	RouteOpenAPISpec = "/openapi.yaml"
 	RouteFavicon     = "/favicon.ico"
 )
+
+var SensitiveFields = map[string]struct{}{
+	"password": {},
+	"code":     {},
+}

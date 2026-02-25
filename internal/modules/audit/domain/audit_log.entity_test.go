@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestAuditLog_Instantiation(t *testing.T) {
 		assert.Equal(t, aggID, log.AggregateID())
 		assert.Equal(t, auditDomain.OpCreate.String(), log.Operation())
 		assert.Equal(t, changes, log.Changes())
-		assert.NotZero(t, log.OccurredAt())
+		assert.WithinDuration(t, time.Now(), log.OccurredAt(), time.Second)
 	})
 
 	t.Run("missing correlation id", func(t *testing.T) {

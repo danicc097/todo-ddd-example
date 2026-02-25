@@ -1,0 +1,241 @@
+{
+  "operations": [
+    {
+      "add_column": {
+        "table": "todos",
+        "column": {
+          "name": "due_date",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "todos",
+        "column": {
+          "name": "recurrence_interval",
+          "type": "text",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "todos",
+        "column": {
+          "name": "recurrence_amount",
+          "type": "integer",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "todos",
+        "column": {
+          "name": "last_completed_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "add_column": {
+        "table": "todos",
+        "column": {
+          "name": "deleted_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      }
+    },
+    {
+      "create_table": {
+        "name": "todo_focus_sessions",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "pk": true
+          },
+          {
+            "name": "todo_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_focus_sessions_todo_id",
+              "table": "todos",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_focus_sessions_user_id",
+              "table": "users",
+              "column": "id",
+              "on_delete": "CASCADE"
+            },
+            "nullable": true
+          },
+          {
+            "name": "start_time",
+            "type": "timestamptz",
+            "nullable": false
+          },
+          {
+            "name": "end_time",
+            "type": "timestamptz",
+            "nullable": true
+          }
+        ]
+      }
+    },
+    {
+      "create_index": {
+        "name": "one_active_session_per_todo",
+        "table": "todo_focus_sessions",
+        "columns": [
+          {
+            "column": "todo_id"
+          }
+        ],
+        "unique": true,
+        "predicate": "end_time IS NULL"
+      }
+    },
+    {
+      "create_table": {
+        "name": "daily_schedules",
+        "columns": [
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_daily_schedules_user_id",
+              "table": "users",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "date",
+            "type": "timestamptz"
+          },
+          {
+            "name": "max_capacity",
+            "type": "integer",
+            "nullable": false
+          },
+          {
+            "name": "version",
+            "type": "integer",
+            "nullable": false,
+            "default": "1"
+          }
+        ],
+        "constraints": [
+          {
+            "name": "daily_schedules_pkey",
+            "type": "primary_key",
+            "columns": [
+              "user_id",
+              "date"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "schedule_tasks",
+        "columns": [
+          {
+            "name": "user_id",
+            "type": "uuid"
+          },
+          {
+            "name": "date",
+            "type": "timestamptz"
+          },
+          {
+            "name": "todo_id",
+            "type": "uuid"
+          },
+          {
+            "name": "energy_cost",
+            "type": "integer",
+            "nullable": false
+          }
+        ],
+        "constraints": [
+          {
+            "name": "schedule_tasks_pkey",
+            "type": "primary_key",
+            "columns": [
+              "user_id",
+              "date",
+              "todo_id"
+            ]
+          },
+          {
+            "name": "fk_schedule_tasks_schedule",
+            "type": "foreign_key",
+            "columns": [
+              "user_id",
+              "date"
+            ],
+            "references": {
+              "table": "daily_schedules",
+              "columns": [
+                "user_id",
+                "date"
+              ],
+              "on_delete": "CASCADE"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "create_table": {
+        "name": "todo_completion_logs",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "pk": true
+          },
+          {
+            "name": "todo_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_completion_logs_todo_id",
+              "table": "todos",
+              "column": "id",
+              "on_delete": "CASCADE"
+            }
+          },
+          {
+            "name": "actor_id",
+            "type": "uuid",
+            "references": {
+              "name": "fk_todo_completion_logs_actor_id",
+              "table": "users",
+              "column": "id",
+              "on_delete": "SET NULL"
+            }
+          },
+          {
+            "name": "occurred_at",
+            "type": "timestamptz",
+            "nullable": false,
+            "default": "now()"
+          }
+        ]
+      }
+    }
+  ]
+}

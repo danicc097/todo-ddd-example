@@ -18,12 +18,13 @@ type DeleteWorkspaceResponse struct{}
 
 type DeleteWorkspaceHandler struct {
 	repo domain.WorkspaceRepository
+	uow  application.UnitOfWork
 }
 
 var _ application.RequestHandler[DeleteWorkspaceCommand, DeleteWorkspaceResponse] = (*DeleteWorkspaceHandler)(nil)
 
-func NewDeleteWorkspaceHandler(repo domain.WorkspaceRepository) *DeleteWorkspaceHandler {
-	return &DeleteWorkspaceHandler{repo: repo}
+func NewDeleteWorkspaceHandler(repo domain.WorkspaceRepository, uow application.UnitOfWork) *DeleteWorkspaceHandler {
+	return &DeleteWorkspaceHandler{repo: repo, uow: uow}
 }
 
 func (h *DeleteWorkspaceHandler) Handle(ctx context.Context, cmd DeleteWorkspaceCommand) (DeleteWorkspaceResponse, error) {
@@ -34,15 +35,21 @@ func (h *DeleteWorkspaceHandler) Handle(ctx context.Context, cmd DeleteWorkspace
 		return DeleteWorkspaceResponse{}, apperrors.New(apperrors.MFARequired, "MFA required for this privileged action")
 	}
 
-	ws, err := h.repo.FindByID(ctx, cmd.ID)
+	err := h.uow.Execute(ctx, func(ctx context.Context) error {
+		ws, err := h.repo.FindByID(ctx, cmd.ID)
+		if err != nil {
+			return err
+		}
+
+		if !ws.IsOwner(userDomain.UserID(meta.UserID)) && !meta.IsSystem() {
+			return domain.ErrNotOwner
+		}
+
+		return h.repo.Delete(ctx, cmd.ID)
+	})
 	if err != nil {
 		return DeleteWorkspaceResponse{}, err
 	}
 
-	if !ws.IsOwner(userDomain.UserID(meta.UserID)) && !meta.IsSystem() {
-		return DeleteWorkspaceResponse{}, domain.ErrNotOwner
-	}
-
-	// repo decorators handle audit, etc.
-	return DeleteWorkspaceResponse{}, h.repo.Delete(ctx, cmd.ID)
+	return DeleteWorkspaceResponse{}, nil
 }

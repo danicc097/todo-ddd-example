@@ -10,6 +10,7 @@ import (
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -20,7 +21,8 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
-	repo := wsPg.NewWorkspaceRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := wsPg.NewWorkspaceRepo(pool, uow)
 
 	owner := fixtures.RandomUser(ctx, t)
 	member := fixtures.RandomUser(ctx, t)
@@ -29,7 +31,9 @@ func TestWorkspaceRepo_Integration(t *testing.T) {
 		name, _ := wsDomain.NewWorkspaceName("My Workspace")
 		desc, _ := wsDomain.NewWorkspaceDescription("Desc")
 		ws := wsDomain.NewWorkspace(name, desc, owner.ID())
-		err := repo.Save(ctx, ws)
+		err := uow.Execute(ctx, func(ctx context.Context) error {
+			return repo.Save(ctx, ws)
+		})
 		require.NoError(t, err)
 
 		found, err := repo.FindByID(ctx, ws.ID())

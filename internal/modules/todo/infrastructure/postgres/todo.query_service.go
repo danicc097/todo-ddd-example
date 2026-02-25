@@ -14,14 +14,16 @@ import (
 )
 
 type todoQueryService struct {
-	q    *db.Queries
-	pool *pgxpool.Pool
+	q      *db.Queries
+	pool   *pgxpool.Pool
+	mapper *TodoMapper
 }
 
 func NewTodoQueryService(pool *pgxpool.Pool) application.TodoQueryService {
 	return &todoQueryService{
-		q:    db.New(),
-		pool: pool,
+		q:      db.New(),
+		pool:   pool,
+		mapper: &TodoMapper{},
 	}
 }
 
@@ -38,11 +40,15 @@ func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.
 	todos := make([]application.TodoReadModel, len(rows))
 	for i, r := range rows {
 		todos[i] = application.TodoReadModel{
-			ID:          r.ID,
-			WorkspaceID: r.WorkspaceID,
-			Title:       r.Title,
-			Status:      r.Status,
-			CreatedAt:   r.CreatedAt,
+			ID:                 r.ID,
+			WorkspaceID:        r.WorkspaceID,
+			Title:              r.Title,
+			Status:             r.Status,
+			CreatedAt:          r.CreatedAt,
+			DueDate:            r.DueDate,
+			RecurrenceInterval: r.RecurrenceInterval,
+			RecurrenceAmount:   mInt(r.RecurrenceAmount),
+			FocusSessions:      s.mapper.mapFocusSessions(r.FocusSessions),
 		}
 	}
 
@@ -50,7 +56,7 @@ func (s *todoQueryService) GetAllByWorkspace(ctx context.Context, wsID wsDomain.
 }
 
 func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*application.TodoReadModel, error) {
-	row, err := s.q.GetTodoByID(ctx, s.pool, id)
+	row, err := s.q.GetTodoReadModelByID(ctx, s.pool, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrTodoNotFound
@@ -60,10 +66,24 @@ func (s *todoQueryService) GetByID(ctx context.Context, id domain.TodoID) (*appl
 	}
 
 	return &application.TodoReadModel{
-		ID:          row.ID,
-		WorkspaceID: row.WorkspaceID,
-		Title:       row.Title,
-		Status:      row.Status,
-		CreatedAt:   row.CreatedAt,
+		ID:                 row.ID,
+		WorkspaceID:        row.WorkspaceID,
+		Title:              row.Title,
+		Status:             row.Status,
+		CreatedAt:          row.CreatedAt,
+		DueDate:            row.DueDate,
+		RecurrenceInterval: row.RecurrenceInterval,
+		RecurrenceAmount:   mInt(row.RecurrenceAmount),
+		FocusSessions:      s.mapper.mapFocusSessions(row.FocusSessions),
 	}, nil
+}
+
+func mInt(i *int32) *int {
+	if i == nil {
+		return nil
+	}
+
+	v := int(*i)
+
+	return &v
 }

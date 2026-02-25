@@ -13,26 +13,64 @@ import (
 	"github.com/google/uuid"
 )
 
-const AddTagToTodo = `-- name: AddTagToTodo :exec
+const BulkAddTagsToTodo = `-- name: BulkAddTagsToTodo :exec
 INSERT INTO todo_tags(todo_id, tag_id)
-  VALUES ($1, $2)
+SELECT
+  UNNEST($1::uuid[]),
+  UNNEST($2::uuid[])
 ON CONFLICT
   DO NOTHING
 `
 
-type AddTagToTodoParams struct {
-	TodoID types.TodoID `db:"todo_id" json:"todo_id"`
-	TagID  types.TagID  `db:"tag_id" json:"tag_id"`
+type BulkAddTagsToTodoParams struct {
+	TodoIds []uuid.UUID `db:"todo_ids" json:"todo_ids"`
+	TagIds  []uuid.UUID `db:"tag_ids" json:"tag_ids"`
 }
 
-func (q *Queries) AddTagToTodo(ctx context.Context, db DBTX, arg AddTagToTodoParams) error {
-	_, err := db.Exec(ctx, AddTagToTodo, arg.TodoID, arg.TagID)
+func (q *Queries) BulkAddTagsToTodo(ctx context.Context, db DBTX, arg BulkAddTagsToTodoParams) error {
+	_, err := db.Exec(ctx, BulkAddTagsToTodo, arg.TodoIds, arg.TagIds)
+	return err
+}
+
+const BulkUpsertFocusSessions = `-- name: BulkUpsertFocusSessions :exec
+INSERT INTO todo_focus_sessions(id, todo_id, user_id, start_time, end_time)
+SELECT
+  UNNEST($1::uuid[]),
+  UNNEST($2::uuid[]),
+  UNNEST($3::uuid[]),
+  UNNEST($4::timestamptz[]),
+  NULLIF(UNNEST($5::timestamptz[]), '0001-01-01 00:00:00+00'::timestamptz)
+ON CONFLICT (id)
+  DO UPDATE SET
+    end_time = EXCLUDED.end_time
+`
+
+type BulkUpsertFocusSessionsParams struct {
+	Ids        []uuid.UUID `db:"ids" json:"ids"`
+	TodoIds    []uuid.UUID `db:"todo_ids" json:"todo_ids"`
+	UserIds    []uuid.UUID `db:"user_ids" json:"user_ids"`
+	StartTimes []time.Time `db:"start_times" json:"start_times"`
+	EndTimes   []time.Time `db:"end_times" json:"end_times"`
+}
+
+func (q *Queries) BulkUpsertFocusSessions(ctx context.Context, db DBTX, arg BulkUpsertFocusSessionsParams) error {
+	_, err := db.Exec(ctx, BulkUpsertFocusSessions,
+		arg.Ids,
+		arg.TodoIds,
+		arg.UserIds,
+		arg.StartTimes,
+		arg.EndTimes,
+	)
 	return err
 }
 
 const DeleteTodo = `-- name: DeleteTodo :exec
-DELETE FROM todos
-WHERE id = $1
+UPDATE
+  todos
+SET
+  deleted_at = NOW()
+WHERE
+  id = $1
 `
 
 func (q *Queries) DeleteTodo(ctx context.Context, db DBTX, id types.TodoID) error {
@@ -40,59 +78,136 @@ func (q *Queries) DeleteTodo(ctx context.Context, db DBTX, id types.TodoID) erro
 	return err
 }
 
-const GetTodoByID = `-- name: GetTodoByID :one
+const GetTodoAggregateByID = `-- name: GetTodoAggregateByID :one
 SELECT
-  t.id,
-  t.title,
-  t.status,
-  t.created_at,
-  t.workspace_id,
-  COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
+  t.id, t.title, t.status, t.created_at, t.workspace_id, t.updated_at, t.due_date, t.recurrence_interval, t.recurrence_amount, t.last_completed_at, t.deleted_at,
+  COALESCE(array_remove(array_agg(DISTINCT tt.tag_id), NULL), '{}')::uuid[] AS tags,
+  COALESCE((
+    SELECT
+      json_agg(fs.*)
+    FROM todo_focus_sessions fs
+    WHERE
+      fs.todo_id = t.id), '[]'::json) AS focus_sessions
 FROM
   todos t
   LEFT JOIN todo_tags tt ON t.id = tt.todo_id
 WHERE
   t.id = $1
+  AND t.deleted_at IS NULL
 GROUP BY
   t.id
 `
 
-type GetTodoByIDRow struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-	Tags        []uuid.UUID       `db:"tags" json:"tags"`
+type GetTodoAggregateByIDRow struct {
+	ID                 types.TodoID      `db:"id" json:"id"`
+	Title              string            `db:"title" json:"title"`
+	Status             string            `db:"status" json:"status"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID        types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
+	DueDate            *time.Time        `db:"due_date" json:"due_date"`
+	RecurrenceInterval *string           `db:"recurrence_interval" json:"recurrence_interval"`
+	RecurrenceAmount   *int32            `db:"recurrence_amount" json:"recurrence_amount"`
+	LastCompletedAt    *time.Time        `db:"last_completed_at" json:"last_completed_at"`
+	DeletedAt          *time.Time        `db:"deleted_at" json:"deleted_at"`
+	Tags               []uuid.UUID       `db:"tags" json:"tags"`
+	FocusSessions      interface{}       `db:"focus_sessions" json:"focus_sessions"`
 }
 
-func (q *Queries) GetTodoByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoByIDRow, error) {
-	row := db.QueryRow(ctx, GetTodoByID, id)
-	var i GetTodoByIDRow
+func (q *Queries) GetTodoAggregateByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoAggregateByIDRow, error) {
+	row := db.QueryRow(ctx, GetTodoAggregateByID, id)
+	var i GetTodoAggregateByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Status,
 		&i.CreatedAt,
 		&i.WorkspaceID,
+		&i.UpdatedAt,
+		&i.DueDate,
+		&i.RecurrenceInterval,
+		&i.RecurrenceAmount,
+		&i.LastCompletedAt,
+		&i.DeletedAt,
 		&i.Tags,
+		&i.FocusSessions,
+	)
+	return i, err
+}
+
+const GetTodoReadModelByID = `-- name: GetTodoReadModelByID :one
+SELECT
+  t.id, t.title, t.status, t.created_at, t.workspace_id, t.updated_at, t.due_date, t.recurrence_interval, t.recurrence_amount, t.last_completed_at, t.deleted_at,
+  COALESCE(array_remove(array_agg(DISTINCT tt.tag_id), NULL), '{}')::uuid[] AS tags,
+  COALESCE((
+    SELECT
+      json_agg(fs.*)
+    FROM todo_focus_sessions fs
+    WHERE
+      fs.todo_id = t.id), '[]'::json) AS focus_sessions
+FROM
+  todos t
+  LEFT JOIN todo_tags tt ON t.id = tt.todo_id
+WHERE
+  t.id = $1
+  AND t.deleted_at IS NULL
+GROUP BY
+  t.id
+`
+
+type GetTodoReadModelByIDRow struct {
+	ID                 types.TodoID      `db:"id" json:"id"`
+	Title              string            `db:"title" json:"title"`
+	Status             string            `db:"status" json:"status"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID        types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
+	DueDate            *time.Time        `db:"due_date" json:"due_date"`
+	RecurrenceInterval *string           `db:"recurrence_interval" json:"recurrence_interval"`
+	RecurrenceAmount   *int32            `db:"recurrence_amount" json:"recurrence_amount"`
+	LastCompletedAt    *time.Time        `db:"last_completed_at" json:"last_completed_at"`
+	DeletedAt          *time.Time        `db:"deleted_at" json:"deleted_at"`
+	Tags               []uuid.UUID       `db:"tags" json:"tags"`
+	FocusSessions      interface{}       `db:"focus_sessions" json:"focus_sessions"`
+}
+
+func (q *Queries) GetTodoReadModelByID(ctx context.Context, db DBTX, id types.TodoID) (GetTodoReadModelByIDRow, error) {
+	row := db.QueryRow(ctx, GetTodoReadModelByID, id)
+	var i GetTodoReadModelByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Status,
+		&i.CreatedAt,
+		&i.WorkspaceID,
+		&i.UpdatedAt,
+		&i.DueDate,
+		&i.RecurrenceInterval,
+		&i.RecurrenceAmount,
+		&i.LastCompletedAt,
+		&i.DeletedAt,
+		&i.Tags,
+		&i.FocusSessions,
 	)
 	return i, err
 }
 
 const ListTodosByWorkspaceID = `-- name: ListTodosByWorkspaceID :many
 SELECT
-  t.id,
-  t.title,
-  t.status,
-  t.created_at,
-  t.workspace_id,
-  COALESCE(array_remove(array_agg(tt.tag_id), NULL), '{}')::uuid[] AS tags
+  t.id, t.title, t.status, t.created_at, t.workspace_id, t.updated_at, t.due_date, t.recurrence_interval, t.recurrence_amount, t.last_completed_at, t.deleted_at,
+  COALESCE(array_remove(array_agg(DISTINCT tt.tag_id), NULL), '{}')::uuid[] AS tags,
+  COALESCE((
+    SELECT
+      json_agg(fs.*)
+    FROM todo_focus_sessions fs
+    WHERE
+      fs.todo_id = t.id), '[]'::json) AS focus_sessions
 FROM
   todos t
   LEFT JOIN todo_tags tt ON t.id = tt.todo_id
 WHERE
   t.workspace_id = $1
+  AND t.deleted_at IS NULL
 GROUP BY
   t.id
 ORDER BY
@@ -107,12 +222,19 @@ type ListTodosByWorkspaceIDParams struct {
 }
 
 type ListTodosByWorkspaceIDRow struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-	Tags        []uuid.UUID       `db:"tags" json:"tags"`
+	ID                 types.TodoID      `db:"id" json:"id"`
+	Title              string            `db:"title" json:"title"`
+	Status             string            `db:"status" json:"status"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID        types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
+	DueDate            *time.Time        `db:"due_date" json:"due_date"`
+	RecurrenceInterval *string           `db:"recurrence_interval" json:"recurrence_interval"`
+	RecurrenceAmount   *int32            `db:"recurrence_amount" json:"recurrence_amount"`
+	LastCompletedAt    *time.Time        `db:"last_completed_at" json:"last_completed_at"`
+	DeletedAt          *time.Time        `db:"deleted_at" json:"deleted_at"`
+	Tags               []uuid.UUID       `db:"tags" json:"tags"`
+	FocusSessions      interface{}       `db:"focus_sessions" json:"focus_sessions"`
 }
 
 func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListTodosByWorkspaceIDParams) ([]ListTodosByWorkspaceIDRow, error) {
@@ -130,7 +252,14 @@ func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListT
 			&i.Status,
 			&i.CreatedAt,
 			&i.WorkspaceID,
+			&i.UpdatedAt,
+			&i.DueDate,
+			&i.RecurrenceInterval,
+			&i.RecurrenceAmount,
+			&i.LastCompletedAt,
+			&i.DeletedAt,
 			&i.Tags,
+			&i.FocusSessions,
 		); err != nil {
 			return nil, err
 		}
@@ -140,6 +269,22 @@ func (q *Queries) ListTodosByWorkspaceID(ctx context.Context, db DBTX, arg ListT
 		return nil, err
 	}
 	return items, nil
+}
+
+const RemoveMissingFocusSessionsFromTodo = `-- name: RemoveMissingFocusSessionsFromTodo :exec
+DELETE FROM todo_focus_sessions
+WHERE todo_id = $1
+  AND NOT (id = ANY ($2::uuid[]))
+`
+
+type RemoveMissingFocusSessionsFromTodoParams struct {
+	TodoID     uuid.UUID   `db:"todo_id" json:"todo_id"`
+	SessionIds []uuid.UUID `db:"session_ids" json:"session_ids"`
+}
+
+func (q *Queries) RemoveMissingFocusSessionsFromTodo(ctx context.Context, db DBTX, arg RemoveMissingFocusSessionsFromTodoParams) error {
+	_, err := db.Exec(ctx, RemoveMissingFocusSessionsFromTodo, arg.TodoID, arg.SessionIds)
+	return err
 }
 
 const RemoveMissingTagsFromTodo = `-- name: RemoveMissingTagsFromTodo :exec
@@ -158,53 +303,85 @@ func (q *Queries) RemoveMissingTagsFromTodo(ctx context.Context, db DBTX, arg Re
 	return err
 }
 
+const UpsertFocusSession = `-- name: UpsertFocusSession :exec
+INSERT INTO todo_focus_sessions(id, todo_id, start_time, end_time)
+  VALUES ($1, $2, $3, $4)
+ON CONFLICT (id)
+  DO UPDATE SET
+    end_time = EXCLUDED.end_time
+`
+
+type UpsertFocusSessionParams struct {
+	ID        uuid.UUID  `db:"id" json:"id"`
+	TodoID    uuid.UUID  `db:"todo_id" json:"todo_id"`
+	StartTime time.Time  `db:"start_time" json:"start_time"`
+	EndTime   *time.Time `db:"end_time" json:"end_time"`
+}
+
+func (q *Queries) UpsertFocusSession(ctx context.Context, db DBTX, arg UpsertFocusSessionParams) error {
+	_, err := db.Exec(ctx, UpsertFocusSession,
+		arg.ID,
+		arg.TodoID,
+		arg.StartTime,
+		arg.EndTime,
+	)
+	return err
+}
+
 const UpsertTodo = `-- name: UpsertTodo :one
-INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id)
-  VALUES ($1, $2, $3, $4, $4, $5)
+INSERT INTO todos(id, title, status, created_at, updated_at, workspace_id, due_date, recurrence_interval, recurrence_amount, last_completed_at, deleted_at)
+  VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, NULL)
 ON CONFLICT (id)
   DO UPDATE SET
     title = EXCLUDED.title,
     status = EXCLUDED.status,
-    updated_at = NOW()
+    updated_at = NOW(),
+    due_date = EXCLUDED.due_date,
+    recurrence_interval = EXCLUDED.recurrence_interval,
+    recurrence_amount = EXCLUDED.recurrence_amount,
+    last_completed_at = EXCLUDED.last_completed_at,
+    deleted_at = NULL
   RETURNING
-    id,
-    title,
-    status,
-    created_at,
-    workspace_id
+    id, title, status, created_at, workspace_id, updated_at, due_date, recurrence_interval, recurrence_amount, last_completed_at, deleted_at
 `
 
 type UpsertTodoParams struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	ID                 types.TodoID      `db:"id" json:"id"`
+	Title              string            `db:"title" json:"title"`
+	Status             string            `db:"status" json:"status"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	WorkspaceID        types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
+	DueDate            *time.Time        `db:"due_date" json:"due_date"`
+	RecurrenceInterval *string           `db:"recurrence_interval" json:"recurrence_interval"`
+	RecurrenceAmount   *int32            `db:"recurrence_amount" json:"recurrence_amount"`
+	LastCompletedAt    *time.Time        `db:"last_completed_at" json:"last_completed_at"`
 }
 
-type UpsertTodoRow struct {
-	ID          types.TodoID      `db:"id" json:"id"`
-	Title       string            `db:"title" json:"title"`
-	Status      string            `db:"status" json:"status"`
-	CreatedAt   time.Time         `db:"created_at" json:"created_at"`
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-}
-
-func (q *Queries) UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (UpsertTodoRow, error) {
+func (q *Queries) UpsertTodo(ctx context.Context, db DBTX, arg UpsertTodoParams) (Todos, error) {
 	row := db.QueryRow(ctx, UpsertTodo,
 		arg.ID,
 		arg.Title,
 		arg.Status,
 		arg.CreatedAt,
 		arg.WorkspaceID,
+		arg.DueDate,
+		arg.RecurrenceInterval,
+		arg.RecurrenceAmount,
+		arg.LastCompletedAt,
 	)
-	var i UpsertTodoRow
+	var i Todos
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Status,
 		&i.CreatedAt,
 		&i.WorkspaceID,
+		&i.UpdatedAt,
+		&i.DueDate,
+		&i.RecurrenceInterval,
+		&i.RecurrenceAmount,
+		&i.LastCompletedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

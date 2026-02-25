@@ -10,14 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 func TestLoginHandler_Handle_Integration(t *testing.T) {
@@ -27,8 +28,9 @@ func TestLoginHandler_Handle_Integration(t *testing.T) {
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
 
-	userRepo := userPg.NewUserRepo(pool)
-	authRepo := authPg.NewAuthRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	userRepo := userPg.NewUserRepo(pool, uow)
+	authRepo := authPg.NewAuthRepo(pool, uow)
 	hasher := infraCrypto.NewArgon2PasswordHasher()
 
 	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)

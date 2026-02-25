@@ -22,6 +22,13 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for RecurrenceInterval.
+const (
+	DAILY   RecurrenceInterval = "DAILY"
+	MONTHLY RecurrenceInterval = "MONTHLY"
+	WEEKLY  RecurrenceInterval = "WEEKLY"
+)
+
 // Defines values for TodoStatus.
 const (
 	ARCHIVED  TodoStatus = "ARCHIVED"
@@ -29,9 +36,28 @@ const (
 	PENDING   TodoStatus = "PENDING"
 )
 
+// AddWorkspaceMemberRequest defines model for AddWorkspaceMemberRequest.
+type AddWorkspaceMemberRequest struct {
+	Role   WorkspaceRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
 // AssignTagToTodoRequest defines model for AssignTagToTodoRequest.
 type AssignTagToTodoRequest struct {
 	TagId todoDomain.TagID `json:"tagId"`
+}
+
+// CommitTaskRequest defines model for CommitTaskRequest.
+type CommitTaskRequest struct {
+	Cost   int                `json:"cost"`
+	Date   openapi_types.Date `json:"date"`
+	TodoId openapi_types.UUID `json:"todoId"`
+}
+
+// CompletionLog defines model for CompletionLog.
+type CompletionLog struct {
+	ActorId   userDomain.UserID `json:"actorId"`
+	Timestamp time.Time         `json:"timestamp"`
 }
 
 // CreateTagRequest defines model for CreateTagRequest.
@@ -41,7 +67,17 @@ type CreateTagRequest struct {
 
 // CreateTodoRequest defines model for CreateTodoRequest.
 type CreateTodoRequest struct {
-	Title string `json:"title"`
+	DueDate            *time.Time          `json:"dueDate"`
+	RecurrenceAmount   *int                `json:"recurrenceAmount"`
+	RecurrenceInterval *RecurrenceInterval `json:"recurrenceInterval"`
+	Title              string              `json:"title"`
+}
+
+// FocusSession defines model for FocusSession.
+type FocusSession struct {
+	EndTime   *time.Time         `json:"endTime"`
+	Id        openapi_types.UUID `json:"id"`
+	StartTime time.Time          `json:"startTime"`
 }
 
 // HTTPValidationError defines model for HTTPValidationError.
@@ -83,6 +119,9 @@ type OnboardWorkspaceRequest struct {
 	Name string `json:"name"`
 }
 
+// RecurrenceInterval defines model for RecurrenceInterval.
+type RecurrenceInterval string
+
 // RegisterUserRequestBody defines model for RegisterUserRequestBody.
 type RegisterUserRequestBody struct {
 	Email    openapi_types.Email    `json:"email"`
@@ -98,11 +137,16 @@ type Tag struct {
 
 // Todo defines model for Todo.
 type Todo struct {
-	CreatedAt   time.Time                   `json:"createdAt"`
-	Id          todoDomain.TodoID           `json:"id"`
-	Status      TodoStatus                  `json:"status"`
-	Title       string                      `json:"title"`
-	WorkspaceId workspaceDomain.WorkspaceID `json:"workspaceId"`
+	CompletionLogs     *[]CompletionLog            `json:"completionLogs,omitempty"`
+	CreatedAt          time.Time                   `json:"createdAt"`
+	DueDate            *time.Time                  `json:"dueDate"`
+	FocusSessions      *[]FocusSession             `json:"focusSessions,omitempty"`
+	Id                 todoDomain.TodoID           `json:"id"`
+	RecurrenceAmount   *int                        `json:"recurrenceAmount"`
+	RecurrenceInterval *RecurrenceInterval         `json:"recurrenceInterval"`
+	Status             TodoStatus                  `json:"status"`
+	Title              string                      `json:"title"`
+	WorkspaceId        workspaceDomain.WorkspaceID `json:"workspaceId"`
 }
 
 // TodoStatus defines model for TodoStatus.
@@ -207,12 +251,6 @@ type OnboardWorkspaceParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
-// AddWorkspaceMemberJSONBody defines parameters for AddWorkspaceMember.
-type AddWorkspaceMemberJSONBody struct {
-	Role   WorkspaceRole      `json:"role"`
-	UserId openapi_types.UUID `json:"userId"`
-}
-
 // AddWorkspaceMemberParams defines parameters for AddWorkspaceMember.
 type AddWorkspaceMemberParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -249,6 +287,9 @@ type RegisterJSONRequestBody = RegisterUserRequestBody
 // VerifyTOTPJSONRequestBody defines body for VerifyTOTP for application/json ContentType.
 type VerifyTOTPJSONRequestBody = VerifyTOTPRequestBody
 
+// CommitTaskJSONRequestBody defines body for CommitTask for application/json ContentType.
+type CommitTaskJSONRequestBody = CommitTaskRequest
+
 // AssignTagToTodoJSONRequestBody defines body for AssignTagToTodo for application/json ContentType.
 type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
 
@@ -256,7 +297,7 @@ type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
 
 // AddWorkspaceMemberJSONRequestBody defines body for AddWorkspaceMember for application/json ContentType.
-type AddWorkspaceMemberJSONRequestBody AddWorkspaceMemberJSONBody
+type AddWorkspaceMemberJSONRequestBody = AddWorkspaceMemberRequest
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
@@ -281,12 +322,21 @@ type ServerInterface interface {
 	// Health check
 	// (GET /ping)
 	Ping(c *gin.Context)
+	// Commit a task to daily schedule
+	// (POST /schedule/commit)
+	CommitTask(c *gin.Context)
 	// Get a todo by ID
 	// (GET /todos/{id})
 	GetTodoByID(c *gin.Context, id todoDomain.TodoID)
 	// Complete a todo
 	// (PATCH /todos/{id}/complete)
 	CompleteTodo(c *gin.Context, id todoDomain.TodoID, params CompleteTodoParams)
+	// Start focus session
+	// (POST /todos/{id}/focus/start)
+	StartFocus(c *gin.Context, id todoDomain.TodoID)
+	// Stop focus session
+	// (POST /todos/{id}/focus/stop)
+	StopFocus(c *gin.Context, id todoDomain.TodoID)
 	// Assign a tag to a todo
 	// (POST /todos/{id}/tags)
 	AssignTagToTodo(c *gin.Context, id todoDomain.TodoID, params AssignTagToTodoParams)
@@ -429,6 +479,21 @@ func (siw *ServerInterfaceWrapper) Ping(c *gin.Context) {
 	siw.Handler.Ping(c)
 }
 
+// CommitTask operation middleware
+func (siw *ServerInterfaceWrapper) CommitTask(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CommitTask(c)
+}
+
 // GetTodoByID operation middleware
 func (siw *ServerInterfaceWrapper) GetTodoByID(c *gin.Context) {
 
@@ -499,6 +564,58 @@ func (siw *ServerInterfaceWrapper) CompleteTodo(c *gin.Context) {
 	}
 
 	siw.Handler.CompleteTodo(c, id, params)
+}
+
+// StartFocus operation middleware
+func (siw *ServerInterfaceWrapper) StartFocus(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id todoDomain.TodoID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartFocus(c, id)
+}
+
+// StopFocus operation middleware
+func (siw *ServerInterfaceWrapper) StopFocus(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id todoDomain.TodoID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StopFocus(c, id)
 }
 
 // AssignTagToTodo operation middleware
@@ -997,8 +1114,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/totp/initiate", wrapper.InitiateTOTP)
 	router.POST(options.BaseURL+"/auth/totp/verify", wrapper.VerifyTOTP)
 	router.GET(options.BaseURL+"/ping", wrapper.Ping)
+	router.POST(options.BaseURL+"/schedule/commit", wrapper.CommitTask)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)
+	router.POST(options.BaseURL+"/todos/:id/focus/start", wrapper.StartFocus)
+	router.POST(options.BaseURL+"/todos/:id/focus/stop", wrapper.StopFocus)
 	router.POST(options.BaseURL+"/todos/:id/tags", wrapper.AssignTagToTodo)
 	router.GET(options.BaseURL+"/users/:id", wrapper.GetUserByID)
 	router.GET(options.BaseURL+"/users/:id/workspaces", wrapper.GetUserWorkspaces)

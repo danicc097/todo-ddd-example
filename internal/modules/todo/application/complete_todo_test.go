@@ -15,7 +15,7 @@ import (
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
-	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -26,12 +26,13 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
-	repo := todoPg.NewTodoRepo(pool)
-	wsRepo := wsPg.NewWorkspaceRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := todoPg.NewTodoRepo(pool, uow)
+	wsRepo := wsPg.NewWorkspaceRepo(pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
+	uow = sharedPg.NewUnitOfWork(pool)
 
-	baseHandler := application.NewCompleteTodoHandler(repo, wsProv)
-	handler := middleware.Transactional(pool, baseHandler)
+	handler := application.NewCompleteTodoHandler(repo, wsProv, uow)
 
 	t.Run("completes", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)

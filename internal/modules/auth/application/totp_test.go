@@ -12,14 +12,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
 )
 
 func TestTOTPFlow_Integration(t *testing.T) {
@@ -30,8 +32,9 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	redisClient := testutils.GetGlobalRedis(t).Connect(ctx, t)
 
-	userRepo := userPg.NewUserRepo(pool)
-	authRepo := authPg.NewAuthRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	userRepo := userPg.NewUserRepo(pool, uow)
+	authRepo := authPg.NewAuthRepo(pool, uow)
 	totpGuard := authRedis.NewTOTPGuard(redisClient)
 	masterKey := []byte("0123456789abcdef0123456789abcdef")
 	hasher := infraCrypto.NewArgon2PasswordHasher()
@@ -42,7 +45,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	uniqueEmail := fmt.Sprintf("auth-%s@example.com", uuid.New().String()[:8])
 
-	registerHandler := application.NewRegisterHandler(userRepo, authRepo, hasher)
+	registerHandler := application.NewRegisterHandler(userRepo, authRepo, hasher, sharedPg.NewUnitOfWork(pool))
 
 	registerResp, err := registerHandler.Handle(ctx, application.RegisterCommand{
 		Email:    uniqueEmail,
@@ -58,7 +61,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	uri, err := initiateHandler.Handle(ctx, struct{}{})
 	require.NoError(t, err)
-	assert.Contains(t, uri, "otpauth://totp/Todo-DDD-App")
+	assert.Contains(t, uri, "otpauth://totp/"+messaging.Keys.AppDisplayName())
 
 	auth, err := authRepo.FindByUserID(ctx, registerResp.ID)
 	require.NoError(t, err)

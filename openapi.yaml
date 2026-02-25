@@ -269,6 +269,58 @@ paths:
         '4XX':
           $ref: '#/components/responses/ErrorResponse'
 
+  /todos/{id}/focus/start:
+    post:
+      summary: Start focus session
+      operationId: startFocus
+      tags:
+        - todo
+      security:
+        - bearerAuth: []
+      parameters:
+        - *x-todoIDParameter
+      responses:
+        '204':
+          description: Focus started
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /todos/{id}/focus/stop:
+    post:
+      summary: Stop focus session
+      operationId: stopFocus
+      tags:
+        - todo
+      security:
+        - bearerAuth: []
+      parameters:
+        - *x-todoIDParameter
+      responses:
+        '204':
+          description: Focus stopped
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /schedule/commit:
+    post:
+      summary: Commit a task to daily schedule
+      operationId: commitTask
+      tags:
+        - schedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitTaskRequest'
+      responses:
+        '204':
+          description: Task committed
+        '4XX':
+          $ref: '#/components/responses/ErrorResponse'
+
   /users/{id}:
     get:
       operationId: getUserByID
@@ -378,14 +430,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [userId, role]
-              properties:
-                userId:
-                  type: string
-                  format: uuid
-                role:
-                  $ref: '#/components/schemas/WorkspaceRole'
+              $ref: '#/components/schemas/AddWorkspaceMemberRequest'
       responses:
         '204':
           description: Member added
@@ -565,6 +610,16 @@ components:
             path: "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
             name: "workspaceDomain"
 
+    AddWorkspaceMemberRequest:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/WorkspaceRole'
+
     Workspace:
       type: object
       required: [id, name, description]
@@ -592,12 +647,42 @@ components:
         title: { type: string }
         status: { $ref: '#/components/schemas/TodoStatus' }
         createdAt: { type: string, format: date-time }
+        dueDate: { type: string, format: date-time, nullable: true }
+        recurrenceInterval: { $ref: '#/components/schemas/RecurrenceInterval' }
+        recurrenceAmount: { type: integer, nullable: true }
+        completionLogs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompletionLog'
+        focusSessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FocusSession'
+
+    CompletionLog:
+      type: object
+      required: [timestamp, actorId]
+      properties:
+        timestamp: { type: string, format: date-time }
+        actorId:
+          *x-userIDSchema
+
+    FocusSession:
+      type: object
+      required: [id, startTime]
+      properties:
+        id: { type: string, format: uuid }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time, nullable: true }
 
     CreateTodoRequest:
       type: object
       required: [title]
       properties:
         title: { type: string }
+        dueDate: { type: string, format: date-time, nullable: true }
+        recurrenceInterval: { $ref: '#/components/schemas/RecurrenceInterval' }
+        recurrenceAmount: { type: integer, minimum: 1, nullable: true }
 
     CreateTagRequest:
       type: object
@@ -605,9 +690,29 @@ components:
       properties:
         name: { type: string }
 
+    CommitTaskRequest:
+      type: object
+      required: [todoId, cost, date]
+      properties:
+        todoId:
+          type: string
+          format: uuid
+        cost:
+          type: integer
+          minimum: 1
+          maximum: 5
+        date:
+          type: string
+          format: date
+
     TodoStatus:
       type: string
       enum: [PENDING, COMPLETED, ARCHIVED]
+
+    RecurrenceInterval:
+      type: string
+      enum: [DAILY, WEEKLY, MONTHLY]
+      nullable: true
 
     LoginRequestBody:
       type: object

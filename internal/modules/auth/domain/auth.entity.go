@@ -21,6 +21,8 @@ const (
 )
 
 type UserAuth struct {
+	shared.AggregateRoot
+
 	userID           userDomain.UserID
 	totpStatus       string
 	totpSecretCipher []byte
@@ -36,13 +38,21 @@ func NewUserAuth(userID userDomain.UserID, passwordHash string) *UserAuth {
 	}
 }
 
-func ReconstituteUserAuth(id userDomain.UserID, status string, cipher, nonce []byte, passwordHash string) *UserAuth {
+type ReconstituteUserAuthArgs struct {
+	ID           userDomain.UserID
+	Status       string
+	Cipher       []byte
+	Nonce        []byte
+	PasswordHash string
+}
+
+func ReconstituteUserAuth(args ReconstituteUserAuthArgs) *UserAuth {
 	return &UserAuth{
-		userID:           id,
-		totpStatus:       status,
-		totpSecretCipher: cipher,
-		totpSecretNonce:  nonce,
-		passwordHash:     passwordHash,
+		userID:           args.ID,
+		totpStatus:       args.Status,
+		totpSecretCipher: args.Cipher,
+		totpSecretNonce:  args.Nonce,
+		passwordHash:     args.PasswordHash,
 	}
 }
 

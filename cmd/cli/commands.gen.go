@@ -292,6 +292,64 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdPing)
 
+	cmdCommitTask := &cobra.Command{
+		Use:           "commit-task",
+		Short:         "Commit a task to daily schedule",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing CommitTask"))
+			}
+
+			bodyStr, _ := cmd.Flags().GetString("payload")
+
+			if debug && bodyStr != "" {
+				fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("DEBUG: Payload: %s", bodyStr)))
+			}
+
+			var reqBody client.CommitTaskJSONRequestBody
+			if bodyStr != "" {
+				if err := json.Unmarshal([]byte(bodyStr), &reqBody); err != nil {
+					return fmt.Errorf("invalid json payload: %w", err)
+				}
+			}
+
+			resp, err := c.CommitTaskWithResponse(ctx, reqBody)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
+			return nil
+		},
+	}
+	cmdCommitTask.Flags().StringP("payload", "p", "", "JSON payload for the request body")
+
+	rootCmd.AddCommand(cmdCommitTask)
+
 	cmdGetTodoByID := &cobra.Command{
 		Use:           "get-todo-by-id [id]",
 		Short:         "Get a todo by ID",
@@ -390,6 +448,98 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 	cmdCompleteTodo.Flags().String("idempotency-key", "", "Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response. ")
 
 	rootCmd.AddCommand(cmdCompleteTodo)
+
+	cmdStartFocus := &cobra.Command{
+		Use:           "start-focus [id]",
+		Short:         "Start focus session",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing StartFocus"))
+			}
+
+			paramid := todoDomain.TodoID(uuid.MustParse(args[0]))
+
+			resp, err := c.StartFocusWithResponse(ctx, paramid)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdStartFocus)
+
+	cmdStopFocus := &cobra.Command{
+		Use:           "stop-focus [id]",
+		Short:         "Stop focus session",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, ctx := getClient()
+
+			if debug {
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing StopFocus"))
+			}
+
+			paramid := todoDomain.TodoID(uuid.MustParse(args[0]))
+
+			resp, err := c.StopFocusWithResponse(ctx, paramid)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintln(os.Stderr, styleError.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			} else {
+				fmt.Fprintln(os.Stderr, styleSuccess.Render(fmt.Sprintf("Status: %d", resp.StatusCode())))
+			}
+
+			if verbose {
+				for k, v := range resp.HTTPResponse.Header {
+					fmt.Fprintln(os.Stderr, styleDebug.Render(fmt.Sprintf("%s: %s", k, strings.Join(v, ", "))))
+				}
+			}
+
+			if len(resp.Body) > 0 {
+				fmt.Printf("%s\n", string(resp.Body))
+			}
+
+			if resp.StatusCode() >= 400 {
+				return fmt.Errorf("request failed with status %d", resp.StatusCode())
+			}
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(cmdStopFocus)
 
 	cmdAssignTagToTodo := &cobra.Command{
 		Use:           "assign-tag-to-todo [id]",

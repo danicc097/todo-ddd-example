@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/http/middleware"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
+	sharedHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
 func TestIdentityAndMFAResolver_Integration(t *testing.T) {
@@ -47,7 +47,7 @@ func TestIdentityAndMFAResolver_Integration(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set(infraHttp.AuthorizationHeader, fmt.Sprintf("%s %s", infraHttp.BearerScheme, token))
+		req.Header.Set(sharedHttp.AuthorizationHeader, fmt.Sprintf("%s %s", sharedHttp.BearerScheme, token))
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -58,7 +58,7 @@ func TestIdentityAndMFAResolver_Integration(t *testing.T) {
 	t.Run("invalid JWT", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set(infraHttp.AuthorizationHeader, fmt.Sprintf("%s %s", infraHttp.BearerScheme, "invalid-token"))
+		req.Header.Set(sharedHttp.AuthorizationHeader, fmt.Sprintf("%s %s", sharedHttp.BearerScheme, "invalid-token"))
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)

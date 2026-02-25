@@ -12,7 +12,12 @@ func (m *UserMapper) ToDomain(row db.Users) *domain.User {
 	email, _ := domain.NewUserEmail(row.Email)
 	name, _ := domain.NewUserName(row.Name)
 
-	return domain.ReconstituteUser(row.ID, email, name, row.CreatedAt)
+	return domain.ReconstituteUser(domain.ReconstituteUserArgs{
+		ID:        row.ID,
+		Email:     email,
+		Name:      name,
+		CreatedAt: row.CreatedAt,
+	})
 }
 
 func (m *UserMapper) ToPersistence(u *domain.User) db.Users {

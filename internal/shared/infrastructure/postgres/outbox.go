@@ -13,6 +13,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
+	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
@@ -72,6 +73,12 @@ func SaveDomainEvents(
 
 		headers := make(map[string]string)
 		otel.GetTextMapPropagator().Inject(ctx, propagation.MapCarrier(headers))
+
+		meta := causation.FromContext(ctx)
+		headers[causation.AttrCorrelationID] = meta.CorrelationID
+		headers[causation.AttrUserID] = meta.UserID.String()
+		headers[causation.AttrUserIP] = meta.UserIP
+		headers[causation.AttrUserAgent] = meta.UserAgent
 
 		if we, ok := e.(domain.WorkspacedEvent); ok {
 			headers[string(messaging.RoutingWorkspaceID)] = we.WorkspaceID().String()

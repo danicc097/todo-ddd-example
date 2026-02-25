@@ -59,19 +59,21 @@ func NewWorkspace(name WorkspaceName, description WorkspaceDescription, creatorI
 	return ws
 }
 
-func ReconstituteWorkspace(
-	id WorkspaceID,
-	name WorkspaceName,
-	description WorkspaceDescription,
-	createdAt time.Time,
-	members map[userDomain.UserID]WorkspaceRole,
-) *Workspace {
+type ReconstituteWorkspaceArgs struct {
+	ID          WorkspaceID
+	Name        WorkspaceName
+	Description WorkspaceDescription
+	CreatedAt   time.Time
+	Members     map[userDomain.UserID]WorkspaceRole
+}
+
+func ReconstituteWorkspace(args ReconstituteWorkspaceArgs) *Workspace {
 	return &Workspace{
-		id:          id,
-		name:        name,
-		description: description,
-		members:     members,
-		createdAt:   createdAt,
+		id:          args.ID,
+		name:        args.Name,
+		description: args.Description,
+		members:     args.Members,
+		createdAt:   args.CreatedAt,
 	}
 }
 

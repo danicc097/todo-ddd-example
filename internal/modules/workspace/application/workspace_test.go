@@ -15,7 +15,7 @@ import (
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
-	"github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/middleware"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
@@ -27,7 +27,8 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 	pool := testutils.GetGlobalPostgresPool(t)
 	fixtures := testfixtures.NewFixtures(pool)
 
-	repo := wsPg.NewWorkspaceRepo(pool)
+	uow := sharedPg.NewUnitOfWork(pool)
+	repo := wsPg.NewWorkspaceRepo(pool, uow)
 	up := userAdapters.NewWorkspaceUserProvider(fixtures.UserRepo)
 
 	t.Run("onboard workspace", func(t *testing.T) {
@@ -36,8 +37,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 
 		ctx := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID()})
 
-		baseHandler := application.NewOnboardWorkspaceHandler(repo, up)
-		handler := middleware.Transactional(pool, baseHandler)
+		handler := application.NewOnboardWorkspaceHandler(repo, up, uow)
 
 		cmd := application.OnboardWorkspaceCommand{
 			Name: "Test Corp " + uuid.New().String(),
@@ -63,8 +63,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		require.NoError(t, ws.AddMember(member.ID(), wsDomain.RoleMember))
 		require.NoError(t, repo.Save(ctx, ws))
 
-		baseHandler := application.NewRemoveWorkspaceMemberHandler(repo)
-		handler := middleware.Transactional(pool, baseHandler)
+		handler := application.NewRemoveWorkspaceMemberHandler(repo, uow)
 
 		cmd := application.RemoveWorkspaceMemberCommand{
 			WorkspaceID: ws.ID(),
@@ -83,8 +82,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)
 		ws := fixtures.RandomWorkspace(ctx, t, owner.ID())
 
-		baseHandler := application.NewDeleteWorkspaceHandler(repo)
-		handler := middleware.Transactional(pool, baseHandler)
+		handler := application.NewDeleteWorkspaceHandler(repo, uow)
 
 		cmd := application.DeleteWorkspaceCommand{ID: ws.ID()}
 

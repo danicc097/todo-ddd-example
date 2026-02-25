@@ -13,6 +13,7 @@ import (
 	infraDB "github.com/danicc097/todo-ddd-example/internal/infrastructure/db"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	"github.com/danicc097/todo-ddd-example/internal/shared/application"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 )
 
@@ -20,13 +21,15 @@ type WorkspaceRepo struct {
 	q      *db.Queries
 	pool   *pgxpool.Pool
 	mapper *WorkspaceMapper
+	uow    application.UnitOfWork
 }
 
-func NewWorkspaceRepo(pool *pgxpool.Pool) *WorkspaceRepo {
+func NewWorkspaceRepo(pool *pgxpool.Pool, uow application.UnitOfWork) *WorkspaceRepo {
 	return &WorkspaceRepo{
 		q:      db.New(),
 		pool:   pool,
 		mapper: &WorkspaceMapper{},
+		uow:    uow,
 	}
 }
 
@@ -61,20 +64,30 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 		ccmm[m.UserID.UUID()] = m.Role
 	}
 
+	workspaceIDs := make([]uuid.UUID, 0, len(w.Members()))
+	userIDs := make([]uuid.UUID, 0, len(w.Members()))
+	roles := make([]string, 0, len(w.Members()))
+
 	for userID, role := range w.Members() {
 		currentRole, exists := ccmm[userID.UUID()]
 		if !exists || currentRole != string(role) {
-			err := r.q.UpsertWorkspaceMember(ctx, dbtx, db.UpsertWorkspaceMemberParams{
-				WorkspaceID: w.ID(),
-				UserID:      userID,
-				Role:        string(role),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to upsert member %s in workspace %s: %w", userID, w.ID(), sharedPg.ParseDBError(err))
-			}
+			workspaceIDs = append(workspaceIDs, w.ID().UUID())
+			userIDs = append(userIDs, userID.UUID())
+			roles = append(roles, string(role))
 		}
 
 		delete(ccmm, userID.UUID())
+	}
+
+	if len(userIDs) > 0 {
+		err := r.q.BulkUpsertWorkspaceMembers(ctx, dbtx, db.BulkUpsertWorkspaceMembersParams{
+			WorkspaceIds: workspaceIDs,
+			UserIds:      userIDs,
+			Roles:        roles,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to bulk upsert members in workspace %s: %w", w.ID(), sharedPg.ParseDBError(err))
+		}
 	}
 
 	for removedUserID := range ccmm {
@@ -87,7 +100,9 @@ func (r *WorkspaceRepo) Save(ctx context.Context, w *domain.Workspace) error {
 		}
 	}
 
-	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, w)
+	r.uow.Collect(ctx, r.mapper, w)
+
+	return nil
 }
 
 func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*domain.Workspace, error) {
@@ -120,13 +135,13 @@ func (r *WorkspaceRepo) FindByID(ctx context.Context, id domain.WorkspaceID) (*d
 	name, _ := domain.NewWorkspaceName(w.Name)
 	desc, _ := domain.NewWorkspaceDescription(w.Description)
 
-	return domain.ReconstituteWorkspace(
-		w.ID,
-		name,
-		desc,
-		w.CreatedAt,
-		domainMemberMap,
-	), nil
+	return domain.ReconstituteWorkspace(domain.ReconstituteWorkspaceArgs{
+		ID:          id,
+		Name:        name,
+		Description: desc,
+		CreatedAt:   w.CreatedAt,
+		Members:     domainMemberMap,
+	}), nil
 }
 
 func toMemberMap(members []db.WorkspaceMembers) (map[uuid.UUID]domain.WorkspaceRole, error) {
@@ -157,5 +172,7 @@ func (r *WorkspaceRepo) Delete(ctx context.Context, id domain.WorkspaceID) error
 
 	ws.Delete()
 
-	return sharedPg.SaveDomainEvents(ctx, r.q, dbtx, r.mapper, ws)
+	r.uow.Collect(ctx, r.mapper, ws)
+
+	return nil
 }

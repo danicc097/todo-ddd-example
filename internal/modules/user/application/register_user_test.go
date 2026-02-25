@@ -11,6 +11,7 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/user/application"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
@@ -19,7 +20,7 @@ func TestRegisterUserUseCase_Integration(t *testing.T) {
 
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
-	repo := userPg.NewUserRepo(pool)
+	repo := userPg.NewUserRepo(pool, sharedPg.NewUnitOfWork(pool))
 	uc := application.NewRegisterUserUseCase(repo)
 
 	t.Run("successfully registers", func(t *testing.T) {

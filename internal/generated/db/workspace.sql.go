@@ -10,7 +10,30 @@ import (
 	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
+	"github.com/google/uuid"
 )
+
+const BulkUpsertWorkspaceMembers = `-- name: BulkUpsertWorkspaceMembers :exec
+INSERT INTO workspace_members(workspace_id, user_id, role)
+SELECT
+  UNNEST($1::uuid[]),
+  UNNEST($2::uuid[]),
+  UNNEST($3::text[])
+ON CONFLICT (workspace_id,
+  user_id)
+  DO UPDATE SET ROLE = EXCLUDED.role
+`
+
+type BulkUpsertWorkspaceMembersParams struct {
+	WorkspaceIds []uuid.UUID `db:"workspace_ids" json:"workspace_ids"`
+	UserIds      []uuid.UUID `db:"user_ids" json:"user_ids"`
+	Roles        []string    `db:"roles" json:"roles"`
+}
+
+func (q *Queries) BulkUpsertWorkspaceMembers(ctx context.Context, db DBTX, arg BulkUpsertWorkspaceMembersParams) error {
+	_, err := db.Exec(ctx, BulkUpsertWorkspaceMembers, arg.WorkspaceIds, arg.UserIds, arg.Roles)
+	return err
+}
 
 const CreateWorkspace = `-- name: CreateWorkspace :one
 INSERT INTO workspaces(id, name, description, created_at)
@@ -229,22 +252,4 @@ func (q *Queries) UpsertWorkspace(ctx context.Context, db DBTX, arg UpsertWorksp
 		&i.CreatedAt,
 	)
 	return i, err
-}
-
-const UpsertWorkspaceMember = `-- name: UpsertWorkspaceMember :exec
-INSERT INTO workspace_members(workspace_id, user_id, role)
-  VALUES ($1, $2, $3)
-ON CONFLICT (workspace_id, user_id)
-  DO UPDATE SET ROLE = EXCLUDED.role
-`
-
-type UpsertWorkspaceMemberParams struct {
-	WorkspaceID types.WorkspaceID `db:"workspace_id" json:"workspace_id"`
-	UserID      types.UserID      `db:"user_id" json:"user_id"`
-	Role        string            `db:"role" json:"role"`
-}
-
-func (q *Queries) UpsertWorkspaceMember(ctx context.Context, db DBTX, arg UpsertWorkspaceMemberParams) error {
-	_, err := db.Exec(ctx, UpsertWorkspaceMember, arg.WorkspaceID, arg.UserID, arg.Role)
-	return err
 }

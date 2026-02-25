@@ -7,11 +7,11 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
-	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
 type WorkspaceHandler struct {
@@ -72,7 +72,7 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": resp.ID.UUID()})
+	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspacesParams) {
@@ -118,10 +118,7 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id domain.WorkspaceID
 }
 
 func (h *WorkspaceHandler) AddWorkspaceMember(c *gin.Context, id domain.WorkspaceID, params api.AddWorkspaceMemberParams) {
-	var req struct {
-		UserID userDomain.UserID    `json:"userId"`
-		Role   domain.WorkspaceRole `json:"role"`
-	}
+	var req api.AddWorkspaceMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
 		return
@@ -129,7 +126,7 @@ func (h *WorkspaceHandler) AddWorkspaceMember(c *gin.Context, id domain.Workspac
 
 	if _, err := h.addMemberHandler.Handle(c.Request.Context(), application.AddWorkspaceMemberCommand{
 		WorkspaceID: id,
-		UserID:      req.UserID,
+		UserID:      userDomain.UserID(req.UserId),
 		Role:        req.Role,
 	}); err != nil {
 		c.Error(err)

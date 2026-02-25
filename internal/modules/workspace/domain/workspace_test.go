@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -19,13 +20,16 @@ func TestNewWorkspace(t *testing.T) {
 
 	assert.NotNil(t, ws)
 	assert.Equal(t, name, ws.Name())
+	assert.WithinDuration(t, time.Now(), ws.CreatedAt(), time.Second)
 	assert.Contains(t, ws.Members(), creatorID)
 	assert.Equal(t, RoleOwner, ws.Members()[creatorID])
 
 	events := ws.Events()
 	assert.Len(t, events, 2)
 	assert.IsType(t, WorkspaceCreatedEvent{}, events[0])
+	assert.WithinDuration(t, time.Now(), events[0].OccurredAt(), time.Second)
 	assert.IsType(t, MemberAddedEvent{}, events[1])
+	assert.WithinDuration(t, time.Now(), events[1].OccurredAt(), time.Second)
 }
 
 func TestWorkspace_AddMember(t *testing.T) {

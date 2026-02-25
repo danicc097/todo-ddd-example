@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/danicc097/todo-ddd-example/internal/utils/crypto"
+	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 )
 
 func TestJWT(t *testing.T) {

@@ -13,4 +13,8 @@ const (
 	WorkspaceMemberRemoved EventType = "workspace.member_removed"
 	UserCreated            EventType = "user.created"
 	UserDeleted            EventType = "user.deleted"
+	TodoRolledOver         EventType = "todo.rolled_over"
+	TodoDeleted            EventType = "todo.deleted"
+	ScheduleCreated        EventType = "schedule.created"
+	TaskCommitted          EventType = "schedule.task_committed"
 )

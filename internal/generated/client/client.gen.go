@@ -27,6 +27,13 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for RecurrenceInterval.
+const (
+	DAILY   RecurrenceInterval = "DAILY"
+	MONTHLY RecurrenceInterval = "MONTHLY"
+	WEEKLY  RecurrenceInterval = "WEEKLY"
+)
+
 // Defines values for TodoStatus.
 const (
 	ARCHIVED  TodoStatus = "ARCHIVED"
@@ -34,9 +41,28 @@ const (
 	PENDING   TodoStatus = "PENDING"
 )
 
+// AddWorkspaceMemberRequest defines model for AddWorkspaceMemberRequest.
+type AddWorkspaceMemberRequest struct {
+	Role   WorkspaceRole      `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
 // AssignTagToTodoRequest defines model for AssignTagToTodoRequest.
 type AssignTagToTodoRequest struct {
 	TagId todoDomain.TagID `json:"tagId"`
+}
+
+// CommitTaskRequest defines model for CommitTaskRequest.
+type CommitTaskRequest struct {
+	Cost   int                `json:"cost"`
+	Date   openapi_types.Date `json:"date"`
+	TodoId openapi_types.UUID `json:"todoId"`
+}
+
+// CompletionLog defines model for CompletionLog.
+type CompletionLog struct {
+	ActorId   userDomain.UserID `json:"actorId"`
+	Timestamp time.Time         `json:"timestamp"`
 }
 
 // CreateTagRequest defines model for CreateTagRequest.
@@ -46,7 +72,17 @@ type CreateTagRequest struct {
 
 // CreateTodoRequest defines model for CreateTodoRequest.
 type CreateTodoRequest struct {
-	Title string `json:"title"`
+	DueDate            *time.Time          `json:"dueDate"`
+	RecurrenceAmount   *int                `json:"recurrenceAmount"`
+	RecurrenceInterval *RecurrenceInterval `json:"recurrenceInterval"`
+	Title              string              `json:"title"`
+}
+
+// FocusSession defines model for FocusSession.
+type FocusSession struct {
+	EndTime   *time.Time         `json:"endTime"`
+	Id        openapi_types.UUID `json:"id"`
+	StartTime time.Time          `json:"startTime"`
 }
 
 // HTTPValidationError defines model for HTTPValidationError.
@@ -88,6 +124,9 @@ type OnboardWorkspaceRequest struct {
 	Name string `json:"name"`
 }
 
+// RecurrenceInterval defines model for RecurrenceInterval.
+type RecurrenceInterval string
+
 // RegisterUserRequestBody defines model for RegisterUserRequestBody.
 type RegisterUserRequestBody struct {
 	Email    openapi_types.Email    `json:"email"`
@@ -103,11 +142,16 @@ type Tag struct {
 
 // Todo defines model for Todo.
 type Todo struct {
-	CreatedAt   time.Time                   `json:"createdAt"`
-	Id          todoDomain.TodoID           `json:"id"`
-	Status      TodoStatus                  `json:"status"`
-	Title       string                      `json:"title"`
-	WorkspaceId workspaceDomain.WorkspaceID `json:"workspaceId"`
+	CompletionLogs     *[]CompletionLog            `json:"completionLogs,omitempty"`
+	CreatedAt          time.Time                   `json:"createdAt"`
+	DueDate            *time.Time                  `json:"dueDate"`
+	FocusSessions      *[]FocusSession             `json:"focusSessions,omitempty"`
+	Id                 todoDomain.TodoID           `json:"id"`
+	RecurrenceAmount   *int                        `json:"recurrenceAmount"`
+	RecurrenceInterval *RecurrenceInterval         `json:"recurrenceInterval"`
+	Status             TodoStatus                  `json:"status"`
+	Title              string                      `json:"title"`
+	WorkspaceId        workspaceDomain.WorkspaceID `json:"workspaceId"`
 }
 
 // TodoStatus defines model for TodoStatus.
@@ -212,12 +256,6 @@ type OnboardWorkspaceParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
-// AddWorkspaceMemberJSONBody defines parameters for AddWorkspaceMember.
-type AddWorkspaceMemberJSONBody struct {
-	Role   WorkspaceRole      `json:"role"`
-	UserId openapi_types.UUID `json:"userId"`
-}
-
 // AddWorkspaceMemberParams defines parameters for AddWorkspaceMember.
 type AddWorkspaceMemberParams struct {
 	// IdempotencyKey Unique key to allow safe retries of non-idempotent requests. If a request with the same key is received, the server returns the cached response.
@@ -254,6 +292,9 @@ type RegisterJSONRequestBody = RegisterUserRequestBody
 // VerifyTOTPJSONRequestBody defines body for VerifyTOTP for application/json ContentType.
 type VerifyTOTPJSONRequestBody = VerifyTOTPRequestBody
 
+// CommitTaskJSONRequestBody defines body for CommitTask for application/json ContentType.
+type CommitTaskJSONRequestBody = CommitTaskRequest
+
 // AssignTagToTodoJSONRequestBody defines body for AssignTagToTodo for application/json ContentType.
 type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
 
@@ -261,7 +302,7 @@ type AssignTagToTodoJSONRequestBody = AssignTagToTodoRequest
 type OnboardWorkspaceJSONRequestBody = OnboardWorkspaceRequest
 
 // AddWorkspaceMemberJSONRequestBody defines body for AddWorkspaceMember for application/json ContentType.
-type AddWorkspaceMemberJSONRequestBody AddWorkspaceMemberJSONBody
+type AddWorkspaceMemberJSONRequestBody = AddWorkspaceMemberRequest
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
@@ -363,11 +404,22 @@ type ClientInterface interface {
 	// Ping request
 	Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CommitTaskWithBody request with any body
+	CommitTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CommitTask(ctx context.Context, body CommitTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetTodoByID request
 	GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CompleteTodo request
 	CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartFocus request
+	StartFocus(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopFocus request
+	StopFocus(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AssignTagToTodoWithBody request with any body
 	AssignTagToTodoWithBody(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -512,6 +564,30 @@ func (c *Client) Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http
 	return c.Client.Do(req)
 }
 
+func (c *Client) CommitTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCommitTaskRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CommitTask(ctx context.Context, body CommitTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCommitTaskRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTodoByIDRequest(c.Server, id)
 	if err != nil {
@@ -526,6 +602,30 @@ func (c *Client) GetTodoByID(ctx context.Context, id todoDomain.TodoID, reqEdito
 
 func (c *Client) CompleteTodo(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCompleteTodoRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartFocus(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartFocusRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopFocus(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopFocusRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -929,6 +1029,46 @@ func NewPingRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCommitTaskRequest calls the generic CommitTask builder with application/json body
+func NewCommitTaskRequest(server string, body CommitTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCommitTaskRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCommitTaskRequestWithBody generates requests for CommitTask with any type of body
+func NewCommitTaskRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/schedule/commit")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetTodoByIDRequest generates requests for GetTodoByID
 func NewGetTodoByIDRequest(server string, id todoDomain.TodoID) (*http.Request, error) {
 	var err error
@@ -1007,6 +1147,74 @@ func NewCompleteTodoRequest(server string, id todoDomain.TodoID, params *Complet
 			req.Header.Set("Idempotency-Key", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewStartFocusRequest generates requests for StartFocus
+func NewStartFocusRequest(server string, id todoDomain.TodoID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/todos/%s/focus/start", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStopFocusRequest generates requests for StopFocus
+func NewStopFocusRequest(server string, id todoDomain.TodoID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/todos/%s/focus/stop", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -1731,11 +1939,22 @@ type ClientWithResponsesInterface interface {
 	// PingWithResponse request
 	PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error)
 
+	// CommitTaskWithBodyWithResponse request with any body
+	CommitTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CommitTaskResponse, error)
+
+	CommitTaskWithResponse(ctx context.Context, body CommitTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*CommitTaskResponse, error)
+
 	// GetTodoByIDWithResponse request
 	GetTodoByIDWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error)
 
 	// CompleteTodoWithResponse request
 	CompleteTodoWithResponse(ctx context.Context, id todoDomain.TodoID, params *CompleteTodoParams, reqEditors ...RequestEditorFn) (*CompleteTodoResponse, error)
+
+	// StartFocusWithResponse request
+	StartFocusWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*StartFocusResponse, error)
+
+	// StopFocusWithResponse request
+	StopFocusWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*StopFocusResponse, error)
 
 	// AssignTagToTodoWithBodyWithResponse request with any body
 	AssignTagToTodoWithBodyWithResponse(ctx context.Context, id todoDomain.TodoID, params *AssignTagToTodoParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignTagToTodoResponse, error)
@@ -1893,6 +2112,28 @@ func (r PingResponse) StatusCode() int {
 	return 0
 }
 
+type CommitTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CommitTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CommitTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetTodoByIDResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1932,6 +2173,50 @@ func (r CompleteTodoResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CompleteTodoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartFocusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StartFocusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartFocusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StopFocusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StopFocusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopFocusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2275,6 +2560,23 @@ func (c *ClientWithResponses) PingWithResponse(ctx context.Context, reqEditors .
 	return ParsePingResponse(rsp)
 }
 
+// CommitTaskWithBodyWithResponse request with arbitrary body returning *CommitTaskResponse
+func (c *ClientWithResponses) CommitTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CommitTaskResponse, error) {
+	rsp, err := c.CommitTaskWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCommitTaskResponse(rsp)
+}
+
+func (c *ClientWithResponses) CommitTaskWithResponse(ctx context.Context, body CommitTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*CommitTaskResponse, error) {
+	rsp, err := c.CommitTask(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCommitTaskResponse(rsp)
+}
+
 // GetTodoByIDWithResponse request returning *GetTodoByIDResponse
 func (c *ClientWithResponses) GetTodoByIDWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*GetTodoByIDResponse, error) {
 	rsp, err := c.GetTodoByID(ctx, id, reqEditors...)
@@ -2291,6 +2593,24 @@ func (c *ClientWithResponses) CompleteTodoWithResponse(ctx context.Context, id t
 		return nil, err
 	}
 	return ParseCompleteTodoResponse(rsp)
+}
+
+// StartFocusWithResponse request returning *StartFocusResponse
+func (c *ClientWithResponses) StartFocusWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*StartFocusResponse, error) {
+	rsp, err := c.StartFocus(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartFocusResponse(rsp)
+}
+
+// StopFocusWithResponse request returning *StopFocusResponse
+func (c *ClientWithResponses) StopFocusWithResponse(ctx context.Context, id todoDomain.TodoID, reqEditors ...RequestEditorFn) (*StopFocusResponse, error) {
+	rsp, err := c.StopFocus(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopFocusResponse(rsp)
 }
 
 // AssignTagToTodoWithBodyWithResponse request with arbitrary body returning *AssignTagToTodoResponse
@@ -2561,6 +2881,32 @@ func ParsePingResponse(rsp *http.Response) (*PingResponse, error) {
 	return response, nil
 }
 
+// ParseCommitTaskResponse parses an HTTP response from a CommitTaskWithResponse call
+func ParseCommitTaskResponse(rsp *http.Response) (*CommitTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CommitTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetTodoByIDResponse parses an HTTP response from a GetTodoByIDWithResponse call
 func ParseGetTodoByIDResponse(rsp *http.Response) (*GetTodoByIDResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2603,6 +2949,58 @@ func ParseCompleteTodoResponse(rsp *http.Response) (*CompleteTodoResponse, error
 	}
 
 	response := &CompleteTodoResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartFocusResponse parses an HTTP response from a StartFocusWithResponse call
+func ParseStartFocusResponse(rsp *http.Response) (*StartFocusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartFocusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopFocusResponse parses an HTTP response from a StopFocusWithResponse call
+func ParseStopFocusResponse(rsp *http.Response) (*StopFocusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopFocusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

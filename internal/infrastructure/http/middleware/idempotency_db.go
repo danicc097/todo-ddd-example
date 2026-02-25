@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/danicc097/todo-ddd-example/internal/generated/db"
-	infraHttp "github.com/danicc097/todo-ddd-example/internal/infrastructure/http"
+	sharedHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
 type responseWrapper struct {
@@ -34,7 +34,7 @@ func DBIdempotency(pool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		keyStr := c.GetHeader(infraHttp.IdempotencyKeyHeader)
+		keyStr := c.GetHeader(sharedHttp.IdempotencyKeyHeader)
 		if keyStr == "" {
 			c.Next()
 			return

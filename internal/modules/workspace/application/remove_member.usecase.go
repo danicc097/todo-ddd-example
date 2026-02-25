@@ -17,23 +17,31 @@ type RemoveWorkspaceMemberResponse struct{}
 
 type RemoveWorkspaceMemberHandler struct {
 	repo domain.WorkspaceRepository
+	uow  application.UnitOfWork
 }
 
 var _ application.RequestHandler[RemoveWorkspaceMemberCommand, RemoveWorkspaceMemberResponse] = (*RemoveWorkspaceMemberHandler)(nil)
 
-func NewRemoveWorkspaceMemberHandler(repo domain.WorkspaceRepository) *RemoveWorkspaceMemberHandler {
-	return &RemoveWorkspaceMemberHandler{repo: repo}
+func NewRemoveWorkspaceMemberHandler(repo domain.WorkspaceRepository, uow application.UnitOfWork) *RemoveWorkspaceMemberHandler {
+	return &RemoveWorkspaceMemberHandler{repo: repo, uow: uow}
 }
 
 func (h *RemoveWorkspaceMemberHandler) Handle(ctx context.Context, cmd RemoveWorkspaceMemberCommand) (RemoveWorkspaceMemberResponse, error) {
-	ws, err := h.repo.FindByID(ctx, cmd.WorkspaceID)
+	err := h.uow.Execute(ctx, func(ctx context.Context) error {
+		ws, err := h.repo.FindByID(ctx, cmd.WorkspaceID)
+		if err != nil {
+			return err
+		}
+
+		if err := ws.RemoveMember(cmd.MemberID); err != nil {
+			return err
+		}
+
+		return h.repo.Save(ctx, ws)
+	})
 	if err != nil {
 		return RemoveWorkspaceMemberResponse{}, err
 	}
 
-	if err := ws.RemoveMember(cmd.MemberID); err != nil {
-		return RemoveWorkspaceMemberResponse{}, err
-	}
-
-	return RemoveWorkspaceMemberResponse{}, h.repo.Save(ctx, ws)
+	return RemoveWorkspaceMemberResponse{}, nil
 }

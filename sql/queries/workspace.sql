@@ -43,10 +43,14 @@ ON CONFLICT (id)
   RETURNING
     *;
 
--- name: UpsertWorkspaceMember :exec
+-- name: BulkUpsertWorkspaceMembers :exec
 INSERT INTO workspace_members(workspace_id, user_id, role)
-  VALUES ($1, $2, $3)
-ON CONFLICT (workspace_id, user_id)
+SELECT
+  UNNEST(sqlc.arg(workspace_ids)::uuid[]),
+  UNNEST(sqlc.arg(user_ids)::uuid[]),
+  UNNEST(sqlc.arg(roles)::text[])
+ON CONFLICT (workspace_id,
+  user_id)
   DO UPDATE SET ROLE = EXCLUDED.role;
 
 -- name: RemoveWorkspaceMember :exec

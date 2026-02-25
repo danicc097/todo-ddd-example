@@ -41,15 +41,15 @@ func (h *LoginHandler) Handle(ctx context.Context, cmd LoginCommand) (LoginRespo
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}
 
-	// non-owasp: prioritize availability over timing attack protection
 	user, err := h.userRepo.FindByEmail(ctx, email)
 	if err != nil {
+		_, _ = h.hasher.Compare(cmd.Password.ExposeSecret(), "$argon2id$v=19$m=65536,t=3,p=4$dummyhash")
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}
 
-	// non-owasp: we rate limit by ip address. should implement timed lockout or progressive delays
 	auth, err := h.authRepo.FindByUserID(ctx, user.ID())
 	if err != nil {
+		_, _ = h.hasher.Compare(cmd.Password.ExposeSecret(), "$argon2id$v=19$m=65536,t=3,p=4$dummyhash")
 		return LoginResponse{}, domain.ErrInvalidCredentials
 	}
 

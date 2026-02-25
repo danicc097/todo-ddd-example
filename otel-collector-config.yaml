@@ -12,6 +12,14 @@ receivers:
 
 processors:
   batch:
+  filter:
+    error_mode: ignore
+    traces:
+      span:
+        - 'name == "redis.dial"'
+        - 'name == "hello"'
+        - 'name == "client"'
+        - 'name == "redis.pipeline client"'
 
 exporters:
   otlp/jaeger:
@@ -26,7 +34,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [filter, batch]
       exporters: [otlp/jaeger]
     metrics:
       receivers: [otlp]

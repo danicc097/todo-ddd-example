@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,8 @@ func TestAggregateIntegrity(t *testing.T) {
 		todo := NewTodo(title, wsDomain.WorkspaceID(uuid.New()))
 
 		assert.Len(t, todo.Events(), 1)
-		assert.IsType(t, TodoCreatedEvent{}, todo.Events()[0])
+		evt := todo.Events()[0].(TodoCreatedEvent)
+		assert.WithinDuration(t, time.Now(), evt.OccurredAt(), time.Second)
+		assert.WithinDuration(t, time.Now(), todo.CreatedAt(), time.Second)
 	})
 }
