@@ -5,7 +5,7 @@ endif
 
 .SILENT:
 
-KNOWN_TARGETS := test test-race test-e2e lint db-drop-dev clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch bench-seed bench bench-smoke bench-stress bench-soak bench-full bench-prometheus
+KNOWN_TARGETS := test test-race test-e2e lint db-drop-dev clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch bench-seed bench bench-prometheus
 
 
 
@@ -215,23 +215,8 @@ rabbitmq-exchanges:
 rabbitmq-bindings:
 	docker exec myapp-rabbitmq rabbitmqadmin -V / list bindings source destination routing_key -f table
 
-bench-seed:
-	NUM_USERS=20 API_URL="$(API_URL)" bash scripts/k6/seed-users.sh
-
 bench:
 	API_URL="$(API_URL)" SCENARIO=$(or $(SCENARIO),load) bash scripts/k6/run.sh
 
-bench-smoke:
-	API_URL="$(API_URL)" SCENARIO=smoke bash scripts/k6/run.sh
-
-bench-stress:
-	API_URL="$(API_URL)" SCENARIO=stress bash scripts/k6/run.sh
-
-bench-soak:
-	API_URL="$(API_URL)" SCENARIO=soak bash scripts/k6/run.sh
-
 bench-prometheus:
 	API_URL="$(API_URL)" SCENARIO=$(or $(SCENARIO),load) K6_PUSH_PROMETHEUS=1 bash scripts/k6/run.sh
-
-bench-full:
-	API_URL="$(API_URL)" RESEED=1 SCENARIO=load bash scripts/k6/run.sh

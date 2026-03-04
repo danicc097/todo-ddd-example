@@ -53,11 +53,10 @@ const SCENARIOS = {
     executor: 'ramping-vus',
     startVUs: 0,
     stages: [
-      { duration: '2m', target: 20 },
+      { duration: '20s', target: 20 },
       { duration: '2m', target: 50 },
-      { duration: '2m', target: 100 },
       { duration: '5m', target: 100 },
-      { duration: '2m', target: 0 },
+      { duration: '1m', target: 0 },
     ],
   },
   soak: {
@@ -70,9 +69,9 @@ const SCENARIOS = {
     startVUs: 0,
     stages: [
       { duration: '10s', target: 5 },
-      { duration: '30s', target: 100 },
+      { duration: '30s', target: 200 },
       { duration: '10s', target: 5 },
-      { duration: '1m', target: 5 },
+      { duration: '30s', target: 5 },
       { duration: '10s', target: 0 },
     ],
   },
@@ -170,7 +169,7 @@ export default function () {
   group('list_todos', () => {
     const t0 = Date.now();
     const r = http.get(
-      `${BASE_URL}/workspaces/${workspaceId}/todos?limit=20&offset=0`,
+      `${BASE_URL}/workspaces/${workspaceId}/todos?limit=100&offset=0`,
       { headers: headers(token, {}, false), tags: { endpoint: 'list_todos' } }
     );
     listTrend.add(Date.now() - t0);

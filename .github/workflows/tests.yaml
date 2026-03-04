@@ -69,7 +69,7 @@ jobs:
 
       - name: Smoke test
         run: |
-          RESEED=1 make bench-smoke
+          RESEED=1 make bench SCENARIO=smoke
 
       - name: E2E
         run: |
