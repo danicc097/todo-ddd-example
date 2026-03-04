@@ -10,7 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/danicc097/todo-ddd-example/internal"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
+	sharedHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
 type rateLimitExt struct {
@@ -18,8 +20,15 @@ type rateLimitExt struct {
 	Window string `json:"window"`
 }
 
-func RateLimiter(rdb *redis.Client, router routers.Router) gin.HandlerFunc {
+func RateLimiter(rdb *redis.Client, router routers.Router, env internal.AppEnv) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if env != internal.AppEnvProd {
+			if c.GetHeader(sharedHttp.SkipRateLimitHeader) == "1" {
+				c.Next()
+				return
+			}
+		}
+
 		route, _, err := router.FindRoute(c.Request)
 		if err != nil {
 			c.Next()

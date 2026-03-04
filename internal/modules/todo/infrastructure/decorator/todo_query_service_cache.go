@@ -43,7 +43,7 @@ func (s *todoQueryServiceCache) GetAllByWorkspace(ctx context.Context, wsID wsDo
 }
 
 func (s *todoQueryServiceCache) GetByID(ctx context.Context, id domain.TodoID) (*application.TodoReadModel, error) {
-	key := cache.Keys.Todo(id)
+	key := cache.Keys.TodoReadModel(id)
 
 	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, s.codec, func(ctx context.Context) (*application.TodoReadModel, error) {
 		return s.base.GetByID(ctx, id)

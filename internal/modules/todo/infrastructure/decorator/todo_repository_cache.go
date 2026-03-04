@@ -39,7 +39,7 @@ func (r *todoRepositoryCache) Save(ctx context.Context, todo *domain.Todo) error
 	}
 
 	db.AfterCommit(ctx, func(ctx context.Context) {
-		r.rdb.Del(ctx, cache.Keys.Todo(todo.ID()))
+		r.rdb.Del(ctx, cache.Keys.TodoAggregate(todo.ID()))
 		_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(todo.WorkspaceID()))
 		r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(todo.WorkspaceID()))
 	})
@@ -48,7 +48,7 @@ func (r *todoRepositoryCache) Save(ctx context.Context, todo *domain.Todo) error
 }
 
 func (r *todoRepositoryCache) FindByID(ctx context.Context, id domain.TodoID) (*domain.Todo, error) {
-	key := cache.Keys.Todo(id)
+	key := cache.Keys.TodoAggregate(id)
 
 	return cache.GetOrFetch(ctx, r.rdb, key, r.ttl, r.codec, func(ctx context.Context) (*domain.Todo, error) {
 		return r.base.FindByID(ctx, id)
@@ -74,7 +74,7 @@ func (r *todoRepositoryCache) Delete(ctx context.Context, id domain.TodoID) erro
 	}
 
 	db.AfterCommit(ctx, func(ctx context.Context) {
-		r.rdb.Del(ctx, cache.Keys.Todo(id))
+		r.rdb.Del(ctx, cache.Keys.TodoAggregate(id))
 		_ = cache.InvalidateTag(ctx, r.rdb, cache.Keys.WorkspaceTag(todo.WorkspaceID()))
 		r.rdb.Incr(ctx, cache.Keys.WorkspaceRevision(todo.WorkspaceID()))
 	})

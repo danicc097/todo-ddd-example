@@ -3,6 +3,7 @@ package http
 const (
 	IdempotencyKeyHeader   = "Idempotency-Key"
 	AuthorizationHeader    = "Authorization"
+	SkipRateLimitHeader    = "x-skip-rate-limit"
 	BearerScheme           = "Bearer"
 	DefaultPaginationLimit = 20
 

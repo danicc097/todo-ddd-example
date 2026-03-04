@@ -221,7 +221,7 @@ func TestSystem_Integration(t *testing.T) {
 		assert.Equal(t, cmd.Title, saved.Title().String())
 
 		require.Eventually(t, func() bool {
-			return env.rdb.Exists(testCtx, cache.Keys.Todo(resp.ID)).Val() == 1
+			return env.rdb.Exists(testCtx, cache.Keys.TodoAggregate(resp.ID)).Val() == 1
 		}, 5*time.Second, 50*time.Millisecond, "todo cache missing")
 
 		expectedKey := messaging.Keys.EventRoutingKey(sharedDomain.TodoCreated, resp.ID.UUID())
@@ -249,7 +249,7 @@ func TestSystem_Integration(t *testing.T) {
 		_, err := cachedTodoRepo.FindByID(testCtx, todo.ID())
 		require.NoError(t, err)
 
-		redisKey := cache.Keys.Todo(todo.ID())
+		redisKey := cache.Keys.TodoAggregate(todo.ID())
 
 		require.Eventually(t, func() bool {
 			return env.rdb.Exists(testCtx, redisKey).Val() == 1
@@ -322,7 +322,7 @@ func TestSystem_Integration(t *testing.T) {
 		_, err = cachedQueryService.GetAllByWorkspace(testCtx, ws.ID(), 10, 0)
 		require.NoError(t, err)
 
-		entityRedisKey := cache.Keys.Todo(todo.ID())
+		entityRedisKey := cache.Keys.TodoAggregate(todo.ID())
 		collectionRedisKey := cache.Keys.TodoWorkspaceCollectionPaginated(ws.ID(), 10, 0)
 
 		require.Eventually(t, func() bool {

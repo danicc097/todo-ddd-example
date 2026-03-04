@@ -56,7 +56,7 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, error) {
 		return nil, fmt.Errorf("failed to create openapi router: %w", err)
 	}
 
-	r.Use(middleware.RateLimiter(cfg.Redis, openapiRouter))
+	r.Use(middleware.RateLimiter(cfg.Redis, openapiRouter, cfg.Env))
 
 	validator := middleware.NewOpenapiMiddleware(doc).RequestValidatorWithOptions(&middleware.OAValidatorOptions{
 		ValidateResponse: true,

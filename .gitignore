@@ -9,3 +9,7 @@ sql/schema.sql
 .direnv
 .test_last_run
 tmp/
+node_modules/
+
+scripts/k6/users.json
+scripts/k6/results

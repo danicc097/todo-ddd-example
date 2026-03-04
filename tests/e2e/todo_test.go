@@ -19,6 +19,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/generated/client"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
+	sharedHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
 func TestE2E_TodoLifecycle(t *testing.T) {
@@ -52,13 +53,18 @@ func TestE2E_TodoLifecycle(t *testing.T) {
 	loginResp, err := c.LoginWithResponse(ctx, client.LoginRequestBody{
 		Email:    openapi_types.Email(email),
 		Password: *pass,
+	}, func(ctx context.Context, req *http.Request) error {
+		req.Header.Set(sharedHttp.SkipRateLimitHeader, "1")
+		return nil
 	})
+
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, loginResp.StatusCode(), string(loginResp.Body))
 	token := loginResp.JSON200.AccessToken
 
 	c, err = client.NewClientWithResponses(apiURL, client.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set(sharedHttp.SkipRateLimitHeader, "1")
 		return nil
 	}))
 	require.NoError(t, err)

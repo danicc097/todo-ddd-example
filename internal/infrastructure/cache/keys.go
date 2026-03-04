@@ -12,7 +12,8 @@ type keys struct{}
 var Keys keys
 
 const (
-	prefixTodo      = "todo_query"
+	prefixTodoAgg   = "todo:agg"
+	prefixTodoRead  = "todo:read"
 	prefixTag       = "tag"
 	prefixWorkspace = "ws"
 	prefixRateLimit = "ratelimit"
@@ -20,12 +21,16 @@ const (
 	prefixCacheTags = "cache_tags"
 )
 
-func (keys) Todo(id types.TodoID) string {
-	return fmt.Sprintf("%s:%s", prefixTodo, id)
+func (keys) TodoAggregate(id types.TodoID) string {
+	return fmt.Sprintf("%s:%s", prefixTodoAgg, id)
+}
+
+func (keys) TodoReadModel(id types.TodoID) string {
+	return fmt.Sprintf("%s:%s", prefixTodoRead, id)
 }
 
 func (keys) TodoWorkspaceCollection(wsID types.WorkspaceID) string {
-	return fmt.Sprintf("%s:collection:GetAllByWorkspace:%s", prefixTodo, wsID)
+	return fmt.Sprintf("%s:collection:GetAllByWorkspace:%s", prefixTodoRead, wsID)
 }
 
 func (keys) TodoWorkspaceCollectionPaginated(wsID types.WorkspaceID, limit, offset int32) string {
