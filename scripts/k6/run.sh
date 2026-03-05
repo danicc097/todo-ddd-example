@@ -27,4 +27,8 @@ if [ "${K6_PUSH_PROMETHEUS:-0}" = "1" ]; then
 	export K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
 fi
 
-k6 run --env API_URL="${API_URL}" --env SCENARIO="${SCENARIO}" $K6_OUT "${SCRIPT_DIR}/load-test.js"
+api_path="/tmp/todo-openapi-$(date +%Y%m%d).yaml"
+yq 'explode(.)' openapi.yaml >"$api_path"
+openapi-to-k6 "$api_path" scripts/k6 --verbose
+
+k6 run --env API_URL="${API_URL}" --env SCENARIO="${SCENARIO}" $K6_OUT "${SCRIPT_DIR}/load-test.ts"

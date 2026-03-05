@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "esnext",
+      "DOM"
+    ],
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "**/*.ts"
+  ]
+}

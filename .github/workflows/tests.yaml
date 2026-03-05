@@ -49,11 +49,21 @@ jobs:
       FAIL_FAST: "1"
     steps:
       - uses: actions/checkout@v6
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
           cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm install -g @grafana/openapi-to-k6
 
       - name: Install dependencies
         run: |
@@ -88,4 +98,3 @@ jobs:
           docker stack ps myapp --no-trunc
           docker container ls
           docker service logs myapp_go-app --no-trunc --raw
-
