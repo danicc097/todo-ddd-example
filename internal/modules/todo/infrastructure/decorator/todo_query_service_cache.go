@@ -34,7 +34,12 @@ func NewTodoQueryServiceCache(
 }
 
 func (s *todoQueryServiceCache) GetAllByWorkspace(ctx context.Context, wsID wsDomain.WorkspaceID, limit, offset int32) ([]application.TodoReadModel, error) {
-	key := cache.Keys.TodoWorkspaceCollectionPaginated(wsID, limit, offset)
+	revision, _ := s.rdb.Get(ctx, cache.Keys.WorkspaceRevision(wsID)).Result()
+	if revision == "" {
+		revision = "0"
+	}
+
+	key := cache.Keys.TodoWorkspaceCollectionPaginated(wsID, limit, offset, revision)
 	tag := cache.Keys.WorkspaceTag(wsID)
 
 	return cache.GetOrFetch(ctx, s.rdb, key, s.ttl, cache.NewCollectionCodec[application.TodoReadModel](), func(ctx context.Context) ([]application.TodoReadModel, error) {

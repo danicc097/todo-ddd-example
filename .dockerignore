@@ -17,3 +17,4 @@ Caddyfile
 *.md
 .env*
 .test-cache
+scripts/

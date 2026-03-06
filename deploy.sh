@@ -4,7 +4,7 @@ docker swarm init 2>/dev/null || true
 # 'attachable' allows containers to talk to swarm
 docker network create --driver overlay --attachable myapp-net 2>/dev/null || true
 
-docker compose -f docker-compose.infra.yml up -d --remove-orphans
+docker compose -f docker-compose.infra.yml -f docker-compose.infra.dev.yml up -d --remove-orphans
 
 echo "Waiting for database to be ready..."
 MAX_RETRIES=30
@@ -32,5 +32,5 @@ make migrate-up
 
 docker build --target prod -t myapp-go:latest .
 
-docker stack deploy -c docker-compose.app.yml myapp
+docker stack deploy -c docker-compose.app.yml -c docker-compose.app.dev.yml myapp
 docker service update --force myapp_go-app

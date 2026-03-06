@@ -4,14 +4,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO="${SCENARIO:-load}"
 API_URL="${API_URL:-http://127.0.0.1:8090}"
+NUM_USERS="${NUM_USERS:-20}"
 
-for dep in k6 curl jq uuidgen; do
+for dep in k6 curl jq uuidgen yq openapi-to-k6; do
 	command -v "$dep" >/dev/null || { echo "✗ Missing: $dep" && exit 1; }
 done
 
+api_path="/tmp/todo-openapi-$(date +%Y%m%d).yaml"
+yq 'explode(.)' openapi.yaml >"$api_path"
+openapi-to-k6 "$api_path" scripts/k6 --verbose
+
 USERS_FILE="${SCRIPT_DIR}/users.json"
 if [ ! -f "$USERS_FILE" ] || [ "${RESEED:-0}" = "1" ]; then
-	API_URL="$API_URL" bash "${SCRIPT_DIR}/seed-users.sh"
+	k6 run --quiet \
+		--env API_URL="${API_URL}" \
+		--env NUM_USERS="${NUM_USERS}" \
+		--env OUTPUT_FILE="${USERS_FILE}" \
+		"${SCRIPT_DIR}/seed-users.ts"
 else
 	echo "── Using $(jq 'length' "$USERS_FILE") existing users (RESEED=1 to refresh)"
 fi
@@ -19,7 +28,6 @@ fi
 mkdir -p "${SCRIPT_DIR}/results"
 RESULT_FILE="${SCRIPT_DIR}/results/${SCENARIO}-$(date +%Y%m%dT%H%M%S).json"
 
-# https://grafana.com/docs/k6/latest/results-output/real-time/prometheus-remote-write/
 K6_OUT="--out json=${RESULT_FILE}"
 if [ "${K6_PUSH_PROMETHEUS:-0}" = "1" ]; then
 	K6_OUT="${K6_OUT} --out experimental-prometheus-rw"
@@ -27,8 +35,5 @@ if [ "${K6_PUSH_PROMETHEUS:-0}" = "1" ]; then
 	export K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM=true
 fi
 
-api_path="/tmp/todo-openapi-$(date +%Y%m%d).yaml"
-yq 'explode(.)' openapi.yaml >"$api_path"
-openapi-to-k6 "$api_path" scripts/k6 --verbose
-
+echo "── Running Load Test..."
 k6 run --env API_URL="${API_URL}" --env SCENARIO="${SCENARIO}" $K6_OUT "${SCRIPT_DIR}/load-test.ts"

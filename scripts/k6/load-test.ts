@@ -1,4 +1,4 @@
-import { check, sleep, group, fail } from "k6";
+import { check, group } from "k6";
 import { Counter, Trend, Rate } from "k6/metrics";
 import { SharedArray } from "k6/data";
 import { Options, Scenario } from "k6/options";
@@ -31,14 +31,22 @@ const createTrend = new Trend("todo_create_ms", true);
 const listTrend = new Trend("todo_list_ms", true);
 
 const SCENARIOS: Record<string, Scenario> = {
+  /* TODO: check */
   smoke: {
-    executor: "constant-vus",
-    vus: 1,
+    executor: "constant-arrival-rate",
+    rate: 5,
+    timeUnit: "1s",
     duration: "30s",
+    preAllocatedVUs: 5,
+    maxVUs: 50,
   },
+  /* TODO: check */
   load: {
-    executor: "ramping-vus",
-    startVUs: 0,
+    executor: "ramping-arrival-rate",
+    startRate: 0,
+    timeUnit: "1s",
+    preAllocatedVUs: 50,
+    maxVUs: 300,
     stages: [
       { duration: "1m", target: 10 },
       { duration: "5m", target: 10 },
@@ -47,27 +55,38 @@ const SCENARIOS: Record<string, Scenario> = {
       { duration: "1m", target: 0 },
     ],
   },
+  /* TODO: check */
   stress: {
-    executor: "ramping-vus",
-    startVUs: 0,
+    executor: "ramping-arrival-rate",
+    startRate: 0,
+    timeUnit: "1s",
+    preAllocatedVUs: 100,
+    maxVUs: 500,
     stages: [
       { duration: "20s", target: 20 },
-      { duration: "2m", target: 50 },
-      { duration: "5m", target: 100 },
+      { duration: "2m", target: 25 },
+      { duration: "5m", target: 50 },
       { duration: "1m", target: 0 },
     ],
   },
+  /* TODO: check */
   soak: {
-    executor: "constant-vus",
-    vus: 10,
+    executor: "constant-arrival-rate",
+    rate: 15,
+    timeUnit: "1s",
     duration: "30m",
+    preAllocatedVUs: 50,
+    maxVUs: 300,
   },
   spike: {
-    executor: "ramping-vus",
-    startVUs: 0,
+    executor: "ramping-arrival-rate",
+    startRate: 0,
+    timeUnit: "1s",
+    preAllocatedVUs: 25,
+    maxVUs: 300,
     stages: [
       { duration: "10s", target: 5 },
-      { duration: "30s", target: 200 },
+      { duration: "30s", target: 25 },
       { duration: "10s", target: 5 },
       { duration: "30s", target: 5 },
       { duration: "10s", target: 0 },
@@ -75,18 +94,19 @@ const SCENARIOS: Record<string, Scenario> = {
   },
 };
 
+// assumes we use limits from *dev compose files
 export const options: Options = {
   scenarios: { [SCENARIO]: SCENARIOS[SCENARIO] || SCENARIOS.load },
   thresholds: {
     "http_req_duration{endpoint:createTodo}": ["p(95)<500", "p(99)<1500"],
-    "http_req_duration{endpoint:getWorkspaceTodos}": ["p(95)<300", "p(99)<800"],
+    "http_req_duration{endpoint:getWorkspaceTodos}": ["p(95)<2000", "p(99)<4500"],
     "http_req_duration{endpoint:completeTodo}": ["p(95)<500", "p(99)<1500"],
     "http_req_duration{endpoint:startFocus}": ["p(95)<300"],
     "http_req_duration{endpoint:ping}": ["p(99)<100"],
     http_req_failed: ["rate<0.01"],
     api_error_rate: ["rate<0.02"],
     todo_create_ms: ["p(95)<500"],
-    todo_list_ms: ["p(95)<300"],
+    todo_list_ms: ["p(95)<2000"],
   },
 };
 
@@ -148,10 +168,8 @@ export default function () {
   });
 
   if (!todoId) {
-    sleep(1);
-    return;
+    return; // don't sleep, *-arrival-rate executors handle the pacing automatically
   }
-  sleep(0.3);
 
   group("list_todos", () => {
     const t0 = Date.now();
@@ -170,7 +188,6 @@ export default function () {
       },
     });
   });
-  sleep(0.5);
 
   group("get_todo", () => {
     const { response, data } = api.getTodoByID(todoId, getClientConfig(token, "getTodoByID"));
@@ -180,23 +197,17 @@ export default function () {
       "id matches": () => data.id === todoId,
     });
   });
-  sleep(0.2);
 
   group("focus_session", () => {
     const { response: startRes } = api.startFocus(todoId, getClientConfig(token, "startFocus"));
     if (ok(startRes, "start_focus")) focusStarted.add(1);
 
-    sleep(0.5);
-
     const { response: stopRes } = api.stopFocus(todoId, getClientConfig(token, "stopFocus"));
     ok(stopRes, "stop_focus");
   });
-  sleep(0.3);
 
   group("complete_todo", () => {
     const { response } = api.completeTodo(todoId, {}, getClientConfig(token, "completeTodo"));
     if (ok(response, "complete_todo")) todoCompleted.add(1);
   });
-
-  sleep(1);
 }

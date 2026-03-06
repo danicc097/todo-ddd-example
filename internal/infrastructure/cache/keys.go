@@ -29,12 +29,12 @@ func (keys) TodoReadModel(id types.TodoID) string {
 	return fmt.Sprintf("%s:%s", prefixTodoRead, id)
 }
 
-func (keys) TodoWorkspaceCollection(wsID types.WorkspaceID) string {
-	return fmt.Sprintf("%s:collection:GetAllByWorkspace:%s", prefixTodoRead, wsID)
+func (keys) TodoWorkspaceCollection(wsID types.WorkspaceID, revision string) string {
+	return fmt.Sprintf("%s:collection:GetAllByWorkspace:%s:rev:%s", prefixTodoRead, wsID, revision)
 }
 
-func (keys) TodoWorkspaceCollectionPaginated(wsID types.WorkspaceID, limit, offset int32) string {
-	return fmt.Sprintf("%s:limit:%d:offset:%d", keys{}.TodoWorkspaceCollection(wsID), limit, offset)
+func (keys) TodoWorkspaceCollectionPaginated(wsID types.WorkspaceID, limit, offset int32, revision string) string {
+	return fmt.Sprintf("%s:limit:%d:offset:%d", keys{}.TodoWorkspaceCollection(wsID, revision), limit, offset)
 }
 
 func (keys) Tag(id types.TagID) string {

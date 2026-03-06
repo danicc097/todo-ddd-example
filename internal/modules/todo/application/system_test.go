@@ -285,7 +285,6 @@ func TestSystem_Integration(t *testing.T) {
 		})
 		require.ErrorContains(t, err, "simulated fault")
 
-		// guarantees the outbox relay has processed past our rollback attempt
 		barrierCmd := application.CreateTodoCommand{Title: "Barrier", WorkspaceID: ws.ID()}
 		barrierResp, err := createTodoHandler.Handle(userCtx, barrierCmd)
 		require.NoError(t, err)
@@ -322,8 +321,13 @@ func TestSystem_Integration(t *testing.T) {
 		_, err = cachedQueryService.GetAllByWorkspace(testCtx, ws.ID(), 10, 0)
 		require.NoError(t, err)
 
+		rev, _ := env.rdb.Get(testCtx, cache.Keys.WorkspaceRevision(ws.ID())).Result()
+		if rev == "" {
+			rev = "0"
+		}
+
 		entityRedisKey := cache.Keys.TodoAggregate(todo.ID())
-		collectionRedisKey := cache.Keys.TodoWorkspaceCollectionPaginated(ws.ID(), 10, 0)
+		collectionRedisKey := cache.Keys.TodoWorkspaceCollectionPaginated(ws.ID(), 10, 0, rev)
 
 		require.Eventually(t, func() bool {
 			return env.rdb.Exists(testCtx, entityRedisKey).Val() == 1 && env.rdb.Exists(testCtx, collectionRedisKey).Val() == 1
