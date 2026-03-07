@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -53,6 +54,9 @@ func NewRelay(pool *pgxpool.Pool, broker messaging.Broker) *Relay {
 func (r *Relay) Start(ctx context.Context) {
 	slog.InfoContext(ctx, "Outbox relay worker started")
 
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(errors.New("outbox relay shut down"))
+
 	ticker := time.NewTicker(1 * time.Second)
 	metricsTicker := time.NewTicker(5 * time.Second)
 	cleanupTicker := time.NewTicker(1 * time.Hour)
@@ -64,7 +68,7 @@ func (r *Relay) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.InfoContext(ctx, "Outbox relay shutting down, waiting for active batch to finish...")
+			slog.InfoContext(ctx, "Outbox relay shutting down, waiting for active batch to finish...", slog.String("cause", context.Cause(ctx).Error()))
 			r.wg.Wait()
 			slog.InfoContext(ctx, "Outbox relay stopped")
 
@@ -92,7 +96,7 @@ func (r *Relay) updateMetrics(ctx context.Context) {
 }
 
 func (r *Relay) processEvents(ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeoutCause(ctx, 15*time.Second, errors.New("outbox batch processing timeout exceeded"))
 	defer cancel()
 
 	tx, err := r.pool.Begin(ctx)
@@ -104,7 +108,7 @@ func (r *Relay) processEvents(ctx context.Context) {
 
 	events, err := r.q.GetUnprocessedOutboxEvents(ctx, tx)
 	if err != nil {
-		if !errors.Is(err, context.Canceled) {
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 			slog.ErrorContext(ctx, "failed to fetch outbox events", slog.String("error", err.Error()))
 		}
 
@@ -174,7 +178,7 @@ func (r *Relay) processSingleEvent(ctx context.Context, tx db.DBTX, event db.Out
 		headers[messaging.Header(k)] = v
 	}
 
-	pubCtx, cancel := context.WithTimeout(pubCtx, 2*time.Second)
+	pubCtx, cancel := context.WithTimeoutCause(pubCtx, 2*time.Second, fmt.Errorf("outbox event %s publish timeout exceeded", event.ID))
 	defer cancel()
 
 	args := messaging.PublishArgs{

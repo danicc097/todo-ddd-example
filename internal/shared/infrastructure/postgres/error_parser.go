@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"errors"
-	"regexp"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -11,8 +10,6 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
-
-var errorUniqueViolationRegex = regexp.MustCompile(`\((.*)\)=\((.*)\)`)
 
 // ParseDBError adapts postgres-specific errors to domain or application errors.
 func ParseDBError(err error) error {

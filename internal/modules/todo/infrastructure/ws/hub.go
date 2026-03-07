@@ -6,6 +6,7 @@ package ws
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -244,7 +245,13 @@ func (h *Hub) pubsubWorker() {
 		case <-h.stop:
 			return
 		case cmd := <-h.pubsubCmds:
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			var op string
+			if cmd.isSubscribe {
+				op = "subscribe"
+			} else {
+				op = "unsubscribe"
+			}
+			ctx, cancel := context.WithTimeoutCause(context.Background(), 5*time.Second, fmt.Errorf("pubsub %s operation for channel %s timeout exceeded", op, cmd.channelName))
 			if cmd.isSubscribe {
 				_ = h.pubsub.Subscribe(ctx, cmd.channelName)
 			} else {
