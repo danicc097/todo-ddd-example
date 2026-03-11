@@ -5,38 +5,35 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/schedule/application"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
+	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type ScheduleHandler struct {
-	commitTaskHandler sharedApp.RequestHandler[application.CommitTaskCommand, application.CommitTaskResponse]
+type ScheduleUseCases struct {
+	CommitTask sharedApp.RequestHandler[application.CommitTaskCommand, application.CommitTaskResponse]
 }
 
-func NewScheduleHandler(ct sharedApp.RequestHandler[application.CommitTaskCommand, application.CommitTaskResponse]) *ScheduleHandler {
-	return &ScheduleHandler{
-		commitTaskHandler: ct,
-	}
+type ScheduleHandler struct {
+	uc ScheduleUseCases
+}
+
+func NewScheduleHandler(uc ScheduleUseCases) *ScheduleHandler {
+	return &ScheduleHandler{uc: uc}
 }
 
 func (h *ScheduleHandler) CommitTask(c *gin.Context) {
-	var req api.CommitTaskRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.CommitTaskRequest](c)
+	if !ok {
 		return
 	}
 
-	_, err := h.commitTaskHandler.Handle(c.Request.Context(), application.CommitTaskCommand{
+	if _, ok := infraHttp.Execute(c, h.uc.CommitTask, application.CommitTaskCommand{
 		TodoID: req.TodoId,
 		Cost:   req.Cost,
 		Date:   req.Date.String(),
-	})
-	if err != nil {
-		c.Error(err)
-		return
+	}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	c.Status(http.StatusNoContent)
 }

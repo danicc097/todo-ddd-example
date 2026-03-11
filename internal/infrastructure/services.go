@@ -146,12 +146,14 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 	verifyTOTPHandler := authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenProvider.Issuer, masterKey)
 
 	th := todoHttp.NewTodoHandler(
-		createTodoHandler,
-		completeTodoHandler,
-		createTagHandler,
-		assignTagToTodoHandler,
-		startFocusHandler,
-		stopFocusHandler,
+		todoHttp.TodoUseCases{
+			CreateTodo: createTodoHandler,
+			Complete:   completeTodoHandler,
+			CreateTag:  createTagHandler,
+			AssignTag:  assignTagToTodoHandler,
+			StartFocus: startFocusHandler,
+			StopFocus:  stopFocusHandler,
+		},
 		todoQueryService,
 		hub,
 		container.Redis,
@@ -163,16 +165,25 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 	)
 
 	wh := wsHttp.NewWorkspaceHandler(
-		onboardWsHandler,
-		addWsMemberHandler,
-		removeWsMemberHandler,
+		wsHttp.WorkspaceUseCases{
+			Onboard:      onboardWsHandler,
+			AddMember:    addWsMemberHandler,
+			RemoveMember: removeWsMemberHandler,
+			Delete:       deleteWsHandler,
+		},
 		workspaceQueryService,
-		deleteWsHandler,
 	)
 
-	ah := authHttp.NewAuthHandler(loginHandler, registerHandler, initiateTOTPHandler, verifyTOTPHandler)
+	ah := authHttp.NewAuthHandler(authHttp.AuthUseCases{
+		Login:        loginHandler,
+		Register:     registerHandler,
+		InitiateTOTP: initiateTOTPHandler,
+		VerifyTOTP:   verifyTOTPHandler,
+	})
 
-	sh := scheduleHttp.NewScheduleHandler(commitTaskHandler)
+	sh := scheduleHttp.NewScheduleHandler(scheduleHttp.ScheduleUseCases{
+		CommitTask: commitTaskHandler,
+	})
 
 	return &Services{
 		TodoHandler:           th,

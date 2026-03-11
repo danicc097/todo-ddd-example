@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
@@ -18,42 +17,33 @@ import (
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
+type TodoUseCases struct {
+	CreateTodo sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse]
+	Complete   sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse]
+	CreateTag  sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse]
+	AssignTag  sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse]
+	StartFocus sharedApp.RequestHandler[application.StartFocusCommand, application.StartFocusResponse]
+	StopFocus  sharedApp.RequestHandler[application.StopFocusCommand, application.StopFocusResponse]
+}
+
 type TodoHandler struct {
-	createHandler     sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse]
-	completeHandler   sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse]
-	createTagHandler  sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse]
-	assignTagHandler  sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse]
-	startFocusHandler sharedApp.RequestHandler[application.StartFocusCommand, application.StartFocusResponse]
-	stopFocusHandler  sharedApp.RequestHandler[application.StopFocusCommand, application.StopFocusResponse]
-
-	// keeping queries nontransactional
+	uc           TodoUseCases
 	queryService application.TodoQueryService
-
-	hub   *ws.Hub
-	redis *redis.Client
+	hub          *ws.Hub
+	redis        *redis.Client
 }
 
 func NewTodoHandler(
-	c sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse],
-	comp sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse],
-	ct sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse],
-	at sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse],
-	sf sharedApp.RequestHandler[application.StartFocusCommand, application.StartFocusResponse],
-	st sharedApp.RequestHandler[application.StopFocusCommand, application.StopFocusResponse],
+	uc TodoUseCases,
 	qs application.TodoQueryService,
 	hub *ws.Hub,
 	redis *redis.Client,
 ) *TodoHandler {
 	return &TodoHandler{
-		createHandler:     c,
-		completeHandler:   comp,
-		createTagHandler:  ct,
-		assignTagHandler:  at,
-		startFocusHandler: sf,
-		stopFocusHandler:  st,
-		queryService:      qs,
-		hub:               hub,
-		redis:             redis,
+		uc:           uc,
+		queryService: qs,
+		hub:          hub,
+		redis:        redis,
 	}
 }
 
@@ -62,25 +52,21 @@ func (h *TodoHandler) WS(c *gin.Context) {
 }
 
 func (h *TodoHandler) CreateTodo(c *gin.Context, id wsDomain.WorkspaceID, params api.CreateTodoParams) {
-	var req api.CreateTodoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.CreateTodoRequest](c)
+	if !ok {
 		return
 	}
 
-	resp, err := h.createHandler.Handle(c.Request.Context(), application.CreateTodoCommand{
+	resp, ok := infraHttp.Execute(c, h.uc.CreateTodo, application.CreateTodoCommand{
 		Title:              req.Title,
 		WorkspaceID:        id,
 		DueDate:            req.DueDate,
 		RecurrenceInterval: (*string)(req.RecurrenceInterval),
 		RecurrenceAmount:   req.RecurrenceAmount,
 	})
-	if err != nil {
-		c.Error(err)
-		return
+	if ok {
+		c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 	}
-
-	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }
 
 func (h *TodoHandler) GetWorkspaceTodos(c *gin.Context, id wsDomain.WorkspaceID, params api.GetWorkspaceTodosParams) {
@@ -154,65 +140,48 @@ func (h *TodoHandler) mapReadModelToAPI(t application.TodoReadModel) api.Todo {
 }
 
 func (h *TodoHandler) CompleteTodo(c *gin.Context, id domain.TodoID, params api.CompleteTodoParams) {
-	if _, err := h.completeHandler.Handle(c.Request.Context(), application.CompleteTodoCommand{ID: id}); err != nil {
-		c.Error(err)
-		return
+	if _, ok := infraHttp.Execute(c, h.uc.Complete, application.CompleteTodoCommand{ID: id}); ok {
+		c.Status(http.StatusOK)
 	}
-
-	c.Status(http.StatusOK)
 }
 
 func (h *TodoHandler) AssignTagToTodo(c *gin.Context, id domain.TodoID, params api.AssignTagToTodoParams) {
-	var req api.AssignTagToTodoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.AssignTagToTodoRequest](c)
+	if !ok {
 		return
 	}
 
-	if _, err := h.assignTagHandler.Handle(c.Request.Context(), application.AssignTagToTodoCommand{
+	if _, ok := infraHttp.Execute(c, h.uc.AssignTag, application.AssignTagToTodoCommand{
 		TodoID: id,
 		TagID:  req.TagId,
-	}); err != nil {
-		c.Error(err)
-		return
+	}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *TodoHandler) StartFocus(c *gin.Context, id domain.TodoID) {
-	if _, err := h.startFocusHandler.Handle(c.Request.Context(), application.StartFocusCommand{ID: id}); err != nil {
-		c.Error(err)
-		return
+	if _, ok := infraHttp.Execute(c, h.uc.StartFocus, application.StartFocusCommand{ID: id}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *TodoHandler) StopFocus(c *gin.Context, id domain.TodoID) {
-	if _, err := h.stopFocusHandler.Handle(c.Request.Context(), application.StopFocusCommand{ID: id}); err != nil {
-		c.Error(err)
-		return
+	if _, ok := infraHttp.Execute(c, h.uc.StopFocus, application.StopFocusCommand{ID: id}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *TodoHandler) CreateTag(c *gin.Context, id wsDomain.WorkspaceID, params api.CreateTagParams) {
-	var req api.CreateTagRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.CreateTagRequest](c)
+	if !ok {
 		return
 	}
 
-	resp, err := h.createTagHandler.Handle(c.Request.Context(), application.CreateTagCommand{
+	resp, ok := infraHttp.Execute(c, h.uc.CreateTag, application.CreateTagCommand{
 		Name:        req.Name,
 		WorkspaceID: id,
 	})
-	if err != nil {
-		c.Error(err)
-		return
+	if ok {
+		c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 	}
-
-	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }

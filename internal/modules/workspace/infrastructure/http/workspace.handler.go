@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danicc097/todo-ddd-example/internal/apperrors"
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
@@ -14,35 +13,28 @@ import (
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type WorkspaceHandler struct {
-	onboardHandler      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse]
-	addMemberHandler    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse]
-	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse]
-	deleteHandler       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse]
+type WorkspaceUseCases struct {
+	Onboard      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse]
+	AddMember    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse]
+	RemoveMember sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse]
+	Delete       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse]
+}
 
+type WorkspaceHandler struct {
+	uc           WorkspaceUseCases
 	queryService application.WorkspaceQueryService
 }
 
-func NewWorkspaceHandler(
-	onboardHandler sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse],
-	addMemberHandler sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse],
-	removeMemberHandler sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse],
-	qs application.WorkspaceQueryService,
-	deleteHandler sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse],
-) *WorkspaceHandler {
+func NewWorkspaceHandler(uc WorkspaceUseCases, qs application.WorkspaceQueryService) *WorkspaceHandler {
 	return &WorkspaceHandler{
-		onboardHandler:      onboardHandler,
-		addMemberHandler:    addMemberHandler,
-		removeMemberHandler: removeMemberHandler,
-		queryService:        qs,
-		deleteHandler:       deleteHandler,
+		uc:           uc,
+		queryService: qs,
 	}
 }
 
 func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWorkspaceParams) {
-	var req api.OnboardWorkspaceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.OnboardWorkspaceRequest](c)
+	if !ok {
 		return
 	}
 
@@ -59,20 +51,15 @@ func (h *WorkspaceHandler) OnboardWorkspace(c *gin.Context, params api.OnboardWo
 		description = *req.Description
 	}
 
-	cmd := application.OnboardWorkspaceCommand{
+	resp, ok := infraHttp.Execute(c, h.uc.Onboard, application.OnboardWorkspaceCommand{
 		Name:        req.Name,
 		Description: description,
 		Members:     members,
 		OwnerID:     userDomain.UserID{},
+	})
+	if ok {
+		c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 	}
-
-	resp, err := h.onboardHandler.Handle(c.Request.Context(), cmd)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.JSON(http.StatusCreated, api.IdResponse{Id: resp.ID.UUID()})
 }
 
 func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspacesParams) {
@@ -105,49 +92,33 @@ func (h *WorkspaceHandler) ListWorkspaces(c *gin.Context, params api.ListWorkspa
 }
 
 func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context, id domain.WorkspaceID) {
-	cmd := application.DeleteWorkspaceCommand{
-		ID: id,
+	if _, ok := infraHttp.Execute(c, h.uc.Delete, application.DeleteWorkspaceCommand{ID: id}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	if _, err := h.deleteHandler.Handle(c.Request.Context(), cmd); err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *WorkspaceHandler) AddWorkspaceMember(c *gin.Context, id domain.WorkspaceID, params api.AddWorkspaceMemberParams) {
-	var req api.AddWorkspaceMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.New(apperrors.InvalidInput, err.Error()))
+	req, ok := infraHttp.BindJSON[api.AddWorkspaceMemberRequest](c)
+	if !ok {
 		return
 	}
 
-	if _, err := h.addMemberHandler.Handle(c.Request.Context(), application.AddWorkspaceMemberCommand{
+	if _, ok := infraHttp.Execute(c, h.uc.AddMember, application.AddWorkspaceMemberCommand{
 		WorkspaceID: id,
 		UserID:      userDomain.UserID(req.UserId),
 		Role:        req.Role,
-	}); err != nil {
-		c.Error(err)
-		return
+	}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *WorkspaceHandler) RemoveWorkspaceMember(c *gin.Context, id domain.WorkspaceID, userID userDomain.UserID) {
-	cmd := application.RemoveWorkspaceMemberCommand{
+	if _, ok := infraHttp.Execute(c, h.uc.RemoveMember, application.RemoveWorkspaceMemberCommand{
 		WorkspaceID: id,
 		MemberID:    userID,
+	}); ok {
+		c.Status(http.StatusNoContent)
 	}
-
-	if _, err := h.removeMemberHandler.Handle(c.Request.Context(), cmd); err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }
 
 func (h *WorkspaceHandler) GetWorkspaceTags(c *gin.Context, id domain.WorkspaceID) {
