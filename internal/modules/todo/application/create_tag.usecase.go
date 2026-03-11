@@ -13,6 +13,11 @@ type CreateTagCommand struct {
 	WorkspaceID wsDomain.WorkspaceID
 }
 
+func (c *CreateTagCommand) Validate() error {
+	_, err := domain.NewTagName(c.Name)
+	return err
+}
+
 type CreateTagResponse struct {
 	ID domain.TagID
 }
@@ -28,10 +33,7 @@ func NewCreateTagHandler(repo domain.TagRepository) *CreateTagHandler {
 }
 
 func (h *CreateTagHandler) Handle(ctx context.Context, cmd CreateTagCommand) (CreateTagResponse, error) {
-	tn, err := domain.NewTagName(cmd.Name)
-	if err != nil {
-		return CreateTagResponse{}, err
-	}
+	tn, _ := domain.NewTagName(cmd.Name)
 
 	tag := domain.NewTag(tn, cmd.WorkspaceID)
 

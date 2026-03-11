@@ -31,10 +31,11 @@ func TestCommitTaskHandler_Handle_Integration(t *testing.T) {
 	scheduleRepo := schedulePg.NewScheduleRepo(pool, uow)
 	todoRepo := todoPg.NewTodoRepo(pool, uow)
 
-	handler := sharedApp.Retry(
-		sharedApp.WithUoW(application.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
-		3,
-	)
+	handler := sharedApp.NewDecoratorBuilder(application.NewCommitTaskHandler(scheduleRepo, todoRepo)).
+		WithValidation().
+		WithRetryOnConflict(3).
+		WithUoW(uow).
+		Build()
 
 	t.Run("success", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)
@@ -91,10 +92,11 @@ func TestCommitTaskHandler_Handle_Concurrency(t *testing.T) {
 	scheduleRepo := schedulePg.NewScheduleRepo(pool, uow)
 	todoRepo := todoPg.NewTodoRepo(pool, uow)
 
-	handler := sharedApp.Retry(
-		sharedApp.WithUoW(application.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
-		10,
-	)
+	handler := sharedApp.NewDecoratorBuilder(application.NewCommitTaskHandler(scheduleRepo, todoRepo)).
+		WithValidation().
+		WithRetryOnConflict(10).
+		WithUoW(uow).
+		Build()
 
 	user := fixtures.RandomUser(ctx, t)
 	ws := fixtures.RandomWorkspace(ctx, t, user.ID())

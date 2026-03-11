@@ -102,10 +102,18 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 
 	wsUserProvider := userAdapters.NewWorkspaceUserProvider(userRepo)
 
-	onboardWsHandler := sharedApp.WithUoW(wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider), uow)
-	addWsMemberHandler := sharedApp.WithUoW(wsApp.NewAddWorkspaceMemberHandler(wsRepo), uow)
-	removeWsMemberHandler := sharedApp.WithUoW(wsApp.NewRemoveWorkspaceMemberHandler(wsRepo), uow)
-	deleteWsHandler := sharedApp.WithUoW(wsApp.NewDeleteWorkspaceHandler(wsRepo), uow)
+	onboardWsHandler := sharedApp.NewCommandDecoratorBuilder(
+		wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider), uow, "onboard-workspace",
+	).Build()
+	addWsMemberHandler := sharedApp.NewCommandDecoratorBuilder(
+		wsApp.NewAddWorkspaceMemberHandler(wsRepo), uow, "add-workspace-member",
+	).Build()
+	removeWsMemberHandler := sharedApp.NewCommandDecoratorBuilder(
+		wsApp.NewRemoveWorkspaceMemberHandler(wsRepo), uow, "remove-workspace-member",
+	).Build()
+	deleteWsHandler := sharedApp.NewCommandDecoratorBuilder(
+		wsApp.NewDeleteWorkspaceHandler(wsRepo), uow, "delete-workspace",
+	).Build()
 
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(container.Pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, messaging.Keys.ServiceName())
@@ -114,18 +122,29 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 
 	hub := ws.NewTodoHub(container.Redis, workspaceQueryService)
 
-	createTodoHandler := sharedApp.WithUoW(todoApp.NewCreateTodoHandler(todoRepo, wsProv), uow)
-	completeTodoHandler := sharedApp.WithUoW(todoApp.NewCompleteTodoHandler(todoRepo, wsProv), uow)
-	createTagHandler := sharedApp.WithUoW(todoApp.NewCreateTagHandler(tagRepo), uow)
-	assignTagToTodoHandler := sharedApp.WithUoW(todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo), uow)
-	startFocusHandler := sharedApp.WithUoW(todoApp.NewStartFocusHandler(todoRepo, wsProv), uow)
-	stopFocusHandler := sharedApp.WithUoW(todoApp.NewStopFocusHandler(todoRepo, wsProv), uow)
+	createTodoHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewCreateTodoHandler(todoRepo, wsProv), uow, "create-todo",
+	).Build()
+	completeTodoHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewCompleteTodoHandler(todoRepo, wsProv), uow, "complete-todo",
+	).Build()
+	createTagHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewCreateTagHandler(tagRepo), uow, "create-tag",
+	).Build()
+	assignTagToTodoHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo), uow, "assign-tag-to-todo",
+	).Build()
+	startFocusHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewStartFocusHandler(todoRepo, wsProv), uow, "start-focus",
+	).Build()
+	stopFocusHandler := sharedApp.NewCommandDecoratorBuilder(
+		todoApp.NewStopFocusHandler(todoRepo, wsProv), uow, "stop-focus",
+	).Build()
 
 	scheduleRepo := schedulePg.NewScheduleRepo(container.Pool, uow)
-	commitTaskHandler := sharedApp.Retry(
-		sharedApp.WithUoW(scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
-		3,
-	)
+	commitTaskHandler := sharedApp.NewCommandDecoratorBuilder(
+		scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow, "commit-task",
+	).WithRetryOnConflict(3).Build()
 
 	baseTodoQueryService := todoPg.NewTodoQueryService(container.Pool)
 	todoReadModelCodec := cache.NewMsgpackCodec[*todoApp.TodoReadModel]()
@@ -139,11 +158,18 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 
 	passwordHasher := crypto.NewArgon2PasswordHasher()
 
-	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, passwordHasher)
-	registerHandler := sharedApp.WithUoW(authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher), uow)
-
-	initiateTOTPHandler := authApp.NewInitiateTOTPHandler(authRepo, masterKey)
-	verifyTOTPHandler := authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenProvider.Issuer, masterKey)
+	loginHandler := sharedApp.NewDecoratorBuilder(authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, passwordHasher)).
+		WithLogging("login").
+		Build()
+	registerHandler := sharedApp.NewCommandDecoratorBuilder(
+		authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher), uow, "register",
+	).Build()
+	initiateTOTPHandler := sharedApp.NewCommandDecoratorBuilder(
+		authApp.NewInitiateTOTPHandler(authRepo, masterKey), uow, "initiate-totp",
+	).Build()
+	verifyTOTPHandler := sharedApp.NewCommandDecoratorBuilder(
+		authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenProvider.Issuer, masterKey), uow, "verify-totp",
+	).Build()
 
 	th := todoHttp.NewTodoHandler(
 		todoHttp.TodoUseCases{

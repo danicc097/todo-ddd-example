@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
@@ -19,6 +20,22 @@ type CreateTodoCommand struct {
 	DueDate            *time.Time
 	RecurrenceInterval *string
 	RecurrenceAmount   *int
+}
+
+func (c *CreateTodoCommand) Validate() error {
+	if _, err := domain.NewTodoTitle(c.Title); err != nil {
+		return err
+	}
+
+	if c.RecurrenceInterval != nil && c.RecurrenceAmount != nil {
+		if _, err := domain.NewRecurrenceRule(*c.RecurrenceInterval, *c.RecurrenceAmount); err != nil {
+			return err
+		}
+	} else if c.RecurrenceInterval != nil || c.RecurrenceAmount != nil {
+		return errors.New("recurrence interval and amount must be provided together")
+	}
+
+	return nil
 }
 
 type CreateTodoResponse struct {
@@ -48,10 +65,7 @@ func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (
 		return CreateTodoResponse{}, wsDomain.ErrNotOwner
 	}
 
-	title, err := domain.NewTodoTitle(cmd.Title)
-	if err != nil {
-		return CreateTodoResponse{}, err
-	}
+	title, _ := domain.NewTodoTitle(cmd.Title)
 
 	todo := domain.NewTodo(title, cmd.WorkspaceID)
 	for _, tagID := range cmd.TagIDs {
@@ -63,10 +77,7 @@ func (h *CreateTodoHandler) Handle(ctx context.Context, cmd CreateTodoCommand) (
 	}
 
 	if cmd.RecurrenceInterval != nil && cmd.RecurrenceAmount != nil {
-		r, err := domain.NewRecurrenceRule(*cmd.RecurrenceInterval, *cmd.RecurrenceAmount)
-		if err != nil {
-			return CreateTodoResponse{}, err
-		}
+		r, _ := domain.NewRecurrenceRule(*cmd.RecurrenceInterval, *cmd.RecurrenceAmount)
 
 		todo.SetRecurrence(pointers.New(r))
 	}

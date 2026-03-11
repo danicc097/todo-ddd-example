@@ -23,6 +23,18 @@ type OnboardWorkspaceCommand struct {
 	Members     map[userDomain.UserID]MemberInitialState
 }
 
+func (c *OnboardWorkspaceCommand) Validate() error {
+	if _, err := domain.NewWorkspaceName(c.Name); err != nil {
+		return err
+	}
+
+	if _, err := domain.NewWorkspaceDescription(c.Description); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type OnboardWorkspaceResponse struct {
 	ID domain.WorkspaceID
 }
@@ -49,15 +61,8 @@ func (h *OnboardWorkspaceHandler) Handle(ctx context.Context, cmd OnboardWorkspa
 		ownerID = userDomain.UserID(meta.UserID)
 	}
 
-	name, err := domain.NewWorkspaceName(cmd.Name)
-	if err != nil {
-		return OnboardWorkspaceResponse{}, err
-	}
-
-	desc, err := domain.NewWorkspaceDescription(cmd.Description)
-	if err != nil {
-		return OnboardWorkspaceResponse{}, err
-	}
+	name, _ := domain.NewWorkspaceName(cmd.Name)
+	desc, _ := domain.NewWorkspaceDescription(cmd.Description)
 
 	ws := domain.NewWorkspace(name, desc, ownerID)
 

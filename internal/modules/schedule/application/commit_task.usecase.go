@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +19,18 @@ type CommitTaskCommand struct {
 	TodoID uuid.UUID
 	Cost   int
 	Date   string
+}
+
+func (c *CommitTaskCommand) Validate() error {
+	if _, err := domain.NewEnergyCost(c.Cost); err != nil {
+		return err
+	}
+
+	if _, err := time.Parse(time.DateOnly, c.Date); err != nil {
+		return fmt.Errorf("invalid date format: %w", err)
+	}
+
+	return nil
 }
 
 type CommitTaskResponse struct{}
@@ -45,12 +59,9 @@ func (h *CommitTaskHandler) Handle(ctx context.Context, cmd CommitTaskCommand) (
 	todoID := todoDomain.TodoID(cmd.TodoID)
 	date := domain.ScheduleDate(cmd.Date)
 
-	cost, err := domain.NewEnergyCost(cmd.Cost)
-	if err != nil {
-		return CommitTaskResponse{}, err
-	}
+	cost, _ := domain.NewEnergyCost(cmd.Cost)
 
-	_, err = h.todoRepo.FindByID(ctx, todoID)
+	_, err := h.todoRepo.FindByID(ctx, todoID)
 	if err != nil {
 		return CommitTaskResponse{}, err
 	}

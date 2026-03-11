@@ -6,21 +6,26 @@ import (
 	"log/slog"
 	"math/rand"
 	"time"
-
-	"github.com/danicc097/todo-ddd-example/internal/shared/domain"
 )
 
-type retryDecorator[C any, R any] struct {
-	next       RequestHandler[C, R]
-	maxRetries int
+// WithRetry is a generic retry decorator.
+func WithRetry[C any, R any](next RequestHandler[C, R], maxRetries int) RequestHandler[C, R] {
+	return WithRetryOn(next, maxRetries, nil) // retry on any error
 }
 
-// Retry wraps a RequestHandler with retry logic for concurrent updates.
-func Retry[C any, R any](next RequestHandler[C, R], maxRetries int) RequestHandler[C, R] {
+// WithRetryOn wraps a RequestHandler with retry logic for a specific error.
+func WithRetryOn[C any, R any](next RequestHandler[C, R], maxRetries int, targetErr error) RequestHandler[C, R] {
 	return &retryDecorator[C, R]{
-		next:       next,
-		maxRetries: maxRetries,
+		next:        next,
+		maxRetries:  maxRetries,
+		targetError: targetErr,
 	}
+}
+
+type retryDecorator[C any, R any] struct {
+	next        RequestHandler[C, R]
+	maxRetries  int
+	targetError error
 }
 
 func (h *retryDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
@@ -36,24 +41,22 @@ func (h *retryDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
 		default:
 		}
 
-		var res R
-
-		res, err = h.next.Handle(ctx, cmd)
+		res, err := h.next.Handle(ctx, cmd)
 		if err == nil {
 			return res, nil
 		}
 
-		if !errors.Is(err, domain.ErrConcurrentUpdate) {
+		if h.targetError != nil && !errors.Is(err, h.targetError) {
 			return zero, err
 		}
 
 		if i < h.maxRetries {
 			// exponential backoff with jitter
 			backoff := time.Duration(1<<i)*10*time.Millisecond + time.Duration(rand.Intn(50))*time.Millisecond
-
-			slog.WarnContext(ctx, "concurrent update detected, retrying...",
+			slog.WarnContext(ctx, "use case failed, retrying...",
 				slog.Int("attempt", i+1),
 				slog.Duration("backoff", backoff),
+				slog.String("error", err.Error()),
 			)
 
 			select {
