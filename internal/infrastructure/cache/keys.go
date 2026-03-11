@@ -3,6 +3,8 @@ package cache
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/db/types"
 )
 
@@ -35,6 +37,10 @@ func (keys) TodoWorkspaceCollection(wsID types.WorkspaceID, revision string) str
 
 func (keys) TodoWorkspaceCollectionPaginated(wsID types.WorkspaceID, limit, offset int32, revision string) string {
 	return fmt.Sprintf("%s:limit:%d:offset:%d", keys{}.TodoWorkspaceCollection(wsID, revision), limit, offset)
+}
+
+func (keys) IdempotencyKey(id uuid.UUID) string {
+	return "idempotency:" + id.String()
 }
 
 func (keys) Tag(id types.TagID) string {

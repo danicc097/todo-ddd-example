@@ -43,7 +43,6 @@ func DBIdempotency(pool *pgxpool.Pool) gin.HandlerFunc {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid Idempotency-Key format"})
-
 			return
 		}
 

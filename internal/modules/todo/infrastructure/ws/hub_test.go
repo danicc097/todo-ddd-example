@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
@@ -56,7 +55,18 @@ func TestHub_Behavioral(t *testing.T) {
 
 		defer conn.Close()
 
-		time.Sleep(300 * time.Millisecond) // TODO: everntually
+		msgChan := make(chan string, 200)
+
+		go func() {
+			for {
+				_, msg, err := conn.ReadMessage()
+				if err != nil {
+					return // conn closed or error
+				}
+
+				msgChan <- string(msg)
+			}
+		}()
 
 		message := map[string]string{"msg": "hello authorized room"}
 		payload, _ := json.Marshal(message)
@@ -64,36 +74,62 @@ func TestHub_Behavioral(t *testing.T) {
 		require.Eventually(t, func() bool {
 			_ = rdb.Publish(ctx, "test_ws:"+roomID.String(), payload).Err()
 
-			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
+			select {
+			case msg := <-msgChan:
+				return strings.Contains(msg, "hello authorized room")
+			default:
 				return false
 			}
-
-			return strings.Contains(string(msg), "hello authorized room")
-		}, 5*time.Second, 200*time.Millisecond)
+		}, 5*time.Second, 50*time.Millisecond, "failed to receive authorized message")
 	})
 
 	t.Run("client does not receive message for unauthorized room", func(t *testing.T) {
-		otherRoomID := uuid.New()
-
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 		require.NoError(t, err)
 
 		defer conn.Close()
 
-		payload := []byte(`{"msg": "secret"}`)
+		msgChan := make(chan string, 200)
 
-		for range 5 {
-			_ = rdb.Publish(ctx, "test_ws:"+otherRoomID.String(), payload).Err()
+		go func() {
+			for {
+				_, msg, err := conn.ReadMessage()
+				if err != nil {
+					return
+				}
+
+				msgChan <- string(msg)
+			}
+		}()
+
+		require.Eventually(t, func() bool {
+			_ = rdb.Publish(ctx, "test_ws:"+roomID.String(), []byte(`{"msg": "sync"}`)).Err()
+
+			select {
+			case msg := <-msgChan:
+				return strings.Contains(msg, "sync")
+			default:
+				return false
+			}
+		}, 5*time.Second, 50*time.Millisecond, "client never became ready")
+
+		unauthRoomID := uuid.New()
+		_ = rdb.Publish(ctx, "test_ws:"+unauthRoomID.String(), []byte(`{"msg": "secret"}`)).Err()
+		// we use a single PubSub conn with Subscribe, thus publishes sequentially
+		_ = rdb.Publish(ctx, "test_ws:"+roomID.String(), []byte(`{"msg": "marker"}`)).Err()
+
+		for {
+			select {
+			case msg := <-msgChan:
+				require.NotContains(t, msg, "secret")
+
+				if strings.Contains(msg, "marker") {
+					return // success (marker sent afterwards, so must have skipped secret)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out waiting for marker message")
+			}
 		}
-
-		conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-		_, _, err = conn.ReadMessage()
-
-		require.Error(t, err, "expected timeout as no message should arrive")
-		assert.True(t, websocket.IsUnexpectedCloseError(err) || strings.Contains(err.Error(), "timeout"))
 	})
 }

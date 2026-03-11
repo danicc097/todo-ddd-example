@@ -459,23 +459,6 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 		t.Logf("Broker publish attempt %d for event %s (total attempts: %d)", attempts[args.EventType], args.EventType, totalAttempts)
 
 		if args.EventType == sharedDomain.TodoCreated && attempts[args.EventType] == 1 {
-			// fast-forward backoff to bypass db exponential delay
-			go func(aggID uuid.UUID) {
-				for range 50 {
-					select {
-					case <-testCtx.Done():
-						return
-					case <-time.After(10 * time.Millisecond):
-					}
-
-					// only clears backoff once the relay has actually committed the retry count
-					res, err := env.pool.Exec(testCtx, "UPDATE outbox SET last_attempted_at = '1970-01-01' WHERE aggregate_id = $1 AND retries > 0", aggID)
-					if err == nil && res.RowsAffected() > 0 {
-						break
-					}
-				}
-			}(args.AggID)
-
 			return errors.New("broker failure")
 		}
 
@@ -485,8 +468,14 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 	env.StartRelay(t, failBroker)
 
 	cmd := application.CreateTodoCommand{Title: "Retry", WorkspaceID: ws.ID()}
-	_, err := createTodoHandler.Handle(userCtx, cmd)
+	resp, err := createTodoHandler.Handle(userCtx, cmd)
 	require.NoError(t, err)
+
+	// fast-forward backoff
+	require.Eventually(t, func() bool {
+		res, execErr := env.pool.Exec(testCtx, "UPDATE outbox SET last_attempted_at = '1970-01-01' WHERE aggregate_id = $1 AND retries > 0", resp.ID.UUID())
+		return execErr == nil && res.RowsAffected() > 0
+	}, 5*time.Second, 10*time.Millisecond, "failed to bypass backoff")
 
 	require.Eventually(t, func() bool {
 		mu.Lock()
