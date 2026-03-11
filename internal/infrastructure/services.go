@@ -102,10 +102,10 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 
 	wsUserProvider := userAdapters.NewWorkspaceUserProvider(userRepo)
 
-	onboardWsHandler := wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider, uow)
-	addWsMemberHandler := wsApp.NewAddWorkspaceMemberHandler(wsRepo, uow)
-	removeWsMemberHandler := wsApp.NewRemoveWorkspaceMemberHandler(wsRepo, uow)
-	deleteWsHandler := wsApp.NewDeleteWorkspaceHandler(wsRepo, uow)
+	onboardWsHandler := sharedApp.WithUoW(wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider), uow)
+	addWsMemberHandler := sharedApp.WithUoW(wsApp.NewAddWorkspaceMemberHandler(wsRepo), uow)
+	removeWsMemberHandler := sharedApp.WithUoW(wsApp.NewRemoveWorkspaceMemberHandler(wsRepo), uow)
+	deleteWsHandler := sharedApp.WithUoW(wsApp.NewDeleteWorkspaceHandler(wsRepo), uow)
 
 	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(container.Pool)
 	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, messaging.Keys.ServiceName())
@@ -114,16 +114,16 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 
 	hub := ws.NewTodoHub(container.Redis, workspaceQueryService)
 
-	createTodoHandler := todoApp.NewCreateTodoHandler(todoRepo, wsProv, uow)
-	completeTodoHandler := todoApp.NewCompleteTodoHandler(todoRepo, wsProv, uow)
-	createTagHandler := todoApp.NewCreateTagHandler(tagRepo, uow)
-	assignTagToTodoHandler := todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo, uow)
-	startFocusHandler := todoApp.NewStartFocusHandler(todoRepo, wsProv, uow)
-	stopFocusHandler := todoApp.NewStopFocusHandler(todoRepo, wsProv, uow)
+	createTodoHandler := sharedApp.WithUoW(todoApp.NewCreateTodoHandler(todoRepo, wsProv), uow)
+	completeTodoHandler := sharedApp.WithUoW(todoApp.NewCompleteTodoHandler(todoRepo, wsProv), uow)
+	createTagHandler := sharedApp.WithUoW(todoApp.NewCreateTagHandler(tagRepo), uow)
+	assignTagToTodoHandler := sharedApp.WithUoW(todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo), uow)
+	startFocusHandler := sharedApp.WithUoW(todoApp.NewStartFocusHandler(todoRepo, wsProv), uow)
+	stopFocusHandler := sharedApp.WithUoW(todoApp.NewStopFocusHandler(todoRepo, wsProv), uow)
 
 	scheduleRepo := schedulePg.NewScheduleRepo(container.Pool, uow)
 	commitTaskHandler := sharedApp.Retry(
-		scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo, uow),
+		sharedApp.WithUoW(scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
 		3,
 	)
 
@@ -140,7 +140,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Contai
 	passwordHasher := crypto.NewArgon2PasswordHasher()
 
 	loginHandler := authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, passwordHasher)
-	registerHandler := authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher, uow)
+	registerHandler := sharedApp.WithUoW(authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher), uow)
 
 	initiateTOTPHandler := authApp.NewInitiateTOTPHandler(authRepo, masterKey)
 	verifyTOTPHandler := authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenProvider.Issuer, masterKey)

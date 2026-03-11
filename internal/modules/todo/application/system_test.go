@@ -31,6 +31,7 @@ import (
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
@@ -148,8 +149,8 @@ func TestSystem_Integration(t *testing.T) {
 	wsRepo := wsPg.NewWorkspaceRepo(env.pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
-	createTodoHandler := application.NewCreateTodoHandler(cachedTodoRepo, wsProv, uow)
-	completeTodoHandler := application.NewCompleteTodoHandler(cachedTodoRepo, wsProv, uow)
+	createTodoHandler := sharedApp.WithUoW(application.NewCreateTodoHandler(cachedTodoRepo, wsProv), uow)
+	completeTodoHandler := sharedApp.WithUoW(application.NewCompleteTodoHandler(cachedTodoRepo, wsProv), uow)
 
 	t.Run("success commits db invalidates cache and publishes", func(t *testing.T) {
 		t.Parallel()
@@ -373,7 +374,7 @@ func TestSystem_Integration(t *testing.T) {
 		}()
 
 		userProv := userAdapters.NewWorkspaceUserProvider(env.fixtures.UserRepo)
-		onboardHandler := wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv, uow)
+		onboardHandler := sharedApp.WithUoW(wsApp.NewOnboardWorkspaceHandler(wsRepo, userProv), uow)
 
 		// we don't know the id yet - listen to all
 		pubsub := env.rdb.PSubscribe(testCtx, messaging.Keys.TodoAPIUpdatesChannel()+"*")
@@ -433,7 +434,7 @@ func TestAtLeastOnce_Integration(t *testing.T) {
 	wsRepo := wsPg.NewWorkspaceRepo(env.pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 
-	createTodoHandler := application.NewCreateTodoHandler(baseTodoRepo, wsProv, uow)
+	createTodoHandler := sharedApp.WithUoW(application.NewCreateTodoHandler(baseTodoRepo, wsProv), uow)
 
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

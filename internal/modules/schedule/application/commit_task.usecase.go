@@ -24,7 +24,6 @@ type CommitTaskResponse struct{}
 type CommitTaskHandler struct {
 	repo     domain.ScheduleRepository
 	todoRepo todoDomain.TodoRepository
-	uow      application.UnitOfWork
 }
 
 var _ application.RequestHandler[CommitTaskCommand, CommitTaskResponse] = (*CommitTaskHandler)(nil)
@@ -32,12 +31,10 @@ var _ application.RequestHandler[CommitTaskCommand, CommitTaskResponse] = (*Comm
 func NewCommitTaskHandler(
 	repo domain.ScheduleRepository,
 	todoRepo todoDomain.TodoRepository,
-	uow application.UnitOfWork,
 ) *CommitTaskHandler {
 	return &CommitTaskHandler{
 		repo:     repo,
 		todoRepo: todoRepo,
-		uow:      uow,
 	}
 }
 
@@ -53,30 +50,23 @@ func (h *CommitTaskHandler) Handle(ctx context.Context, cmd CommitTaskCommand) (
 		return CommitTaskResponse{}, err
 	}
 
-	err = h.uow.Execute(ctx, func(ctx context.Context) error {
-		_, err := h.todoRepo.FindByID(ctx, todoID)
-		if err != nil {
-			return err
-		}
-
-		s, err := h.repo.FindByUserAndDate(ctx, userID, date)
-		if err != nil {
-			if errors.Is(err, domain.ErrScheduleNotFound) {
-				s, _ = domain.NewDailySchedule(userID, date, 10)
-			} else {
-				return err
-			}
-		}
-
-		if err := s.CommitTask(todoID, cost); err != nil {
-			return err
-		}
-
-		return h.repo.Save(ctx, s)
-	})
+	_, err = h.todoRepo.FindByID(ctx, todoID)
 	if err != nil {
 		return CommitTaskResponse{}, err
 	}
 
-	return CommitTaskResponse{}, nil
+	s, err := h.repo.FindByUserAndDate(ctx, userID, date)
+	if err != nil {
+		if errors.Is(err, domain.ErrScheduleNotFound) {
+			s, _ = domain.NewDailySchedule(userID, date, 10)
+		} else {
+			return CommitTaskResponse{}, err
+		}
+	}
+
+	if err := s.CommitTask(todoID, cost); err != nil {
+		return CommitTaskResponse{}, err
+	}
+
+	return CommitTaskResponse{}, h.repo.Save(ctx, s)
 }

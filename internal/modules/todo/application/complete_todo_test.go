@@ -13,6 +13,7 @@ import (
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedDomain "github.com/danicc097/todo-ddd-example/internal/shared/domain"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
@@ -32,7 +33,7 @@ func TestCompleteTodoUseCase_Integration(t *testing.T) {
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
 	uow = sharedPg.NewUnitOfWork(pool)
 
-	handler := application.NewCompleteTodoHandler(repo, wsProv, uow)
+	handler := sharedApp.WithUoW(application.NewCompleteTodoHandler(repo, wsProv), uow)
 
 	t.Run("completes", func(t *testing.T) {
 		user := fixtures.RandomUser(ctx, t)

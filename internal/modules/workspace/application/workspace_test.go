@@ -14,6 +14,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testfixtures"
@@ -37,7 +38,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 
 		ctx := causation.WithMetadata(ctx, causation.Metadata{UserID: owner.ID().UUID()})
 
-		handler := application.NewOnboardWorkspaceHandler(repo, up, uow)
+		handler := sharedApp.WithUoW(application.NewOnboardWorkspaceHandler(repo, up), uow)
 
 		cmd := application.OnboardWorkspaceCommand{
 			Name: "Test Corp " + uuid.New().String(),
@@ -63,7 +64,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		require.NoError(t, ws.AddMember(member.ID(), wsDomain.RoleMember))
 		require.NoError(t, repo.Save(ctx, ws))
 
-		handler := application.NewRemoveWorkspaceMemberHandler(repo, uow)
+		handler := sharedApp.WithUoW(application.NewRemoveWorkspaceMemberHandler(repo), uow)
 
 		cmd := application.RemoveWorkspaceMemberCommand{
 			WorkspaceID: ws.ID(),
@@ -82,7 +83,7 @@ func TestWorkspaceUseCases_Integration(t *testing.T) {
 		owner := fixtures.RandomUser(ctx, t)
 		ws := fixtures.RandomWorkspace(ctx, t, owner.ID())
 
-		handler := application.NewDeleteWorkspaceHandler(repo, uow)
+		handler := sharedApp.WithUoW(application.NewDeleteWorkspaceHandler(repo), uow)
 
 		cmd := application.DeleteWorkspaceCommand{ID: ws.ID()}
 

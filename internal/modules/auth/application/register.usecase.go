@@ -7,7 +7,6 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
-	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 )
 
 type RegisterCommand struct {
@@ -24,20 +23,17 @@ type RegisterHandler struct {
 	userRepo userDomain.UserRepository
 	authRepo domain.AuthRepository
 	hasher   domain.PasswordHasher
-	uow      sharedApp.UnitOfWork
 }
 
 func NewRegisterHandler(
 	userRepo userDomain.UserRepository,
 	authRepo domain.AuthRepository,
 	hasher domain.PasswordHasher,
-	uow sharedApp.UnitOfWork,
 ) *RegisterHandler {
 	return &RegisterHandler{
 		userRepo: userRepo,
 		authRepo: authRepo,
 		hasher:   hasher,
-		uow:      uow,
 	}
 }
 
@@ -61,14 +57,11 @@ func (h *RegisterHandler) Handle(ctx context.Context, cmd RegisterCommand) (Regi
 	user := userDomain.NewUser(email, name)
 	auth := domain.NewUserAuth(user.ID(), hash)
 
-	err = h.uow.Execute(ctx, func(ctx context.Context) error {
-		if err := h.userRepo.Save(ctx, user); err != nil {
-			return err
-		}
+	if err := h.userRepo.Save(ctx, user); err != nil {
+		return RegisterUserResponse{}, err
+	}
 
-		return h.authRepo.Save(ctx, auth)
-	})
-	if err != nil {
+	if err := h.authRepo.Save(ctx, auth); err != nil {
 		return RegisterUserResponse{}, err
 	}
 

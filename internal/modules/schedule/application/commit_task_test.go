@@ -32,7 +32,7 @@ func TestCommitTaskHandler_Handle_Integration(t *testing.T) {
 	todoRepo := todoPg.NewTodoRepo(pool, uow)
 
 	handler := sharedApp.Retry(
-		application.NewCommitTaskHandler(scheduleRepo, todoRepo, uow),
+		sharedApp.WithUoW(application.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
 		3,
 	)
 
@@ -92,7 +92,7 @@ func TestCommitTaskHandler_Handle_Concurrency(t *testing.T) {
 	todoRepo := todoPg.NewTodoRepo(pool, uow)
 
 	handler := sharedApp.Retry(
-		application.NewCommitTaskHandler(scheduleRepo, todoRepo, uow),
+		sharedApp.WithUoW(application.NewCommitTaskHandler(scheduleRepo, todoRepo), uow),
 		10,
 	)
 

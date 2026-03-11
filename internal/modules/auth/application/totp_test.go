@@ -19,6 +19,7 @@ import (
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
+	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	"github.com/danicc097/todo-ddd-example/internal/shared/causation"
 	sharedPg "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/postgres"
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
@@ -45,7 +46,7 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	uniqueEmail := fmt.Sprintf("auth-%s@example.com", uuid.New().String()[:8])
 
-	registerHandler := application.NewRegisterHandler(userRepo, authRepo, hasher, sharedPg.NewUnitOfWork(pool))
+	registerHandler := sharedApp.WithUoW(application.NewRegisterHandler(userRepo, authRepo, hasher), uow)
 
 	registerResp, err := registerHandler.Handle(ctx, application.RegisterCommand{
 		Email:    uniqueEmail,
