@@ -11,18 +11,11 @@ import (
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type AuthUseCases struct {
-	Login        sharedApp.RequestHandler[application.LoginCommand, application.LoginResponse]
-	Register     sharedApp.RequestHandler[application.RegisterCommand, application.RegisterUserResponse]
-	InitiateTOTP sharedApp.RequestHandler[sharedApp.Void, string]
-	VerifyTOTP   sharedApp.RequestHandler[application.VerifyTOTPCommand, application.VerifyTOTPResponse]
-}
-
 type AuthHandler struct {
-	uc AuthUseCases
+	uc application.AuthUseCases
 }
 
-func NewAuthHandler(uc AuthUseCases) *AuthHandler {
+func NewAuthHandler(uc application.AuthUseCases) *AuthHandler {
 	return &AuthHandler{uc: uc}
 }
 

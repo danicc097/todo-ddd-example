@@ -10,26 +10,25 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	authApp "github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
-	authHttp "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/http"
+	authDomain "github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	scheduleApp "github.com/danicc097/todo-ddd-example/internal/modules/schedule/application"
-	scheduleHttp "github.com/danicc097/todo-ddd-example/internal/modules/schedule/infrastructure/http"
+	scheduleDomain "github.com/danicc097/todo-ddd-example/internal/modules/schedule/domain"
 	schedulePg "github.com/danicc097/todo-ddd-example/internal/modules/schedule/infrastructure/postgres"
 	todoApp "github.com/danicc097/todo-ddd-example/internal/modules/todo/application"
+	todoDomain "github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	todoDecorator "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/decorator"
-	todoHttp "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/http"
 	todoPg "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/postgres"
 	todoRedis "github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/redis"
-	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	userApp "github.com/danicc097/todo-ddd-example/internal/modules/user/application"
+	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	userAdapters "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/adapters"
-	userHttp "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/http"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
 	wsApp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
+	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
 	wsAdapters "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/adapters"
 	wsDecorator "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/decorator"
-	wsHttp "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/http"
 	wsPg "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/postgres"
 	wsRedis "github.com/danicc097/todo-ddd-example/internal/modules/workspace/infrastructure/redis"
 	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
@@ -37,189 +36,111 @@ import (
 )
 
 type Services struct {
-	TodoHandler      *todoHttp.TodoHandler
-	UserHandler      *userHttp.UserHandler
-	WorkspaceHandler *wsHttp.WorkspaceHandler
-	AuthHandler      *authHttp.AuthHandler
-	ScheduleHandler  *scheduleHttp.ScheduleHandler
+	Todo      todoApp.TodoUseCases
+	Workspace wsApp.WorkspaceUseCases
+	Auth      authApp.AuthUseCases
+	Schedule  scheduleApp.ScheduleUseCases
 
-	TodoRepo              *todoPg.TodoRepo
-	ScheduleRepo          *schedulePg.ScheduleRepo
-	TokenProvider         *crypto.TokenProvider
-	WorkspaceQueryService wsApp.WorkspaceQueryService
+	UserQuery      *userApp.GetUserUseCase
+	TodoQuery      todoApp.TodoQueryService
+	WorkspaceQuery wsApp.WorkspaceQueryService
+
+	ScheduleRepo  scheduleDomain.ScheduleRepository
+	TokenProvider *crypto.TokenProvider
 }
 
-func NewServices(ctx context.Context, cfg *internal.AppConfig, container *Container) (*Services, error) {
-	uow := sharedPg.NewUnitOfWork(container.Pool)
+func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (*Services, error) {
+	uow, svcName := sharedPg.NewUnitOfWork(cnt.Pool), messaging.Keys.ServiceName()
+	tokenProvider, _ := crypto.NewTokenProvider("private.pem", "public.pem", svcName)
+	hasher, audit, totp := crypto.NewArgon2PasswordHasher(), auditMem.NewAuditRepository(), authRedis.NewTOTPGuard(cnt.Redis)
 
-	baseTodoRepo := todoPg.NewTodoRepo(container.Pool, uow)
-	todoCodec := todoRedis.NewTodoCacheCodec()
-	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(
-		baseTodoRepo,
-		container.Redis,
-		5*time.Minute,
-		todoCodec,
-	)
-	todoRepo := todoPg.NewTodoRepositoryWithTracing(cachedTodoRepo, messaging.Keys.ServiceName())
+	/** Repositories **/
+	userRepo := sharedApp.Apply(userDomain.UserRepository(userPg.NewUserRepo(cnt.Pool, uow)),
+		func(r userDomain.UserRepository) userDomain.UserRepository {
+			return userPg.NewUserRepositoryWithTracing(r, svcName)
+		})
 
-	baseTagRepo := todoPg.NewTagRepo(container.Pool)
-	tagCodec := todoRedis.NewTagCacheCodec()
-	cachedTagRepo := todoDecorator.NewTagRepositoryCache(
-		baseTagRepo,
-		container.Redis,
-		60*time.Minute,
-		tagCodec,
-	)
-	tagRepo := todoPg.NewTagRepositoryWithTracing(cachedTagRepo, messaging.Keys.ServiceName())
+	authRepo := sharedApp.Apply(authDomain.AuthRepository(authPg.NewAuthRepo(cnt.Pool, uow)),
+		func(r authDomain.AuthRepository) authDomain.AuthRepository {
+			return authPg.NewAuthRepositoryWithTracing(r, svcName)
+		})
 
-	baseUserRepo := userPg.NewUserRepo(container.Pool, uow)
-	userRepo := userPg.NewUserRepositoryWithTracing(baseUserRepo, messaging.Keys.ServiceName())
+	todoRepo := sharedApp.Apply(todoDomain.TodoRepository(todoPg.NewTodoRepo(cnt.Pool, uow)),
+		func(r todoDomain.TodoRepository) todoDomain.TodoRepository {
+			return todoDecorator.NewTodoRepositoryCache(r, cnt.Redis, 5*time.Minute, todoRedis.NewTodoCacheCodec())
+		},
+		func(r todoDomain.TodoRepository) todoDomain.TodoRepository {
+			return todoPg.NewTodoRepositoryWithTracing(r, svcName)
+		})
 
-	auditRepo := auditMem.NewAuditRepository()
-	baseWsRepo := wsPg.NewWorkspaceRepo(container.Pool, uow)
-	wsCodec := wsRedis.NewWorkspaceCacheCodec()
-	cachedWsRepo := wsDecorator.NewWorkspaceRepositoryCache(
-		baseWsRepo,
-		container.Redis,
-		10*time.Minute,
-		wsCodec,
-	)
-	auditedWsRepo := wsDecorator.NewWorkspaceAuditWrapper(cachedWsRepo, auditRepo)
-	wsRepo := wsPg.NewWorkspaceRepositoryWithTracing(auditedWsRepo, messaging.Keys.ServiceName())
+	tagRepo := sharedApp.Apply(todoDomain.TagRepository(todoPg.NewTagRepo(cnt.Pool)),
+		func(r todoDomain.TagRepository) todoDomain.TagRepository {
+			return todoDecorator.NewTagRepositoryCache(r, cnt.Redis, 60*time.Minute, todoRedis.NewTagCacheCodec())
+		},
+		func(r todoDomain.TagRepository) todoDomain.TagRepository {
+			return todoPg.NewTagRepositoryWithTracing(r, svcName)
+		})
 
-	tokenProvider, err := crypto.NewTokenProvider("private.pem", "public.pem", messaging.Keys.ServiceName())
-	if err != nil {
-		return nil, err
-	}
+	wsRepo := sharedApp.Apply(wsDomain.WorkspaceRepository(wsPg.NewWorkspaceRepo(cnt.Pool, uow)),
+		func(r wsDomain.WorkspaceRepository) wsDomain.WorkspaceRepository {
+			return wsDecorator.NewWorkspaceRepositoryCache(r, cnt.Redis, 10*time.Minute, wsRedis.NewWorkspaceCacheCodec())
+		},
+		func(r wsDomain.WorkspaceRepository) wsDomain.WorkspaceRepository {
+			return wsDecorator.NewWorkspaceAuditWrapper(r, audit)
+		},
+		func(r wsDomain.WorkspaceRepository) wsDomain.WorkspaceRepository {
+			return wsPg.NewWorkspaceRepositoryWithTracing(r, svcName)
+		})
 
-	baseAuthRepo := authPg.NewAuthRepo(container.Pool, uow)
-	authRepo := authPg.NewAuthRepositoryWithTracing(baseAuthRepo, messaging.Keys.ServiceName())
+	scheduleRepo := sharedApp.Apply(scheduleDomain.ScheduleRepository(schedulePg.NewScheduleRepo(cnt.Pool, uow)),
+		func(r scheduleDomain.ScheduleRepository) scheduleDomain.ScheduleRepository { return r })
 
-	masterKey := []byte(cfg.MFAMasterKey)
-	totpGuard := authRedis.NewTOTPGuard(container.Redis)
+	/** Query **/
+	wsQuery := sharedApp.Apply(wsPg.NewWorkspaceQueryService(cnt.Pool),
+		func(qs wsApp.WorkspaceQueryService) wsApp.WorkspaceQueryService {
+			return wsPg.NewWorkspaceQueryServiceWithTracing(qs, svcName)
+		})
 
-	getUserUC := userApp.NewGetUserUseCase(userRepo)
+	todoQuery := sharedApp.Apply(todoPg.NewTodoQueryService(cnt.Pool),
+		func(qs todoApp.TodoQueryService) todoApp.TodoQueryService {
+			return todoDecorator.NewTodoQueryServiceCache(qs, cnt.Redis, 5*time.Minute, cache.NewMsgpackCodec[*todoApp.TodoReadModel]())
+		},
+		func(qs todoApp.TodoQueryService) todoApp.TodoQueryService {
+			return todoPg.NewTodoQueryServiceWithTracing(qs, svcName)
+		})
 
-	wsUserProvider := userAdapters.NewWorkspaceUserProvider(userRepo)
-
-	onboardWsHandler := sharedApp.NewCommandDecoratorBuilder(
-		wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProvider), uow, "onboard-workspace",
-	).Build()
-	addWsMemberHandler := sharedApp.NewCommandDecoratorBuilder(
-		wsApp.NewAddWorkspaceMemberHandler(wsRepo), uow, "add-workspace-member",
-	).Build()
-	removeWsMemberHandler := sharedApp.NewCommandDecoratorBuilder(
-		wsApp.NewRemoveWorkspaceMemberHandler(wsRepo), uow, "remove-workspace-member",
-	).Build()
-	deleteWsHandler := sharedApp.NewCommandDecoratorBuilder(
-		wsApp.NewDeleteWorkspaceHandler(wsRepo), uow, "delete-workspace",
-	).Build()
-
-	baseWorkspaceQueryService := wsPg.NewWorkspaceQueryService(container.Pool)
-	workspaceQueryService := wsPg.NewWorkspaceQueryServiceWithTracing(baseWorkspaceQueryService, messaging.Keys.ServiceName())
-
+	/** Wiring **/
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)
-
-	hub := ws.NewTodoHub(container.Redis, workspaceQueryService)
-
-	createTodoHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewCreateTodoHandler(todoRepo, wsProv), uow, "create-todo",
-	).Build()
-	completeTodoHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewCompleteTodoHandler(todoRepo, wsProv), uow, "complete-todo",
-	).Build()
-	createTagHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewCreateTagHandler(tagRepo), uow, "create-tag",
-	).Build()
-	assignTagToTodoHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo), uow, "assign-tag-to-todo",
-	).Build()
-	startFocusHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewStartFocusHandler(todoRepo, wsProv), uow, "start-focus",
-	).Build()
-	stopFocusHandler := sharedApp.NewCommandDecoratorBuilder(
-		todoApp.NewStopFocusHandler(todoRepo, wsProv), uow, "stop-focus",
-	).Build()
-
-	scheduleRepo := schedulePg.NewScheduleRepo(container.Pool, uow)
-	commitTaskHandler := sharedApp.NewCommandDecoratorBuilder(
-		scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow, "commit-task",
-	).WithRetryOnConflict(3).Build()
-
-	baseTodoQueryService := todoPg.NewTodoQueryService(container.Pool)
-	todoReadModelCodec := cache.NewMsgpackCodec[*todoApp.TodoReadModel]()
-	cachedTodoQueryService := todoDecorator.NewTodoQueryServiceCache(
-		baseTodoQueryService,
-		container.Redis,
-		5*time.Minute,
-		todoReadModelCodec,
-	)
-	todoQueryService := todoPg.NewTodoQueryServiceWithTracing(cachedTodoQueryService, messaging.Keys.ServiceName())
-
-	passwordHasher := crypto.NewArgon2PasswordHasher()
-
-	loginHandler := sharedApp.NewDecoratorBuilder(authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, passwordHasher)).
-		WithLogging("login").
-		Build()
-	registerHandler := sharedApp.NewCommandDecoratorBuilder(
-		authApp.NewRegisterHandler(userRepo, authRepo, passwordHasher), uow, "register",
-	).Build()
-	initiateTOTPHandler := sharedApp.NewCommandDecoratorBuilder(
-		authApp.NewInitiateTOTPHandler(authRepo, masterKey), uow, "initiate-totp",
-	).Build()
-	verifyTOTPHandler := sharedApp.NewCommandDecoratorBuilder(
-		authApp.NewVerifyTOTPHandler(authRepo, totpGuard, tokenProvider.Issuer, masterKey), uow, "verify-totp",
-	).Build()
-
-	th := todoHttp.NewTodoHandler(
-		todoHttp.TodoUseCases{
-			CreateTodo: createTodoHandler,
-			Complete:   completeTodoHandler,
-			CreateTag:  createTagHandler,
-			AssignTag:  assignTagToTodoHandler,
-			StartFocus: startFocusHandler,
-			StopFocus:  stopFocusHandler,
-		},
-		todoQueryService,
-		hub,
-		container.Redis,
-	)
-
-	uh := userHttp.NewUserHandler(
-		getUserUC,
-		workspaceQueryService,
-	)
-
-	wh := wsHttp.NewWorkspaceHandler(
-		wsHttp.WorkspaceUseCases{
-			Onboard:      onboardWsHandler,
-			AddMember:    addWsMemberHandler,
-			RemoveMember: removeWsMemberHandler,
-			Delete:       deleteWsHandler,
-		},
-		workspaceQueryService,
-	)
-
-	ah := authHttp.NewAuthHandler(authHttp.AuthUseCases{
-		Login:        loginHandler,
-		Register:     registerHandler,
-		InitiateTOTP: initiateTOTPHandler,
-		VerifyTOTP:   verifyTOTPHandler,
-	})
-
-	sh := scheduleHttp.NewScheduleHandler(scheduleHttp.ScheduleUseCases{
-		CommitTask: commitTaskHandler,
-	})
+	wsUserProv := userAdapters.NewWorkspaceUserProvider(userRepo)
 
 	return &Services{
-		TodoHandler:           th,
-		UserHandler:           uh,
-		WorkspaceHandler:      wh,
-		AuthHandler:           ah,
-		ScheduleHandler:       sh,
-		TodoRepo:              baseTodoRepo,
-		ScheduleRepo:          scheduleRepo,
-		TokenProvider:         tokenProvider,
-		WorkspaceQueryService: workspaceQueryService,
+		Todo: todoApp.TodoUseCases{
+			CreateTodo: sharedApp.BuildCommand(todoApp.NewCreateTodoHandler(todoRepo, wsProv), uow, "create-todo"),
+			Complete:   sharedApp.BuildCommand(todoApp.NewCompleteTodoHandler(todoRepo, wsProv), uow, "complete-todo"),
+			CreateTag:  sharedApp.BuildCommand(todoApp.NewCreateTagHandler(tagRepo), uow, "create-tag"),
+			AssignTag:  sharedApp.BuildCommand(todoApp.NewAssignTagToTodoHandler(todoRepo, tagRepo), uow, "assign-tag-to-todo"),
+			StartFocus: sharedApp.BuildCommand(todoApp.NewStartFocusHandler(todoRepo, wsProv), uow, "start-focus"),
+			StopFocus:  sharedApp.BuildCommand(todoApp.NewStopFocusHandler(todoRepo, wsProv), uow, "stop-focus"),
+		},
+		Workspace: wsApp.WorkspaceUseCases{
+			Onboard:      sharedApp.BuildCommand(wsApp.NewOnboardWorkspaceHandler(wsRepo, wsUserProv), uow, "onboard-workspace"),
+			AddMember:    sharedApp.BuildCommand(wsApp.NewAddWorkspaceMemberHandler(wsRepo), uow, "add-workspace-member"),
+			RemoveMember: sharedApp.BuildCommand(wsApp.NewRemoveWorkspaceMemberHandler(wsRepo), uow, "remove-workspace-member"),
+			Delete:       sharedApp.BuildCommand(wsApp.NewDeleteWorkspaceHandler(wsRepo), uow, "delete-workspace"),
+		},
+		Auth: authApp.AuthUseCases{
+			Login:        sharedApp.BuildQuery(authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, hasher), "login"),
+			Register:     sharedApp.BuildCommand(authApp.NewRegisterHandler(userRepo, authRepo, hasher), uow, "register"),
+			InitiateTOTP: sharedApp.BuildCommand(authApp.NewInitiateTOTPHandler(authRepo, []byte(cfg.MFAMasterKey)), uow, "initiate-totp"),
+			VerifyTOTP:   sharedApp.BuildCommand(authApp.NewVerifyTOTPHandler(authRepo, totp, tokenProvider.Issuer, []byte(cfg.MFAMasterKey)), uow, "verify-totp"),
+		},
+		Schedule: scheduleApp.ScheduleUseCases{
+			CommitTask: sharedApp.BuildCommand(scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow, "commit-task"),
+		},
+		UserQuery:      userApp.NewGetUserUseCase(userRepo),
+		TodoQuery:      todoQuery,
+		WorkspaceQuery: wsQuery,
+		ScheduleRepo:   scheduleRepo,
+		TokenProvider:  tokenProvider,
 	}, nil
 }

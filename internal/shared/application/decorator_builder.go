@@ -40,10 +40,36 @@ func (b *DecoratorBuilder[C, R]) Build() RequestHandler[C, R] {
 	return b.handler
 }
 
+func BuildCommand[C any, R any](h RequestHandler[C, R], uow UnitOfWork, name string) RequestHandler[C, R] {
+	return NewCommandDecoratorBuilder(h, uow, name).Build()
+}
+
+func BuildQuery[C any, R any](h RequestHandler[C, R], name string) RequestHandler[C, R] {
+	return NewQueryDecoratorBuilder(h, name).Build()
+}
+
+type Decorator[T any] func(T) T
+
+// Apply is a generic helper to stack decorators.
+func Apply[T any](base T, decorators ...Decorator[T]) T {
+	for _, d := range decorators {
+		base = d(base)
+	}
+
+	return base
+}
+
 // NewCommandDecoratorBuilder provides a convenient way to create a builder with default decorators for command handlers.
 func NewCommandDecoratorBuilder[C any, R any](base RequestHandler[C, R], uow UnitOfWork, tracerName string) *DecoratorBuilder[C, R] {
 	return NewDecoratorBuilder(base).
 		WithLogging(tracerName).
 		WithValidation().
 		WithUoW(uow)
+}
+
+// NewQueryDecoratorBuilder provides a convenient way to create a builder with default decorators for query handlers.
+func NewQueryDecoratorBuilder[C any, R any](base RequestHandler[C, R], tracerName string) *DecoratorBuilder[C, R] {
+	return NewDecoratorBuilder(base).
+		WithLogging(tracerName).
+		WithValidation()
 }

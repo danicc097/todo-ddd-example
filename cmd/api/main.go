@@ -68,6 +68,8 @@ func run() error {
 		return fmt.Errorf("failed to initialize services: %w", err)
 	}
 
+	handler := infrastructure.NewHandlers(services, container)
+
 	relay := outbox.NewRelay(container.Pool, container.MultiBroker)
 	go relay.Start(ctx)
 
@@ -78,14 +80,6 @@ func run() error {
 
 	for _, c := range closers {
 		defer c.Close()
-	}
-
-	handler := &infrastructure.CompositeHandler{
-		TodoHandler:      services.TodoHandler,
-		UserHandler:      services.UserHandler,
-		WorkspaceHandler: services.WorkspaceHandler,
-		AuthHandler:      services.AuthHandler,
-		ScheduleHandler:  services.ScheduleHandler,
 	}
 
 	r, err := infraHttp.NewRouter(infraHttp.RouterConfig{

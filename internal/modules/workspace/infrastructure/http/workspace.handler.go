@@ -9,23 +9,15 @@ import (
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
-	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type WorkspaceUseCases struct {
-	Onboard      sharedApp.RequestHandler[application.OnboardWorkspaceCommand, application.OnboardWorkspaceResponse]
-	AddMember    sharedApp.RequestHandler[application.AddWorkspaceMemberCommand, application.AddWorkspaceMemberResponse]
-	RemoveMember sharedApp.RequestHandler[application.RemoveWorkspaceMemberCommand, application.RemoveWorkspaceMemberResponse]
-	Delete       sharedApp.RequestHandler[application.DeleteWorkspaceCommand, application.DeleteWorkspaceResponse]
-}
-
 type WorkspaceHandler struct {
-	uc           WorkspaceUseCases
+	uc           application.WorkspaceUseCases
 	queryService application.WorkspaceQueryService
 }
 
-func NewWorkspaceHandler(uc WorkspaceUseCases, qs application.WorkspaceQueryService) *WorkspaceHandler {
+func NewWorkspaceHandler(uc application.WorkspaceUseCases, qs application.WorkspaceQueryService) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		uc:           uc,
 		queryService: qs,

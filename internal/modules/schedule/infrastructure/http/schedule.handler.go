@@ -7,19 +7,14 @@ import (
 
 	api "github.com/danicc097/todo-ddd-example/internal/generated/api"
 	"github.com/danicc097/todo-ddd-example/internal/modules/schedule/application"
-	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type ScheduleUseCases struct {
-	CommitTask sharedApp.RequestHandler[application.CommitTaskCommand, application.CommitTaskResponse]
-}
-
 type ScheduleHandler struct {
-	uc ScheduleUseCases
+	uc application.ScheduleUseCases
 }
 
-func NewScheduleHandler(uc ScheduleUseCases) *ScheduleHandler {
+func NewScheduleHandler(uc application.ScheduleUseCases) *ScheduleHandler {
 	return &ScheduleHandler{uc: uc}
 }
 

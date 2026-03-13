@@ -13,28 +13,18 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/domain"
 	"github.com/danicc097/todo-ddd-example/internal/modules/todo/infrastructure/ws"
 	wsDomain "github.com/danicc097/todo-ddd-example/internal/modules/workspace/domain"
-	sharedApp "github.com/danicc097/todo-ddd-example/internal/shared/application"
 	infraHttp "github.com/danicc097/todo-ddd-example/internal/shared/infrastructure/http"
 )
 
-type TodoUseCases struct {
-	CreateTodo sharedApp.RequestHandler[application.CreateTodoCommand, application.CreateTodoResponse]
-	Complete   sharedApp.RequestHandler[application.CompleteTodoCommand, application.CompleteTodoResponse]
-	CreateTag  sharedApp.RequestHandler[application.CreateTagCommand, application.CreateTagResponse]
-	AssignTag  sharedApp.RequestHandler[application.AssignTagToTodoCommand, application.AssignTagToTodoResponse]
-	StartFocus sharedApp.RequestHandler[application.StartFocusCommand, application.StartFocusResponse]
-	StopFocus  sharedApp.RequestHandler[application.StopFocusCommand, application.StopFocusResponse]
-}
-
 type TodoHandler struct {
-	uc           TodoUseCases
+	uc           application.TodoUseCases
 	queryService application.TodoQueryService
 	hub          *ws.Hub
 	redis        *redis.Client
 }
 
 func NewTodoHandler(
-	uc TodoUseCases,
+	uc application.TodoUseCases,
 	qs application.TodoQueryService,
 	hub *ws.Hub,
 	redis *redis.Client,
