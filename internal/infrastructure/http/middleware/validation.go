@@ -193,6 +193,7 @@ func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.Validatio
 		}
 
 		*detail = append(*detail, api.ValidationError{
+			Ctx: nil,
 			Loc: append([]string{}, baseLoc...),
 			Msg: msg,
 			Detail: api.ValidationErrorDetail{
@@ -224,6 +225,7 @@ func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.Validatio
 		}
 
 		*detail = append(*detail, api.ValidationError{
+			Ctx: nil,
 			Loc: loc,
 			Msg: schemaErr.Reason,
 			Detail: api.ValidationErrorDetail{
@@ -241,6 +243,7 @@ func extractKinOpenApiError(err error, baseLoc []string, detail *[]api.Validatio
 
 	if len(baseLoc) > 0 {
 		*detail = append(*detail, api.ValidationError{
+			Ctx:    nil,
 			Loc:    append([]string{}, baseLoc...),
 			Msg:    err.Error(),
 			Detail: api.ValidationErrorDetail{Value: ""},

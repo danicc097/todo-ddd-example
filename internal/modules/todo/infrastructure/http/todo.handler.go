@@ -117,6 +117,7 @@ func (h *TodoHandler) mapReadModelToAPI(t application.TodoReadModel) api.Todo {
 	}
 
 	return api.Todo{
+		CompletionLogs:     nil,
 		Id:                 t.ID,
 		WorkspaceId:        t.WorkspaceID,
 		Title:              t.Title,

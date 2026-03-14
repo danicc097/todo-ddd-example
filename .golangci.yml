@@ -8,7 +8,6 @@ linters:
     - funcorder
     - bodyclose
     - contextcheck
-    - depguard
     - dupword
     - wrapcheck
     - noinlineerr
@@ -35,6 +34,34 @@ linters:
     - maintidx
     - cyclop
   settings:
+    depguard:
+      rules:
+        domain:
+          files:
+            - "**/internal/modules/**/domain/*.go"
+            - "!**/*_test.go"
+          deny:
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/modules/*/application"
+              desc: "Arch violation: Domain layer cannot depend on the Application layer."
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/modules/*/infrastructure"
+              desc: "Arch violation: Domain layer cannot depend on the Infrastructure layer."
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/infrastructure"
+              desc: "Arch violation: Domain layer cannot depend on global Infrastructure."
+            - pkg: "github.com/gin-gonic/gin"
+              desc: "Arch violation: Domain layer cannot know about HTTP routing."
+            - pkg: "github.com/jackc/pgx"
+              desc: "Arch violation: Domain layer cannot know about the database."
+        application:
+          files:
+            - "**/internal/modules/**/application/*.go"
+            - "!**/*_test.go"
+          deny:
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/modules/*/infrastructure"
+              desc: "Arch violation: Application layer cannot depend on the Infrastructure layer."
+            - pkg: "github.com/gin-gonic/gin"
+              desc: "Arch violation: Application layer cannot know about HTTP routing."
+            - pkg: "github.com/jackc/pgx"
+              desc: "Arch violation: Application layer cannot know about the database."
     revive:
       rules:
         - name: unused-parameter
@@ -136,6 +163,7 @@ linters:
           - err113
           - errcheck
           - errchkjson
+          - exhaustruct
           - funlen
           - lll
           - nonamedreturns
