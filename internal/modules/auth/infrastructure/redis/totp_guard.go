@@ -14,10 +14,10 @@ import (
 var ErrReplayDetected = errors.New("TOTP code has already been used")
 
 type TOTPGuard struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
-func NewTOTPGuard(client *redis.Client) *TOTPGuard {
+func NewTOTPGuard(client redis.UniversalClient) *TOTPGuard {
 	return &TOTPGuard{client: client}
 }
 

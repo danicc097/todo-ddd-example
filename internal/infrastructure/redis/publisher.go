@@ -14,12 +14,12 @@ import (
 )
 
 type Publisher struct {
-	client *redis.Client
+	client redis.UniversalClient
 }
 
 var _ messaging.Broker = (*Publisher)(nil)
 
-func NewPublisher(client *redis.Client) *Publisher {
+func NewPublisher(client redis.UniversalClient) *Publisher {
 	return &Publisher{client: client}
 }
 

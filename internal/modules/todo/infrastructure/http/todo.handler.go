@@ -20,14 +20,14 @@ type TodoHandler struct {
 	uc           application.TodoUseCases
 	queryService application.TodoQueryService
 	hub          *ws.Hub
-	redis        *redis.Client
+	redis        redis.UniversalClient
 }
 
 func NewTodoHandler(
 	uc application.TodoUseCases,
 	qs application.TodoQueryService,
 	hub *ws.Hub,
-	redis *redis.Client,
+	redis redis.UniversalClient,
 ) *TodoHandler {
 	return &TodoHandler{
 		uc:           uc,

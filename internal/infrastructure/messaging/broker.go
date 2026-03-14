@@ -34,7 +34,7 @@ func NewMultiBroker(b ...Broker) *MultiBroker {
 	return &MultiBroker{brokers: b}
 }
 
-// Publish delegates to all brokers. It does not implement the Broker interface.
+// Publish delegates to all brokers.
 func (m *MultiBroker) Publish(ctx context.Context, args PublishArgs) error {
 	for _, b := range m.brokers {
 		if err := b.Publish(ctx, args); err != nil {

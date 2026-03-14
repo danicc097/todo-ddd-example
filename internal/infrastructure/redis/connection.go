@@ -9,8 +9,10 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
 
-func NewClient(addr string) *redis.Client {
-	client := redis.NewClient(&redis.Options{Addr: addr})
+func NewClient(addr string) redis.UniversalClient {
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs: []string{addr},
+	})
 
 	if err := redisotel.InstrumentTracing(client,
 		redisotel.WithAttributes(

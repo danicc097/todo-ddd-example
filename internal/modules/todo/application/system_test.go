@@ -74,7 +74,7 @@ func (c *eventCatcher) HasRedis(snippet string) bool {
 
 type testEnv struct {
 	pool         *pgxpool.Pool
-	rdb          *redis.Client
+	rdb          redis.UniversalClient
 	rmqConn      *rabbitmq.Conn
 	fixtures     *testfixtures.Fixtures
 	exchangeName string
@@ -140,11 +140,12 @@ func TestSystem_Integration(t *testing.T) {
 	uow := sharedPg.NewUnitOfWork(env.pool)
 	baseTodoRepo := todoPg.NewTodoRepo(env.pool, uow)
 	todoCodec := todoRedis.NewTodoCacheCodec()
-	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(baseTodoRepo, env.rdb, 5*time.Minute, todoCodec)
+	cacheStore := infraRedis.NewCacheStore(env.rdb)
+	cachedTodoRepo := todoDecorator.NewTodoRepositoryCache(baseTodoRepo, cacheStore, 5*time.Minute, todoCodec)
 
 	baseQueryService := todoPg.NewTodoQueryService(env.pool)
 	queryModelCodec := cache.NewMsgpackCodec[*application.TodoReadModel]()
-	cachedQueryService := todoDecorator.NewTodoQueryServiceCache(baseQueryService, env.rdb, 5*time.Minute, queryModelCodec)
+	cachedQueryService := todoDecorator.NewTodoQueryServiceCache(baseQueryService, cacheStore, 5*time.Minute, queryModelCodec)
 
 	wsRepo := wsPg.NewWorkspaceRepo(env.pool, uow)
 	wsProv := wsAdapters.NewTodoWorkspaceProvider(wsRepo)

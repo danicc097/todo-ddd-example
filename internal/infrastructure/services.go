@@ -8,6 +8,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/cache"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
+	infraRedis "github.com/danicc097/todo-ddd-example/internal/infrastructure/redis"
 	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	authApp "github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	authDomain "github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
@@ -53,6 +54,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 	uow, svcName := sharedPg.NewUnitOfWork(cnt.Pool), messaging.Keys.ServiceName()
 	tokenProvider, _ := crypto.NewTokenProvider("private.pem", "public.pem", svcName)
 	hasher, audit, totp := crypto.NewArgon2PasswordHasher(), auditMem.NewAuditRepository(), authRedis.NewTOTPGuard(cnt.Redis)
+	cacheStore := infraRedis.NewCacheStore(cnt.Redis)
 
 	/** Repositories **/
 	userRepo := sharedApp.Apply(userDomain.UserRepository(userPg.NewUserRepo(cnt.Pool, uow)),
@@ -67,7 +69,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 
 	todoRepo := sharedApp.Apply(todoDomain.TodoRepository(todoPg.NewTodoRepo(cnt.Pool, uow)),
 		func(r todoDomain.TodoRepository) todoDomain.TodoRepository {
-			return todoDecorator.NewTodoRepositoryCache(r, cnt.Redis, 5*time.Minute, todoRedis.NewTodoCacheCodec())
+			return todoDecorator.NewTodoRepositoryCache(r, cacheStore, 5*time.Minute, todoRedis.NewTodoCacheCodec())
 		},
 		func(r todoDomain.TodoRepository) todoDomain.TodoRepository {
 			return todoPg.NewTodoRepositoryWithTracing(r, svcName)
@@ -75,7 +77,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 
 	tagRepo := sharedApp.Apply(todoDomain.TagRepository(todoPg.NewTagRepo(cnt.Pool)),
 		func(r todoDomain.TagRepository) todoDomain.TagRepository {
-			return todoDecorator.NewTagRepositoryCache(r, cnt.Redis, 60*time.Minute, todoRedis.NewTagCacheCodec())
+			return todoDecorator.NewTagRepositoryCache(r, cacheStore, 60*time.Minute, todoRedis.NewTagCacheCodec())
 		},
 		func(r todoDomain.TagRepository) todoDomain.TagRepository {
 			return todoPg.NewTagRepositoryWithTracing(r, svcName)
@@ -83,7 +85,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 
 	wsRepo := sharedApp.Apply(wsDomain.WorkspaceRepository(wsPg.NewWorkspaceRepo(cnt.Pool, uow)),
 		func(r wsDomain.WorkspaceRepository) wsDomain.WorkspaceRepository {
-			return wsDecorator.NewWorkspaceRepositoryCache(r, cnt.Redis, 10*time.Minute, wsRedis.NewWorkspaceCacheCodec())
+			return wsDecorator.NewWorkspaceRepositoryCache(r, cacheStore, 10*time.Minute, wsRedis.NewWorkspaceCacheCodec())
 		},
 		func(r wsDomain.WorkspaceRepository) wsDomain.WorkspaceRepository {
 			return wsDecorator.NewWorkspaceAuditWrapper(r, audit)
@@ -103,7 +105,7 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 
 	todoQuery := sharedApp.Apply(todoPg.NewTodoQueryService(cnt.Pool),
 		func(qs todoApp.TodoQueryService) todoApp.TodoQueryService {
-			return todoDecorator.NewTodoQueryServiceCache(qs, cnt.Redis, 5*time.Minute, cache.NewMsgpackCodec[*todoApp.TodoReadModel]())
+			return todoDecorator.NewTodoQueryServiceCache(qs, cacheStore, 5*time.Minute, cache.NewMsgpackCodec[*todoApp.TodoReadModel]())
 		},
 		func(qs todoApp.TodoQueryService) todoApp.TodoQueryService {
 			return todoPg.NewTodoQueryServiceWithTracing(qs, svcName)

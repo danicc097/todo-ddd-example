@@ -136,7 +136,7 @@ type Hub struct {
 	unregister   chan *Client
 	broadcast    chan broadcastMessage
 	pubsubCmds   chan pubsubCmd
-	redis        *redis.Client
+	redis        redis.UniversalClient
 	permProvider PermissionProvider
 	stop         chan struct{}
 	wg           sync.WaitGroup
@@ -149,7 +149,7 @@ type Config struct {
 	WorkspaceChannelPrefix string
 }
 
-func NewHub(r *redis.Client, pp PermissionProvider, cfg Config) *Hub {
+func NewHub(r redis.UniversalClient, pp PermissionProvider, cfg Config) *Hub {
 	h := &Hub{
 		clients:      make(map[*Client]bool),
 		rooms:        make(map[uuid.UUID]map[*Client]bool),

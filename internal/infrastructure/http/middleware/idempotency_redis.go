@@ -44,7 +44,7 @@ return current_val
 
 // RedisIdempotency implements Redis-backed idempotency.
 // NOTE: requires at least redis.conf appendonly yes and appendfsync everysec for almost same guarantees as db equivalent mw.
-func RedisIdempotency(rdb *redis.Client) gin.HandlerFunc {
+func RedisIdempotency(rdb redis.UniversalClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead {
 			c.Next()

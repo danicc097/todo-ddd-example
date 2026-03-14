@@ -73,7 +73,7 @@ func newRedisContainer(ctx context.Context) (*RedisContainer, error) {
 	}, nil
 }
 
-func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) *redis.Client {
+func (r *RedisContainer) Connect(ctx context.Context, t *testing.T) redis.UniversalClient {
 	t.Helper()
 
 	var (

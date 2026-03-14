@@ -26,7 +26,7 @@ import (
 type RouterConfig struct {
 	Env           internal.AppEnv
 	Pool          *pgxpool.Pool
-	Redis         *redis.Client
+	Redis         redis.UniversalClient
 	TokenVerifier *crypto.TokenVerifier
 	Handler       api.ServerInterface
 	WSHandler     gin.HandlerFunc

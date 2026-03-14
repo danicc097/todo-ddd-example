@@ -11,7 +11,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/modules/workspace/application"
 )
 
-func NewTodoHub(r *redis.Client, wsQuery application.WorkspaceQueryService) *Hub {
+func NewTodoHub(r redis.UniversalClient, wsQuery application.WorkspaceQueryService) *Hub {
 	permProvider := func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
 		workspaces, err := wsQuery.ListByUserID(ctx, userDomain.UserID(userID))
 		if err != nil {

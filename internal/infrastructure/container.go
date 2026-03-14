@@ -17,7 +17,7 @@ import (
 
 type Container struct {
 	Pool        *pgxpool.Pool
-	Redis       *redis.Client
+	Redis       redis.UniversalClient
 	MQConn      *rabbitmq.Conn
 	MultiBroker infraMessaging.Broker
 }

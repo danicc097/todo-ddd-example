@@ -2,9 +2,10 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -20,7 +21,7 @@ var (
 
 func GetOrFetch[T any](
 	ctx context.Context,
-	rdb *redis.Client,
+	store Store,
 	key string,
 	ttl time.Duration,
 	codec Codec[T],
@@ -32,12 +33,14 @@ func GetOrFetch[T any](
 	))
 	defer span.End()
 
-	val, err := rdb.Get(ctx, key).Bytes()
+	val, err := store.Get(ctx, key)
 	if err == nil {
 		if decoded, decodeErr := codec.Unmarshal(val); decodeErr == nil {
 			span.SetAttributes(attribute.Bool("cache.hit", true))
 			return decoded, nil
 		}
+	} else if !errors.Is(err, ErrCacheMiss) {
+		slog.WarnContext(ctx, "cache get failed", slog.String("key", key), slog.String("error", err.Error()))
 	}
 
 	span.SetAttributes(attribute.Bool("cache.hit", false))
@@ -63,35 +66,9 @@ func GetOrFetch[T any](
 			bgCtx, asyncSpan := tracer.Start(bgCtx, "cache.async_update", trace.WithSpanKind(trace.SpanKindInternal))
 			defer asyncSpan.End()
 
-			rdb.Set(bgCtx, key, b, ttl)
-
-			for _, tag := range tags {
-				tagKey := Keys.TagSet(tag)
-				rdb.SAdd(bgCtx, tagKey, key)
-
-				if ttl > 0 {
-					rdb.Expire(bgCtx, tagKey, ttl)
-				}
-			}
+			_ = store.Set(bgCtx, key, b, ttl, tags...)
 		}
 	}()
 
 	return result, nil
-}
-
-func InvalidateTag(ctx context.Context, rdb *redis.Client, tag string) error {
-	tagKey := Keys.TagSet(tag)
-
-	keys, err := rdb.SMembers(ctx, tagKey).Result()
-	if err != nil {
-		return err
-	}
-
-	if len(keys) > 0 {
-		if err := rdb.Del(ctx, keys...).Err(); err != nil {
-			return err
-		}
-	}
-
-	return rdb.Del(ctx, tagKey).Err()
 }

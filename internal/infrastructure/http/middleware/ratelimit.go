@@ -20,7 +20,7 @@ type rateLimitExt struct {
 	Window string `json:"window"`
 }
 
-func RateLimiter(rdb *redis.Client, router routers.Router, env internal.AppEnv) gin.HandlerFunc {
+func RateLimiter(rdb redis.UniversalClient, router routers.Router, env internal.AppEnv) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if env != internal.AppEnvProd {
 			if c.GetHeader(sharedHttp.SkipRateLimitHeader) == "1" {
