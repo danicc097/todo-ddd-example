@@ -41,7 +41,9 @@ func (h *retryDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
 		default:
 		}
 
-		res, err := h.next.Handle(ctx, cmd)
+		var res R
+
+		res, err = h.next.Handle(ctx, cmd)
 		if err == nil {
 			return res, nil
 		}
