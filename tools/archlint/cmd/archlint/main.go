@@ -12,5 +12,7 @@ func main() {
 		archlint.GinLeakAnalyzer,
 		archlint.CQRSPurityAnalyzer,
 		archlint.DTOBleedAnalyzer,
+		archlint.DomainImmutabilityAnalyzer,
+		archlint.EventRegistrationAnalyzer,
 	)
 }

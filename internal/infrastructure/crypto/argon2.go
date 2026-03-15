@@ -1,6 +1,8 @@
 package crypto
 
 import (
+	"fmt"
+
 	"github.com/alexedwards/argon2id"
 )
 
@@ -15,10 +17,20 @@ var DefaultArgon2Params = argon2id.Params{
 
 // HashPassword hashes a password using Argon2id.
 func HashPassword(password string, p argon2id.Params) (string, error) {
-	return argon2id.CreateHash(password, &p) //nolint:wrapcheck
+	hash, err := argon2id.CreateHash(password, &p)
+	if err != nil {
+		return "", fmt.Errorf("argon2id.CreateHash: %w", err)
+	}
+
+	return hash, nil
 }
 
 // ComparePassword verifies a password against an Argon2id hash.
 func ComparePassword(password, encodedHash string) (bool, error) {
-	return argon2id.ComparePasswordAndHash(password, encodedHash) //nolint:wrapcheck
+	match, err := argon2id.ComparePasswordAndHash(password, encodedHash)
+	if err != nil {
+		return false, fmt.Errorf("argon2id.ComparePasswordAndHash: %w", err)
+	}
+
+	return match, nil
 }

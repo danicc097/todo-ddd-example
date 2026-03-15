@@ -28,4 +28,12 @@ func TestArchLinters(t *testing.T) {
 	t.Run("DTOBleedAnalyzer", func(t *testing.T) {
 		analysistest.Run(t, testdata, archlint.DTOBleedAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/dtobleed/...")
 	})
+
+	t.Run("DomainImmutabilityAnalyzer", func(t *testing.T) {
+		analysistest.Run(t, testdata, archlint.DomainImmutabilityAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/domainimmutability/...")
+	})
+
+	t.Run("EventRegistrationAnalyzer", func(t *testing.T) {
+		analysistest.Run(t, testdata, archlint.EventRegistrationAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/eventregistration/...")
+	})
 }

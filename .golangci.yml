@@ -10,7 +10,6 @@ linters:
     - dupword
     - noinlineerr
     - err113
-    - forbidigo
     - funlen
     - godox
     - lll
@@ -19,8 +18,8 @@ linters:
     - nlreturn
     - noctx
     - nonamedreturns
-    - ireturn
     - sqlclosecheck
+    - ireturn
     - tagalign
     - testpackage
     - thelper
@@ -45,6 +44,8 @@ linters:
               desc: "Arch violation: Domain layer cannot depend on the Infrastructure layer."
             - pkg: "github.com/danicc097/todo-ddd-example/internal/infrastructure"
               desc: "Arch violation: Domain layer cannot depend on global Infrastructure."
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/generated/db"
+              desc: "Arch violation: Domain layer cannot depend on generated DB models."
             - pkg: "github.com/gin-gonic/gin"
               desc: "Arch violation: Domain layer cannot know about HTTP routing."
             - pkg: "github.com/jackc/pgx"
@@ -56,14 +57,31 @@ linters:
           deny:
             - pkg: "github.com/danicc097/todo-ddd-example/internal/modules/*/infrastructure"
               desc: "Arch violation: Application layer cannot depend on the Infrastructure layer."
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/generated/db"
+              desc: "Arch violation: Application layer cannot depend on generated DB models (use Domain entities or Application DTOs)."
             - pkg: "github.com/gin-gonic/gin"
               desc: "Arch violation: Application layer cannot know about HTTP routing."
             - pkg: "github.com/jackc/pgx"
               desc: "Arch violation: Application layer cannot know about the database."
+        http:
+          files:
+            - "**/infrastructure/http/*.go"
+            - "!**/*_test.go"
+          deny:
+            - pkg: "github.com/danicc097/todo-ddd-example/internal/generated/db"
+              desc: "Arch violation: HTTP handlers cannot depend on generated DB models (use Domain entities or API DTOs)."
     revive:
       rules:
         - name: unused-parameter
           disabled: true
+    forbidigo:
+      forbid:
+        - pattern: ^os\.Getenv$
+          msg: "Do not use os.Getenv directly. Use internal.Config instead."
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
     paralleltest:
       ignore-missing-subtests: true
     errcheck:
@@ -82,6 +100,8 @@ linters:
         - .*Args
         - .*DTO
         - github.com/danicc097/todo-ddd-example/internal/generated/db.*Params
+      exclude:
+        - ".*/testdata/.*"
     ireturn:
       allow:
         - error
@@ -154,9 +174,6 @@ linters:
           - gosec
         path: internal/testutil/*
       - linters:
-          - nolintlint
-        path: .
-      - linters:
           - godot
           - lll
           - wsl
@@ -184,6 +201,9 @@ linters:
           - funlen
           - gocognit
           - unparam
+        path: cmd/
+      - linters:
+          - forbidigo
         path: cmd/
       - linters:
           - revive

@@ -17,8 +17,7 @@ var CQRSPurityAnalyzer = &analysis.Analyzer{
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      runCQRSPurityCheck,
 }
-
-var forbiddenVerbs = []string{"Save", "Insert", "Update", "Delete", "Create", "Upsert", "Remove"}
+var allowedVerbs = []string{"Get", "List", "Find", "Search", "Count", "GetAll"}
 
 func runCQRSPurityCheck(pass *analysis.Pass) (any, error) {
 	insp, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
@@ -55,10 +54,17 @@ func checkInterface(pass *analysis.Pass, iface *ast.InterfaceType, ifaceName str
 		}
 
 		methodName := method.Names[0].Name
-		for _, verb := range forbiddenVerbs {
+		allowed := false
+
+		for _, verb := range allowedVerbs {
 			if strings.HasPrefix(methodName, verb) {
-				pass.Reportf(method.Pos(), "Arch violation: QueryService interface %s has mutating method %s. Queries must be read-only.", ifaceName, methodName)
+				allowed = true
+				break
 			}
+		}
+
+		if !allowed {
+			pass.Reportf(method.Pos(), "Arch violation: QueryService interface %s has non-query method %s. Queries must only use allowed verbs: %v.", ifaceName, methodName, allowedVerbs)
 		}
 	}
 }

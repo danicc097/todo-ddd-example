@@ -36,8 +36,7 @@ type TagCreatedDTO struct {
 }
 
 func (m *TagMapper) MapEvent(e shared.DomainEvent) (shared.EventType, any, error) {
-	switch evt := e.(type) {
-	case domain.TagCreatedEvent:
+	if evt, ok := e.(domain.TagCreatedEvent); ok {
 		return shared.TodoTagCreated, TagCreatedDTO{
 			ID:           evt.ID,
 			Name:         evt.Name.String(),

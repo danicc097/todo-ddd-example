@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// nolint: gochecknoinits
+//nolint:gochecknoinits // watchdog cleans up orphaned test containers
 func init() {
 	_, thisFile, _, _ := runtime.Caller(0)
 	projectRoot, _ := filepath.Abs(filepath.Join(filepath.Dir(thisFile), "../../"))

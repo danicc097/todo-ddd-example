@@ -19,7 +19,7 @@ import (
 	"github.com/danicc097/todo-ddd-example/internal/testutils"
 )
 
-// nolint: paralleltest
+//nolint:paralleltest // relies on shared global postgres pool
 func TestOutboxRelay_Tracing(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)
@@ -90,7 +90,7 @@ func TestOutboxRelay_Tracing(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond, "Expected span with matching aggregate ID")
 }
 
-// nolint: paralleltest
+//nolint:paralleltest // relies on shared global postgres pool
 func TestOutboxRelay_TracingPropagation(t *testing.T) {
 	ctx := context.Background()
 	pool := testutils.GetGlobalPostgresPool(t)

@@ -3,7 +3,7 @@ package application
 import "github.com/danicc097/todo-ddd-example/internal/shared/application"
 
 type TodoQueryService interface {
-	Save() // want "Arch violation: QueryService interface TodoQueryService has mutating method Save. Queries must be read-only."
+	Save() // want "Arch violation: QueryService interface TodoQueryService has non-query method Save. Queries must only use allowed verbs: \\[Get List Find Search Count GetAll\\]."
 	Get()
 }
 

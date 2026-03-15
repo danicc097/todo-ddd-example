@@ -69,7 +69,7 @@ func (u *pgUnitOfWork) Execute(ctx context.Context, fn func(ctx context.Context)
 			}
 		}
 
-		//nolint: nilnil
+		//nolint:nilnil // no result value is meaningful here
 		return nil, nil
 	})
 
