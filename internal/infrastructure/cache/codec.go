@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/ugorji/go/codec"
@@ -34,16 +35,22 @@ func (c *MsgpackCodec[T]) Marshal(v T) ([]byte, error) {
 	var b []byte
 
 	err := codec.NewEncoderBytes(&b, c.handle).Encode(v)
+	if err != nil {
+		return nil, fmt.Errorf("codec.Encode failed: %w", err)
+	}
 
-	return b, err
+	return b, nil
 }
 
 func (c *MsgpackCodec[T]) Unmarshal(data []byte) (T, error) {
 	var dest T
 
 	err := codec.NewDecoderBytes(data, c.handle).Decode(&dest)
+	if err != nil {
+		return dest, fmt.Errorf("codec.Decode failed: %w", err)
+	}
 
-	return dest, err
+	return dest, nil
 }
 
 // CollectionCodec implements Codec for slices of any type.
@@ -59,14 +66,20 @@ func (c CollectionCodec[T]) Marshal(v []T) ([]byte, error) {
 	var b []byte
 
 	err := codec.NewEncoderBytes(&b, c.handle).Encode(v)
+	if err != nil {
+		return nil, fmt.Errorf("codec.Encode failed: %w", err)
+	}
 
-	return b, err
+	return b, nil
 }
 
 func (c CollectionCodec[T]) Unmarshal(b []byte) ([]T, error) {
 	var res []T
 
 	err := codec.NewDecoderBytes(b, c.handle).Decode(&res)
+	if err != nil {
+		return nil, fmt.Errorf("codec.Decode failed: %w", err)
+	}
 
-	return res, err
+	return res, nil
 }

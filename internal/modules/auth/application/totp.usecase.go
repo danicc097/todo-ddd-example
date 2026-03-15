@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/pquerna/otp/totp"
@@ -39,7 +40,7 @@ func (h *InitiateTOTPHandler) Handle(ctx context.Context, _ application.Void) (s
 
 	key, err := totp.Generate(totp.GenerateOpts{Issuer: messaging.Keys.AppDisplayName(), AccountName: userID.String()})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("generate totp: %w", err)
 	}
 
 	cipher, nonce, err := crypto.Encrypt([]byte(key.Secret()), h.masterKey)

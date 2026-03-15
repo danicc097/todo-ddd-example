@@ -45,7 +45,7 @@ func NewConnectionPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("context done: %w", ctx.Err())
 		case <-time.After(2 * time.Second):
 		}
 	}

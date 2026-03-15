@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/otel"
@@ -27,7 +28,7 @@ func NewPublisher(conn *rabbitmq.Conn, exchange string) (*Publisher, error) {
 		rabbitmq.WithPublisherOptionsExchangeDeclare,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new publisher: %w", err)
 	}
 
 	return &Publisher{publisher: pub, exchange: exchange}, nil
@@ -62,9 +63,11 @@ func (p *Publisher) Publish(ctx context.Context, args messaging.PublishArgs) err
 	)
 	if err != nil {
 		span.RecordError(err)
+
+		return fmt.Errorf("publish: %w", err)
 	}
 
-	return err
+	return nil
 }
 
 func (p *Publisher) Close() { p.publisher.Close() }

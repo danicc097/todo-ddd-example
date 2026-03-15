@@ -7,21 +7,19 @@ linters:
     - tparallel
     - funcorder
     - bodyclose
-    - contextcheck
     - dupword
-    - wrapcheck
     - noinlineerr
     - err113
     - forbidigo
     - funlen
     - godox
-    - ireturn
     - lll
     - mnd
     - nilerr
     - nlreturn
     - noctx
     - nonamedreturns
+    - ireturn
     - sqlclosecheck
     - tagalign
     - testpackage
@@ -137,6 +135,11 @@ linters:
         - .WithMessage(
         - .WithMessagef(
         - .WithStack(
+        - apperrors.Wrap(
+        - apperrors.New(
+        - .NewDomainError(
+        - .WrapDomainError(
+        - .ParseDBError(
       ignore-package-globs:
         - github.com/danicc097/todo-ddd-example/*
   exclusions:

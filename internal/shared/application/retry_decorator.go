@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"time"
@@ -37,7 +38,7 @@ func (h *retryDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
 	for i := 0; i <= h.maxRetries; i++ {
 		select {
 		case <-ctx.Done():
-			return zero, ctx.Err()
+			return zero, fmt.Errorf("context done: %w", ctx.Err())
 		default:
 		}
 
@@ -64,7 +65,7 @@ func (h *retryDecorator[C, R]) Handle(ctx context.Context, cmd C) (R, error) {
 			select {
 			case <-time.After(backoff):
 			case <-ctx.Done():
-				return zero, ctx.Err()
+				return zero, fmt.Errorf("context done during backoff: %w", ctx.Err())
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,7 +61,7 @@ func SaveDomainEvents(
 		} else {
 			b, err := json.Marshal(rawPayload)
 			if err != nil {
-				return err
+				return fmt.Errorf("json marshal raw payload: %w", err)
 			}
 
 			envelope.Data = b
@@ -68,7 +69,7 @@ func SaveDomainEvents(
 
 		payload, err := json.Marshal(envelope)
 		if err != nil {
-			return err
+			return fmt.Errorf("json marshal envelope: %w", err)
 		}
 
 		headers := make(map[string]string)
@@ -86,7 +87,7 @@ func SaveDomainEvents(
 
 		headersJSON, err := json.Marshal(headers)
 		if err != nil {
-			return err
+			return fmt.Errorf("json marshal headers: %w", err)
 		}
 
 		if err := q.SaveOutboxEvent(ctx, dbtx, db.SaveOutboxEventParams{
@@ -97,7 +98,7 @@ func SaveDomainEvents(
 			Payload:       payload,
 			Headers:       headersJSON,
 		}); err != nil {
-			return err
+			return fmt.Errorf("save outbox event: %w", err)
 		}
 	}
 

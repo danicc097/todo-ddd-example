@@ -117,13 +117,13 @@ func newPostgreSQLContainer(ctx context.Context) (*PostgreSQLContainer, error) {
 
 func (p *PostgreSQLContainer) cleanupOrphanedDatabases(ctx context.Context) error {
 	if _, err := p.adminPool.Exec(ctx, "SELECT pg_advisory_lock(999999999)"); err != nil {
-		return err
+		return fmt.Errorf("failed to acquire advisory lock: %w", err)
 	}
 	defer p.adminPool.Exec(ctx, "SELECT pg_advisory_unlock(999999999)")
 
 	rows, err := p.adminPool.Query(ctx, "SELECT datname FROM pg_database WHERE datname LIKE 'test_%'")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query databases: %w", err)
 	}
 
 	var orphanDBs []string
@@ -234,7 +234,7 @@ func (p *PostgreSQLContainer) CreateTestDatabase(ctx context.Context, t *testing
 	t.Cleanup(func() {
 		pool.Close()
 
-		_, _ = p.adminPool.Exec(context.Background(), fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", testDBName))
+		_, _ = p.adminPool.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", testDBName))
 	})
 
 	return pool

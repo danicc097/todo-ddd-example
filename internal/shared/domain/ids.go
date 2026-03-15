@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -27,18 +28,23 @@ func (id ID[T]) IsNil() bool {
 }
 
 func (id ID[T]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(id.String())
+	b, err := json.Marshal(id.String())
+	if err != nil {
+		return nil, fmt.Errorf("json marshal: %w", err)
+	}
+
+	return b, nil
 }
 
 func (id *ID[T]) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
-		return err
+		return fmt.Errorf("json unmarshal: %w", err)
 	}
 
 	u, err := uuid.Parse(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("uuid parse: %w", err)
 	}
 
 	*id = ID[T](u)
@@ -49,7 +55,7 @@ func (id *ID[T]) UnmarshalJSON(data []byte) error {
 func (id *ID[T]) UnmarshalText(data []byte) error {
 	var u uuid.UUID
 	if err := u.UnmarshalText(data); err != nil {
-		return err
+		return fmt.Errorf("uuid unmarshal text: %w", err)
 	}
 
 	*id = ID[T](u)
@@ -58,5 +64,10 @@ func (id *ID[T]) UnmarshalText(data []byte) error {
 }
 
 func (id ID[T]) MarshalText() ([]byte, error) {
-	return uuid.UUID(id).MarshalText()
+	b, err := uuid.UUID(id).MarshalText()
+	if err != nil {
+		return nil, fmt.Errorf("uuid marshal text: %w", err)
+	}
+
+	return b, nil
 }

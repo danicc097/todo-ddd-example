@@ -49,9 +49,9 @@ lint:
 	go build ./... >/dev/null
 	go test -c ./tests/e2e/... -tags e2e -o /dev/null
 	@echo ">>> Running custom architectural analyzer..."
-	go test ./tools/archlint/...
+	go run ./tools/archlint/cmd/archlint ./...
 	@echo ">>> Running critical linters..."
-	$(GOLINT) run ./... --allow-parallel-runners --config=.golangci.yml --issues-exit-code=1 --enable-only depguard,exhaustruct
+	$(GOLINT) run ./... --allow-parallel-runners --config=.golangci.yml --issues-exit-code=1 --enable-only depguard,exhaustruct,wrapcheck,contextcheck
 	@echo ">>> Running linters and fix"
 	$(GOLINT) run ./... --allow-parallel-runners --fix --config=.golangci.yml --issues-exit-code=0 >/dev/null || true
 

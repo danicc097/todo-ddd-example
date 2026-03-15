@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ugorji/go/codec"
@@ -39,8 +40,11 @@ func (c *WorkspaceCacheCodec) Marshal(w *domain.Workspace) ([]byte, error) {
 	var b []byte
 
 	err := codec.NewEncoderBytes(&b, c.handle).Encode(dto)
+	if err != nil {
+		return nil, fmt.Errorf("encode: %w", err)
+	}
 
-	return b, err
+	return b, nil
 }
 
 func (c *WorkspaceCacheCodec) Unmarshal(data []byte) (*domain.Workspace, error) {
@@ -48,7 +52,7 @@ func (c *WorkspaceCacheCodec) Unmarshal(data []byte) (*domain.Workspace, error) 
 
 	dec := codec.NewDecoderBytes(data, c.handle)
 	if err := dec.Decode(&dto); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode: %w", err)
 	}
 
 	name, _ := domain.NewWorkspaceName(dto.Name)

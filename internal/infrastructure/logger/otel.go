@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -34,7 +35,7 @@ func Init(ctx context.Context, level string, isProduction bool, endpoint string)
 
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new trace exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -45,7 +46,7 @@ func Init(ctx context.Context, level string, isProduction bool, endpoint string)
 
 	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithInsecure(), otlpmetricgrpc.WithEndpoint(endpoint))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new metric exporter: %w", err)
 	}
 
 	mp := metric.NewMeterProvider(
@@ -104,5 +105,9 @@ func (h *traceHandler) Handle(ctx context.Context, r slog.Record) error {
 		)
 	}
 
-	return h.Handler.Handle(ctx, r)
+	if err := h.Handler.Handle(ctx, r); err != nil {
+		return fmt.Errorf("slog handle: %w", err)
+	}
+
+	return nil
 }

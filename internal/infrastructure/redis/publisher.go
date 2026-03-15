@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -46,7 +47,7 @@ func (p *Publisher) Publish(ctx context.Context, args messaging.PublishArgs) err
 		span.RecordError(err)
 		slog.ErrorContext(ctx, "redis publish failed", slog.String("error", err.Error()))
 
-		return err
+		return fmt.Errorf("publish: %w", err)
 	}
 
 	return nil

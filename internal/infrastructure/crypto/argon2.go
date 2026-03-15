@@ -15,10 +15,10 @@ var DefaultArgon2Params = argon2id.Params{
 
 // HashPassword hashes a password using Argon2id.
 func HashPassword(password string, p argon2id.Params) (string, error) {
-	return argon2id.CreateHash(password, &p)
+	return argon2id.CreateHash(password, &p) //nolint:wrapcheck
 }
 
 // ComparePassword verifies a password against an Argon2id hash.
 func ComparePassword(password, encodedHash string) (bool, error) {
-	return argon2id.ComparePasswordAndHash(password, encodedHash)
+	return argon2id.ComparePasswordAndHash(password, encodedHash) //nolint:wrapcheck
 }

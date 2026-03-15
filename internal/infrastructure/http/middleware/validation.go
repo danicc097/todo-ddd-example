@@ -261,11 +261,21 @@ type responseBodyWriter struct {
 }
 
 func (r *responseBodyWriter) Write(b []byte) (int, error) {
-	return r.body.Write(b)
+	n, err := r.body.Write(b)
+	if err != nil {
+		return n, fmt.Errorf("buffer write: %w", err)
+	}
+
+	return n, nil
 }
 
 func (r *responseBodyWriter) WriteString(s string) (int, error) {
-	return r.body.WriteString(s)
+	n, err := r.body.WriteString(s)
+	if err != nil {
+		return n, fmt.Errorf("buffer write string: %w", err)
+	}
+
+	return n, nil
 }
 
 func (r *responseBodyWriter) WriteHeader(statusCode int) {
@@ -300,13 +310,17 @@ func validateRequest(c *gin.Context, router routers.Router, options *OAValidator
 		ctx = context.WithValue(ctx, "userData", options.UserData)
 	}
 
-	return openapi3filter.ValidateRequest(ctx, validationInput)
+	if err := openapi3filter.ValidateRequest(ctx, validationInput); err != nil {
+		return fmt.Errorf("validate request: %w", err)
+	}
+
+	return nil
 }
 
 func validateResponse(c *gin.Context, router routers.Router, rbw *responseBodyWriter, options *OAValidatorOptions) error {
 	route, pathParams, err := router.FindRoute(c.Request)
 	if err != nil {
-		return err
+		return fmt.Errorf("route not found: %w", err)
 	}
 
 	var opts *openapi3filter.Options
@@ -328,5 +342,9 @@ func validateResponse(c *gin.Context, router routers.Router, rbw *responseBodyWr
 
 	input.SetBodyBytes(rbw.body.Bytes())
 
-	return openapi3filter.ValidateResponse(c.Request.Context(), input)
+	if err := openapi3filter.ValidateResponse(c.Request.Context(), input); err != nil {
+		return fmt.Errorf("validate response: %w", err)
+	}
+
+	return nil
 }

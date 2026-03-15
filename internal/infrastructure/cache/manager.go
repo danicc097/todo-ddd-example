@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -53,14 +54,14 @@ func GetOrFetch[T any](
 	})
 	if err != nil {
 		var zero T
-		return zero, err
+		return zero, fmt.Errorf("sfGroup.Do failed: %w", err)
 	}
 
 	result, _ := v.(T)
 
 	go func() {
 		if b, marshalErr := codec.Marshal(result); marshalErr == nil {
-			bgCtx := trace.ContextWithSpanContext(context.Background(), trace.SpanContextFromContext(ctx))
+			bgCtx := context.WithoutCancel(ctx)
 			bgCtx = causation.WithMetadata(bgCtx, causation.FromContext(ctx))
 
 			bgCtx, asyncSpan := tracer.Start(bgCtx, "cache.async_update", trace.WithSpanKind(trace.SpanKindInternal))

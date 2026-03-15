@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -26,7 +27,7 @@ func (g *TOTPGuard) Consume(ctx context.Context, userID userDomain.UserID, code 
 
 	acquired, err := g.client.SetNX(ctx, key, "consumed", 90*time.Second).Result()
 	if err != nil {
-		return err
+		return fmt.Errorf("setnx: %w", err)
 	}
 
 	if !acquired {

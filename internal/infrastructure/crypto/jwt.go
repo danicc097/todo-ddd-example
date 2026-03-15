@@ -81,7 +81,12 @@ func (i *TokenIssuer) Issue(userID uuid.UUID, mfaVerified bool, duration time.Du
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
-	return token.SignedString(i.privateKey)
+	signed, err := token.SignedString(i.privateKey)
+	if err != nil {
+		return "", fmt.Errorf("token.SignedString failed: %w", err)
+	}
+
+	return signed, nil
 }
 
 // TokenVerifier handles verifying JWTs using a public RSA key.
@@ -102,7 +107,7 @@ func (v *TokenVerifier) Verify(tokenString string) (*AuthClaims, error) {
 		return v.publicKey, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("jwt.ParseWithClaims failed: %w", err)
 	}
 
 	if claims, ok := token.Claims.(*AuthClaims); ok && token.Valid {

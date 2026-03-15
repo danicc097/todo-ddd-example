@@ -42,7 +42,7 @@ func SwaggerUIHandler(url string) gin.HandlerFunc {
 func GetExplodedSpec(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open: %w", err)
 	}
 	defer f.Close()
 
@@ -50,8 +50,13 @@ func GetExplodedSpec(path string) ([]byte, error) {
 
 	dec := yaml.NewDecoder(f)
 	if err := dec.Decode(&spec); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode: %w", err)
 	}
 
-	return yaml.Marshal(spec)
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	return b, nil
 }

@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -27,7 +28,7 @@ func (s *CacheStore) Get(ctx context.Context, key string) ([]byte, error) {
 			return nil, cache.ErrCacheMiss
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("get: %w", err)
 	}
 
 	return val, nil
@@ -44,8 +45,11 @@ func (s *CacheStore) Set(ctx context.Context, key string, value []byte, ttl time
 	}
 
 	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("set pipe exec: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (s *CacheStore) Delete(ctx context.Context, keys ...string) error {
@@ -59,8 +63,11 @@ func (s *CacheStore) Delete(ctx context.Context, keys ...string) error {
 	}
 
 	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("delete pipe exec: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (s *CacheStore) Invalidate(ctx context.Context, tags ...string) error {
@@ -80,7 +87,7 @@ func (s *CacheStore) Invalidate(ctx context.Context, tags ...string) error {
 	}
 
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
-		return err
+		return fmt.Errorf("smembers pipe exec: %w", err)
 	}
 
 	for _, cmd := range cmds {
@@ -93,5 +100,10 @@ func (s *CacheStore) Invalidate(ctx context.Context, tags ...string) error {
 }
 
 func (s *CacheStore) Incr(ctx context.Context, key string) (int64, error) {
-	return s.client.Incr(ctx, key).Result()
+	val, err := s.client.Incr(ctx, key).Result()
+	if err != nil {
+		return val, fmt.Errorf("incr: %w", err)
+	}
+
+	return val, nil
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,13 @@ type responseWrapper struct {
 
 func (w *responseWrapper) Write(b []byte) (int, error) {
 	w.body.Write(b)
-	return w.ResponseWriter.Write(b)
+
+	n, err := w.ResponseWriter.Write(b)
+	if err != nil {
+		return n, fmt.Errorf("ResponseWriter.Write failed: %w", err)
+	}
+
+	return n, nil
 }
 
 // DBIdempotency implements database-backed idempotency with atomic locking.
