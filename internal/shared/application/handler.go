@@ -2,7 +2,7 @@ package application
 
 import "context"
 
-//go:generate go tool counterfeiter -o mocks/request_handler.gen.go . RequestHandler
+//counterfeiter:generate -o mocks/request_handler.gen.go . RequestHandler
 
 // RequestHandler is the generic interface for all Use Cases.
 type RequestHandler[C any, R any] interface {

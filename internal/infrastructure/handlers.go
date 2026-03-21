@@ -37,6 +37,10 @@ func (h *CompositeHandler) Ping(c *gin.Context) {
 	c.String(http.StatusOK, "pong")
 }
 
+func (h *CompositeHandler) Healthz(c *gin.Context) {
+	c.String(http.StatusOK, "ok")
+}
+
 func (h *CompositeHandler) WS(c *gin.Context) {
 	h.TodoHandler.WS(c)
 }

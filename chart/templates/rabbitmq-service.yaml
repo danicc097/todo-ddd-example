@@ -1,0 +1,26 @@
+{{- if .Values.rabbitmq.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  labels:
+    app.kubernetes.io/name: rabbitmq
+    app.kubernetes.io/component: messaging
+    {{- include "todo-ddd-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: rabbitmq
+  ports:
+    - port: 5672
+      targetPort: 5672
+      name: amqp
+      {{- if and .Values.rabbitmq.service.nodePort (eq .Values.rabbitmq.service.type "NodePort") }}
+      nodePort: {{ .Values.rabbitmq.service.nodePort }}
+      {{- end }}
+    - port: 15672
+      targetPort: 15672
+      name: management
+  {{- if .Values.rabbitmq.service.type }}
+  type: {{ .Values.rabbitmq.service.type }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,49 @@
+{{- if .Values.otelCollector.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  labels:
+    app.kubernetes.io/name: otel-collector
+    {{- include "todo-ddd-app.labels" . | nindent 4 }}
+data:
+  otel-collector-config.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+      filter:
+        error_mode: ignore
+        traces:
+          span:
+            - 'name == "redis.dial"'
+            - 'name == "hello"'
+            - 'name == "client"'
+            - 'name == "redis.pipeline client"'
+    exporters:
+      otlp:
+        endpoint: jaeger.{{ .Release.Namespace }}.svc.cluster.local:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [filter, batch]
+          exporters: [otlp]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [prometheus]
+{{- end }}

@@ -1,0 +1,28 @@
+goApp:
+  replicaCount: 3
+  config:
+    dbHost: your-rds-endpoint.region.rds.amazonaws.com
+    redisAddr: "your-elasticache-endpoint.region.cache.amazonaws.com:6379"
+    logLevel: INFO
+    env: production
+  secrets:
+    rabbitmqUrl: "amqp://user:pass@your-amazonmq-endpoint.mq.region.amazonaws.com:5672/"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+
+devToolsIngress:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+rabbitmq:
+  enabled: false

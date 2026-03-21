@@ -34,6 +34,12 @@ type RouterConfig struct {
 
 func NewRouter(cfg RouterConfig) (*gin.Engine, error) {
 	r := gin.New()
+
+	// Health check endpoint (no middleware, for K8s probes)
+	r.GET("/healthz", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
 	r.Use(otelgin.Middleware(messaging.Keys.ServiceName()))
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.SecurityHeaders(cfg.Env))
@@ -74,7 +80,7 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, error) {
 	r.Use(func(c *gin.Context) {
 		p := c.Request.URL.Path
 		if p == sharedHttp.RouteWS ||
-			p == sharedHttp.RoutePing ||
+			p == sharedHttp.RouteHealthz ||
 			p == sharedHttp.RouteDocs ||
 			p == sharedHttp.RouteFavicon ||
 			p == sharedHttp.RouteOpenAPISpec {

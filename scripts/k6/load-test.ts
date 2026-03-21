@@ -102,7 +102,7 @@ export const options: Options = {
     "http_req_duration{endpoint:getWorkspaceTodos}": ["p(95)<2000", "p(99)<4500"],
     "http_req_duration{endpoint:completeTodo}": ["p(95)<500", "p(99)<1500"],
     "http_req_duration{endpoint:startFocus}": ["p(95)<300"],
-    "http_req_duration{endpoint:ping}": ["p(99)<100"],
+    "http_req_duration{endpoint:healthz}": ["p(99)<100"],
     http_req_failed: ["rate<0.01"],
     api_error_rate: ["rate<0.02"],
     todo_create_ms: ["p(95)<500"],
@@ -145,8 +145,8 @@ export default function () {
   const api = new TodoDDDAPIClient({ baseUrl: BASE_URL });
 
   group("health", () => {
-    const { response } = api.ping(getClientConfig(token, "ping"));
-    check(response, { pong: (r) => r.status === 200 && r.body === "pong" });
+    const { response } = api.healthz(getClientConfig(token, "healthz"));
+    check(response, { healthz: (r) => r.status === 200 && r.body === "ok" });
   });
 
   let todoId = "";

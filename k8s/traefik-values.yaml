@@ -1,0 +1,43 @@
+# hostPort 80/443 cannot be bound by two pods simultaneously; with maxSurge: 0
+# the old pod is killed first, freeing the port before the new pod starts.
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+
+nodeSelector:
+  ingress-ready: "true"
+
+tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Equal
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    operator: Equal
+    effect: NoSchedule
+
+# kind-config.yaml: host 8090 → containerPort 80, host 8443 → containerPort 443
+ports:
+  web:
+    hostPort: 80
+  websecure:
+    hostPort: 443
+
+# ClusterIP avoids a pending LoadBalancer or NodePort redundant with hostPort.
+service:
+  type: ClusterIP
+
+# IngressClass name must match the `ingress.className` in chart/values.yaml.
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: traefik
+
+api:
+  dashboard: true
+  insecure: true
+
+logs:
+  general:
+    level: WARN

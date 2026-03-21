@@ -1,6 +1,7 @@
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -36,10 +37,10 @@ CREATE TABLE public.outbox (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     processed_at timestamp with time zone,
     last_error text,
-    retries integer DEFAULT 0 NOT NULL,
-    aggregate_type text DEFAULT ''::text NOT NULL,
-    aggregate_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid NOT NULL,
-    headers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    retries integer DEFAULT 0 CONSTRAINT outbox__pgroll_new_retries_not_null NOT NULL,
+    aggregate_type text DEFAULT ''::text CONSTRAINT outbox__pgroll_new_aggregate_type_not_null NOT NULL,
+    aggregate_id uuid DEFAULT '00000000-0000-0000-0000-000000000000'::uuid CONSTRAINT outbox__pgroll_new_aggregate_id_not_null NOT NULL,
+    headers jsonb DEFAULT '{}'::jsonb CONSTRAINT outbox__pgroll_new_headers_not_null NOT NULL,
     last_attempted_at timestamp with time zone
 );
 ALTER TABLE public.outbox OWNER TO postgres;
@@ -82,7 +83,7 @@ CREATE TABLE public.todos (
     status text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     workspace_id uuid NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() CONSTRAINT todos__pgroll_new_updated_at_not_null NOT NULL,
     due_date timestamp with time zone,
     recurrence_interval text,
     recurrence_amount integer,

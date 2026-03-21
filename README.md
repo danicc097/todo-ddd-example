@@ -16,7 +16,7 @@
 - **Messaging:** **RabbitMQ** for events and **Redis PubSub** for cross-node
   WebSocket synchronization. Transactional outbox pattern with at-least-once delivery.
 - **Tooling:** Custom generated CLI client from the OpenAPI spec with completion if using `direnv`.
-- **Infra:** **Docker swarm** for multinode deployment with Caddy.
+- **Infra:** **Kubernetes** or **Docker swarm**.
 - **Load testing:** via `k6`.
 - **CI:** See `.github/workflows/tests.yaml`.
 
@@ -35,9 +35,9 @@ make test
 ## Web UIs
 
 - API docs: http://127.0.0.1:8090/api/v1/docs
-- RabbitMQ: http://127.0.0.1:15672/
-- Prometheus: http://127.0.0.1:9090/
-- Jaeger: http://127.0.0.1:16686/search
+- Jaeger: http://jaeger.localhost:8090/
+- Prometheus: http://prometheus.localhost:8090/
+- RabbitMQ: http://rabbitmq.localhost:8090/
 
 # Example API usage
 

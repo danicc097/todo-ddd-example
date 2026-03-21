@@ -1,0 +1,21 @@
+{{- if .Values.goApp.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: go-app-config
+  labels:
+    app.kubernetes.io/name: go-app
+    {{- include "todo-ddd-app.labels" . | nindent 4 }}
+data:
+  DB_USER: {{ .Values.goApp.config.dbUser | quote }}
+  DB_HOST: {{ .Values.goApp.config.dbHost | quote }}
+  DB_PORT: {{ .Values.goApp.config.dbPort | quote }}
+  DB_NAME: {{ .Values.goApp.config.dbName | quote }}
+  REDIS_ADDR: {{ .Values.goApp.config.redisAddr | quote }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.goApp.config.otelEndpoint | quote }}
+  OTEL_EXPORTER_OTLP_INSECURE: {{ .Values.goApp.config.otelInsecure | quote }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: {{ .Values.goApp.config.otelProtocol | quote }}
+  LOG_LEVEL: {{ .Values.goApp.config.logLevel | quote }}
+  ENV: {{ .Values.goApp.config.env | quote }}
+  PORT: {{ .Values.goApp.config.port | quote }}
+{{- end }}

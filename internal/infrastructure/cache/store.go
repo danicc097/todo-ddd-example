@@ -8,7 +8,7 @@ import (
 
 var ErrCacheMiss = errors.New("cache: key not found")
 
-//go:generate go tool counterfeiter -o mocks/store.gen.go . Store
+//counterfeiter:generate -o mocks/store.gen.go . Store
 
 // Store defines the interface for a cache backend.
 type Store interface {

@@ -320,8 +320,8 @@ type ServerInterface interface {
 	// (POST /auth/totp/verify)
 	VerifyTOTP(c *gin.Context)
 	// Health check
-	// (GET /ping)
-	Ping(c *gin.Context)
+	// (GET /healthz)
+	Healthz(c *gin.Context)
 	// Commit a task to daily schedule
 	// (POST /schedule/commit)
 	CommitTask(c *gin.Context)
@@ -466,8 +466,8 @@ func (siw *ServerInterfaceWrapper) VerifyTOTP(c *gin.Context) {
 	siw.Handler.VerifyTOTP(c)
 }
 
-// Ping operation middleware
-func (siw *ServerInterfaceWrapper) Ping(c *gin.Context) {
+// Healthz operation middleware
+func (siw *ServerInterfaceWrapper) Healthz(c *gin.Context) {
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -476,7 +476,7 @@ func (siw *ServerInterfaceWrapper) Ping(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.Ping(c)
+	siw.Handler.Healthz(c)
 }
 
 // CommitTask operation middleware
@@ -1113,7 +1113,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/register", wrapper.Register)
 	router.POST(options.BaseURL+"/auth/totp/initiate", wrapper.InitiateTOTP)
 	router.POST(options.BaseURL+"/auth/totp/verify", wrapper.VerifyTOTP)
-	router.GET(options.BaseURL+"/ping", wrapper.Ping)
+	router.GET(options.BaseURL+"/healthz", wrapper.Healthz)
 	router.POST(options.BaseURL+"/schedule/commit", wrapper.CommitTask)
 	router.GET(options.BaseURL+"/todos/:id", wrapper.GetTodoByID)
 	router.PATCH(options.BaseURL+"/todos/:id/complete", wrapper.CompleteTodo)

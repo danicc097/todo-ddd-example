@@ -401,8 +401,8 @@ type ClientInterface interface {
 
 	VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// Ping request
-	Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Healthz request
+	Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CommitTaskWithBody request with any body
 	CommitTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -552,8 +552,8 @@ func (c *Client) VerifyTOTP(ctx context.Context, body VerifyTOTPJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) Ping(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPingRequest(c.Server)
+func (c *Client) Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHealthzRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,8 +1002,8 @@ func NewVerifyTOTPRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
-// NewPingRequest generates requests for Ping
-func NewPingRequest(server string) (*http.Request, error) {
+// NewHealthzRequest generates requests for Healthz
+func NewHealthzRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1011,7 +1011,7 @@ func NewPingRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/ping")
+	operationPath := fmt.Sprintf("/healthz")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1936,8 +1936,8 @@ type ClientWithResponsesInterface interface {
 
 	VerifyTOTPWithResponse(ctx context.Context, body VerifyTOTPJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyTOTPResponse, error)
 
-	// PingWithResponse request
-	PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error)
+	// HealthzWithResponse request
+	HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResponse, error)
 
 	// CommitTaskWithBodyWithResponse request with any body
 	CommitTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CommitTaskResponse, error)
@@ -2091,13 +2091,13 @@ func (r VerifyTOTPResponse) StatusCode() int {
 	return 0
 }
 
-type PingResponse struct {
+type HealthzResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 }
 
 // Status returns HTTPResponse.Status
-func (r PingResponse) Status() string {
+func (r HealthzResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2105,7 +2105,7 @@ func (r PingResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PingResponse) StatusCode() int {
+func (r HealthzResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2551,13 +2551,13 @@ func (c *ClientWithResponses) VerifyTOTPWithResponse(ctx context.Context, body V
 	return ParseVerifyTOTPResponse(rsp)
 }
 
-// PingWithResponse request returning *PingResponse
-func (c *ClientWithResponses) PingWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PingResponse, error) {
-	rsp, err := c.Ping(ctx, reqEditors...)
+// HealthzWithResponse request returning *HealthzResponse
+func (c *ClientWithResponses) HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResponse, error) {
+	rsp, err := c.Healthz(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePingResponse(rsp)
+	return ParseHealthzResponse(rsp)
 }
 
 // CommitTaskWithBodyWithResponse request with arbitrary body returning *CommitTaskResponse
@@ -2865,15 +2865,15 @@ func ParseVerifyTOTPResponse(rsp *http.Response) (*VerifyTOTPResponse, error) {
 	return response, nil
 }
 
-// ParsePingResponse parses an HTTP response from a PingWithResponse call
-func ParsePingResponse(rsp *http.Response) (*PingResponse, error) {
+// ParseHealthzResponse parses an HTTP response from a HealthzWithResponse call
+func ParseHealthzResponse(rsp *http.Response) (*HealthzResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PingResponse{
+	response := &HealthzResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -53,7 +53,7 @@ func newPostgreSQLContainer(ctx context.Context) (*PostgreSQLContainer, error) {
 	_ = os.Setenv("TESTCONTAINERS_REUSE_ENABLE", "true")
 
 	req := testcontainers.ContainerRequest{
-		Image: "postgres:16-alpine",
+		Image: "postgres:17-alpine",
 		Name:  "todo-ddd-test-pg",
 		Env: map[string]string{
 			"POSTGRES_DB":       "postgres",

@@ -320,12 +320,12 @@ export class TodoDDDAPIClient {
   /**
    * @summary Health check
    */
-  ping(requestParameters?: Params): {
+  healthz(requestParameters?: Params): {
     response: Response;
     data: string;
     operationId: string;
   } {
-    const k6url = new URL(this.cleanBaseUrl + `/ping`);
+    const k6url = new URL(this.cleanBaseUrl + `/healthz`);
     const mergedRequestParameters = this._mergeRequestParameters(
       requestParameters || {},
       this.commonRequestParameters,
@@ -346,7 +346,7 @@ export class TodoDDDAPIClient {
     return {
       response,
       data,
-      operationId: "ping",
+      operationId: "healthz",
     };
   }
 

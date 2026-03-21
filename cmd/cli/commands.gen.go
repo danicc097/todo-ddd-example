@@ -248,8 +248,8 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 
 	rootCmd.AddCommand(cmdVerifyTOTP)
 
-	cmdPing := &cobra.Command{
-		Use:           "ping",
+	cmdHealthz := &cobra.Command{
+		Use:           "healthz",
 		Short:         "Health check",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -258,10 +258,10 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 			c, ctx := getClient()
 
 			if debug {
-				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing Ping"))
+				fmt.Fprintln(os.Stderr, styleHeader.Render("--> Executing Healthz"))
 			}
 
-			resp, err := c.PingWithResponse(ctx)
+			resp, err := c.HealthzWithResponse(ctx)
 			if err != nil {
 				return err
 			}
@@ -290,7 +290,7 @@ func RegisterGeneratedCommands(rootCmd *cobra.Command, getClient func() (*client
 		},
 	}
 
-	rootCmd.AddCommand(cmdPing)
+	rootCmd.AddCommand(cmdHealthz)
 
 	cmdCommitTask := &cobra.Command{
 		Use:           "commit-task",

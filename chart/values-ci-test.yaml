@@ -1,0 +1,33 @@
+goApp:
+  enabled: false
+
+ingress:
+  enabled: false
+
+devToolsIngress:
+  enabled: false
+
+jaeger:
+  enabled: false
+
+otelCollector:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+redis:
+  enabled: false
+
+rabbitmq:
+  enabled: false
+
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      size: 256Mi
+    service:
+      type: NodePort
+      nodePorts:
+        postgresql: 30432

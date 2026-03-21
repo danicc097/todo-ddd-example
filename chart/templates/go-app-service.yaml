@@ -1,0 +1,17 @@
+{{- if .Values.goApp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-app
+  labels:
+    app.kubernetes.io/name: go-app
+    app.kubernetes.io/component: api
+    {{- include "todo-ddd-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: go-app
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+{{- end }}

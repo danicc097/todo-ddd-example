@@ -19,7 +19,7 @@ const client = new TodoDDDAPIClient({
 export function setup() {
   let ready = false;
   for (let i = 0; i < 30; i++) {
-    const { response } = client.ping();
+    const { response } = client.healthz();
     if (response.status === 200) {
       ready = true;
       break;

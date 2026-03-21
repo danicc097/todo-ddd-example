@@ -70,10 +70,10 @@ servers:
     description: Local swarm server
 
 paths:
-  /ping:
+  /healthz:
     get:
       summary: Health check
-      operationId: ping
+      operationId: healthz
       responses:
         '200':
           description: OK
@@ -81,7 +81,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                example: pong
+                example: ok
 
   /auth/register:
     post:

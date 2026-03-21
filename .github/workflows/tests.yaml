@@ -12,21 +12,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Validate Helm chart
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm dependency update ./chart
+          helm lint ./chart
+          for f in chart/values*.yaml; do
+            echo "Validating with $f..."
+            helm template myapp ./chart -f "$f" > /dev/null
+          done
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
           cache: true
 
-      - name: Start Postgres
-        run: |
-          docker swarm init
-          docker network create --driver overlay --attachable myapp-net
-          docker compose -f docker-compose.infra.yml up -d db
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: myapp
+          config: k8s/kind-config.yaml
 
-          until docker exec myapp-db pg_isready -U postgres; do
-            sleep 2
-          done
+      - name: Deploy Postgres
+        run: |
+          helm repo list | grep -q "^bitnami\s" || helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update bitnami
+          helm dependency update ./chart
+          (cd chart/charts && for f in *.tgz; do [ -f "$f" ] && tar xzf "$f" && rm -f "$f"; done)
+          helm upgrade --install myapp ./chart \
+            -f chart/values-ci-test.yaml \
+            --namespace myapp --create-namespace \
+            --wait --timeout 5m
 
       - name: Lint
         run: make lint
@@ -45,6 +63,7 @@ jobs:
   deploy-test:
     name: Deploy and verify
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       FAIL_FAST: "1"
     steps:
@@ -74,7 +93,7 @@ jobs:
 
       - name: Full deployment
         run: |
-          make deploy
+          HELM_VALUES=chart/values-ci.yaml make deploy
 
       - name: Smoke test
         run: |
@@ -94,6 +113,6 @@ jobs:
       - name: Debug on failure
         if: failure()
         run: |
-          docker stack ps myapp --no-trunc
-          docker container ls
-          docker service logs myapp_go-app --no-trunc --raw
+          kubectl get pods -n myapp -o wide
+          kubectl get events -n myapp --sort-by='.lastTimestamp'
+          kubectl logs -n myapp -l app.kubernetes.io/name=go-app --all-containers --tail=100

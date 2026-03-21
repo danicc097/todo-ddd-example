@@ -1,0 +1,139 @@
+goApp:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: myapp-go
+    tag: latest
+    pullPolicy: Never
+  config:
+    dbUser: postgres
+    dbHost: postgres
+    dbPort: "5432"
+    dbName: postgres
+    redisAddr: "redis-master:6379"
+    otelEndpoint: "otel-collector:4317"
+    otelInsecure: "true"
+    otelProtocol: grpc
+    logLevel: DEBUG
+    env: development
+    port: "8080"
+  secrets:
+    mfaMasterKey: "1234567890abcdef1234567890abcdef"
+    dbPass: "postgres"
+    rabbitmqUrl: "amqp://guest:guest@rabbitmq:5672/"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: "2"
+      memory: 128Mi
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+ingress:
+  enabled: true
+  className: traefik
+
+devToolsIngress:
+  enabled: true
+
+jaeger:
+  enabled: true
+  image: jaegertracing/all-in-one:1.62.0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+otelCollector:
+  enabled: true
+  image: otel/opentelemetry-collector-contrib:0.111.0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+prometheus:
+  enabled: true
+  image: prom/prometheus:v3.0.1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
+postgresql:
+  enabled: true
+  fullnameOverride: postgres
+  auth:
+    postgresPassword: postgres
+    database: postgres
+  primary:
+    persistence:
+      size: 512Mi
+    service:
+      type: NodePort
+      nodePorts:
+        postgresql: 30432
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: "2"
+        memory: 256Mi
+
+redis:
+  enabled: true
+  fullnameOverride: redis
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    service:
+      type: NodePort
+      nodePorts:
+        redis: 30379
+    extraFlags:
+      - --maxmemory
+      - 50mb
+      - --maxmemory-policy
+      - allkeys-lru
+
+rabbitmq:
+  enabled: true
+  image: rabbitmq:4-management-alpine
+  auth:
+    username: guest
+    password: guest
+  service:
+    type: NodePort
+    nodePort: 30672
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

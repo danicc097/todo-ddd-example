@@ -62,7 +62,7 @@ func TestMigrations_E2E(t *testing.T) {
 	ctx := context.Background()
 
 	container, err := postgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:17-alpine",
 		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),

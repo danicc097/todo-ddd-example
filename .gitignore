@@ -10,6 +10,7 @@ sql/schema.sql
 .test_last_run
 tmp/
 node_modules/
-
+chart/charts
 scripts/k6/users.json
 scripts/k6/results
+*.pem

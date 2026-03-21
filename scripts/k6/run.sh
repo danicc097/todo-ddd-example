@@ -2,17 +2,16 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SCENARIO="${SCENARIO:-load}"
 API_URL="${API_URL:-http://127.0.0.1:8090}"
 NUM_USERS="${NUM_USERS:-20}"
 
-for dep in k6 curl jq uuidgen yq openapi-to-k6; do
+for dep in k6 curl jq uuidgen; do
 	command -v "$dep" >/dev/null || { echo "✗ Missing: $dep" && exit 1; }
 done
 
-api_path="/tmp/todo-openapi-$(date +%Y%m%d).yaml"
-yq 'explode(.)' openapi.yaml >"$api_path"
-openapi-to-k6 "$api_path" scripts/k6 --verbose
+make -C "${REPO_ROOT}" gen-k6
 
 USERS_FILE="${SCRIPT_DIR}/users.json"
 if [ ! -f "$USERS_FILE" ] || [ "${RESEED:-0}" = "1" ]; then

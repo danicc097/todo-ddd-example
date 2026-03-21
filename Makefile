@@ -3,9 +3,10 @@ ifneq (,$(wildcard ./.env.local))
     export
 endif
 
+SHELL := /bin/bash
 .SILENT:
 
-KNOWN_TARGETS := test test-race test-e2e lint db-drop-dev clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi deploy psql logs run-gen-schema debug-swarm ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch bench-seed bench bench-prometheus
+KNOWN_TARGETS := test test-race test-e2e lint db-drop-dev clean deps lint dev gen gen-sqlc gen-cli gen-schema db-init migrate-up gen-oapi gen-k6 deploy psql logs run-gen-schema k8s-teardown k8s-validate ws-listen rabbitmq-messages rabbitmq-queues rabbitmq-exchanges rabbitmq-bindings rabbitmq-watch bench-seed bench bench-prometheus
 
 
 
@@ -35,8 +36,8 @@ GEN_PG_URL := postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(GEN_DB)
 MIGRATIONS_DIR := ./migrations
 SCHEMA_OUT     := ./sql/schema.sql
 
-DB_CONTAINER_NAME = myapp-db
-DOCKER_PSQL = docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER)
+NAMESPACE ?= myapp
+KUBECTL_PSQL = kubectl exec -n $(NAMESPACE) sts/postgres -- env PGPASSWORD=$(DB_PASS) psql -U $(DB_USER)
 
 .PHONY: $(KNOWN_TARGETS)
 
@@ -86,6 +87,7 @@ CHKSM := $(shell command -v sha1sum >/dev/null && echo "sha1sum" || echo "md5 -q
 MIG_DEPS    := $(MIGRATIONS_DIR)
 SQLC_DEPS   := internal/sqlc.yaml $(SCHEMA_OUT) ./sql/queries
 OAPI_DEPS := internal/oapi-codegen-client.yaml internal/oapi-codegen.yaml openapi.yaml
+K6_DEPS   := openapi.yaml
 
 STRIP := awk '{print $$1}'
 
@@ -117,25 +119,38 @@ gen-oapi:
 		$(call update_cache,$(OAPI_DEPS),oapi_hash); \
 	fi
 
+gen-k6:
+	if $(call is_changed,$(K6_DEPS),k6_hash); then \
+		echo "OpenAPI spec changed. Updating k6 client..."; \
+		for dep in yq openapi-to-k6; do \
+			command -v $$dep >/dev/null || { echo "Skipping k6 codegen: $$dep not found"; exit 0; }; \
+		done; \
+		api_path="$$(mktemp /tmp/todo-openapi.XXXXXX.yaml)"; \
+		yq 'explode(.)' openapi.yaml > "$$api_path"; \
+		openapi-to-k6 "$$api_path" scripts/k6 --verbose; \
+		rm -f "$$api_path"; \
+		$(call update_cache,$(K6_DEPS),k6_hash); \
+	fi
+
 gen-cli:
 	go generate ./cmd/cli
 	go build -o todo-cli ./cmd/cli
 
 run-gen-schema:
-	if ! docker ps --format '{{.Names}}' | grep -q "^$(DB_CONTAINER_NAME)$$"; then \
-		echo "Error: Container $(DB_CONTAINER_NAME) not found. Run 'make deploy' first."; exit 1; \
+	if ! kubectl get sts/postgres -n $(NAMESPACE) &>/dev/null; then \
+		echo "Error: Postgres not found in namespace $(NAMESPACE). Run 'make deploy' first."; exit 1; \
 	fi
-	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
-	$(DOCKER_PSQL) -d postgres -c "CREATE DATABASE $(GEN_DB);" >/dev/null
+	$(KUBECTL_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
+	$(KUBECTL_PSQL) -d postgres -c "CREATE DATABASE $(GEN_DB);" >/dev/null
 	$(PGROLL) --postgres-url "$(GEN_PG_URL)" init
 	find $(MIGRATIONS_DIR) -name "*.json" | sort | xargs -I % $(PGROLL) --postgres-url "$(GEN_PG_URL)" start --complete %
-	docker exec -i $(DB_CONTAINER_NAME) pg_dump -s -x -n public -U $(DB_USER) -d $(GEN_DB) \
+	kubectl exec -n $(NAMESPACE) sts/postgres -- env PGPASSWORD=$(DB_PASS) pg_dump -s -x -n public -U $(DB_USER) -d $(GEN_DB) \
 		| grep -v '^\\' \
 		| grep -v '^--' \
 		| sed '/^$$/d' \
 		> $(SCHEMA_OUT)
 
-	$(DOCKER_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
+	$(KUBECTL_PSQL) -d postgres -c "DROP DATABASE IF EXISTS $(GEN_DB);" >/dev/null
 
 db-init:
 	$(PGROLL) --postgres-url "$(PG_URL)" init
@@ -143,8 +158,8 @@ db-init:
 db-drop-dev:
 	read -p "Type 'DROP' to delete and recreate $(DB_NAME): " ans; \
 	[ "$$ans" = "DROP" ] || (echo "Aborted." && exit 1)
-	docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d template1 -c "DROP DATABASE IF EXISTS $(DB_NAME) WITH (FORCE);"; \
-	docker exec -i $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d template1 -c "CREATE DATABASE $(DB_NAME);"
+	$(KUBECTL_PSQL) -d template1 -c "DROP DATABASE IF EXISTS $(DB_NAME) WITH (FORCE);"
+	$(KUBECTL_PSQL) -d template1 -c "CREATE DATABASE $(DB_NAME);"
 	echo "You can now run 'make migrate-up'."
 
 # Idempotent migration target
@@ -154,7 +169,7 @@ migrate-up:
 
 	for file in $$(find $(MIGRATIONS_DIR) -name "*.json" | sort); do \
 		NAME=$$(basename $$file .json); \
-		EXISTS=$$(docker exec $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d $(DB_NAME) -tAc "SELECT EXISTS(SELECT 1 FROM pgroll.migrations WHERE name = '$$NAME')"); \
+		EXISTS=$$($(KUBECTL_PSQL) -d $(DB_NAME) -tAc "SELECT EXISTS(SELECT 1 FROM pgroll.migrations WHERE name = '$$NAME')"); \
 		if [ "$$EXISTS" = "t" ]; then \
 			echo "Skipping $$NAME (already applied)"; \
 		else \
@@ -167,13 +182,16 @@ deploy:
 	./deploy.sh
 
 psql:
-	docker exec -it $(DB_CONTAINER_NAME) psql -U $(DB_USER) -d $(DB_NAME)
+	kubectl exec -it -n $(NAMESPACE) sts/postgres -- env PGPASSWORD=$(DB_PASS) psql -U $(DB_USER) -d $(DB_NAME)
 
 logs:
-	docker service logs -f $(SERVICE)_go-app
+	kubectl logs -f -n $(NAMESPACE) -l app.kubernetes.io/name=go-app --all-containers
 
-debug-swarm:
-	docker service logs myapp_go-app --no-trunc --raw -f
+k8s-teardown:
+	kind delete cluster --name myapp
+
+k8s-validate:
+	./scripts/k8s-validate.sh
 
 API_URL ?= http://127.0.0.1:8090
 FAIL_FAST ?= 0
@@ -196,29 +214,32 @@ N ?= 5
 QUEUE ?= todo_events
 
 rabbitmq-messages:
-	docker exec myapp-rabbitmq rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json | jq 'reverse'
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin -V / get queue="$(QUEUE)" count="$(N)" -f pretty_json | jq 'reverse'
 
 rabbitmq-watch:
-	docker exec myapp-rabbitmq rabbitmqadmin delete queue name=debug_tap > /dev/null 2>&1 || true
-	docker exec myapp-rabbitmq rabbitmqadmin declare queue name=debug_tap auto_delete=true > /dev/null
-	docker exec myapp-rabbitmq rabbitmqadmin declare binding source=$(QUEUE) destination=debug_tap routing_key="#" > /dev/null
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin delete queue name=debug_tap > /dev/null 2>&1 || true
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin declare queue name=debug_tap auto_delete=true > /dev/null
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin declare binding source=$(QUEUE) destination=debug_tap routing_key="#" > /dev/null
 
 	@echo ">>> Tailing live events on '$(QUEUE)'..."
 	@# ack_requeue_false: remove message after read.
 	while true; do \
-		docker exec myapp-rabbitmq rabbitmqadmin get queue=debug_tap count=10 ackmode=ack_requeue_false -f pretty_json \
+		kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin get queue=debug_tap count=10 ackmode=ack_requeue_false -f pretty_json \
 		| jq -r '.[]?'; \
 		sleep 0.5; \
 	done
 
 rabbitmq-queues:
-	docker exec myapp-rabbitmq rabbitmqadmin -V / list queues name messages messages_ready consumers -f table
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin -V / list queues name messages messages_ready consumers -f table
 
 rabbitmq-exchanges:
-	docker exec myapp-rabbitmq rabbitmqadmin -V / list exchanges name type -f table
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin -V / list exchanges name type -f table
 
 rabbitmq-bindings:
-	docker exec myapp-rabbitmq rabbitmqadmin -V / list bindings source destination routing_key -f table
+	kubectl exec -n $(NAMESPACE) deploy/rabbitmq -- rabbitmqadmin -V / list bindings source destination routing_key -f table
+
+bench-seed:
+	RESEED=1 API_URL="$(API_URL)" SCENARIO=$(or $(SCENARIO),load) bash scripts/k6/run.sh
 
 bench:
 	API_URL="$(API_URL)" SCENARIO=$(or $(SCENARIO),load) bash scripts/k6/run.sh
