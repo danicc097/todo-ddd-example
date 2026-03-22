@@ -12,6 +12,7 @@ import (
 	auditMem "github.com/danicc097/todo-ddd-example/internal/modules/audit/infrastructure/memory"
 	authApp "github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
 	authDomain "github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
+	authAdapters "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/adapters"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	scheduleApp "github.com/danicc097/todo-ddd-example/internal/modules/schedule/application"
@@ -55,6 +56,8 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 	tokenProvider, _ := crypto.NewTokenProvider("private.pem", "public.pem", svcName)
 	hasher, audit, totp := crypto.NewArgon2PasswordHasher(), auditMem.NewAuditRepository(), authRedis.NewTOTPGuard(cnt.Redis)
 	cacheStore := infraRedis.NewCacheStore(cnt.Redis)
+	encryptor := authAdapters.NewAESGCMEncryptor()
+	appConfig := authAdapters.NewMessagingAppConfig()
 
 	/** Repositories **/
 	userRepo := sharedApp.Apply(userDomain.UserRepository(userPg.NewUserRepo(cnt.Pool, uow)),
@@ -133,8 +136,8 @@ func NewServices(ctx context.Context, cfg *internal.AppConfig, cnt *Container) (
 		Auth: authApp.AuthUseCases{
 			Login:        sharedApp.BuildQuery(authApp.NewLoginHandler(userRepo, authRepo, tokenProvider.Issuer, hasher), "login"),
 			Register:     sharedApp.BuildCommand(authApp.NewRegisterHandler(userRepo, authRepo, hasher), uow, "register"),
-			InitiateTOTP: sharedApp.BuildCommand(authApp.NewInitiateTOTPHandler(authRepo, []byte(cfg.MFAMasterKey)), uow, "initiate-totp"),
-			VerifyTOTP:   sharedApp.BuildCommand(authApp.NewVerifyTOTPHandler(authRepo, totp, tokenProvider.Issuer, []byte(cfg.MFAMasterKey)), uow, "verify-totp"),
+			InitiateTOTP: sharedApp.BuildCommand(authApp.NewInitiateTOTPHandler(authRepo, encryptor, appConfig, []byte(cfg.MFAMasterKey)), uow, "initiate-totp"),
+			VerifyTOTP:   sharedApp.BuildCommand(authApp.NewVerifyTOTPHandler(authRepo, totp, tokenProvider.Issuer, encryptor, []byte(cfg.MFAMasterKey)), uow, "verify-totp"),
 		},
 		Schedule: scheduleApp.ScheduleUseCases{
 			CommitTask: sharedApp.BuildCommand(scheduleApp.NewCommitTaskHandler(scheduleRepo, todoRepo), uow, "commit-task"),

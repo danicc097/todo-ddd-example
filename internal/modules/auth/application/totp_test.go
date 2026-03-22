@@ -14,8 +14,8 @@ import (
 
 	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
 	infraCrypto "github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/application"
+	authAdapters "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/adapters"
 	authPg "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/postgres"
 	authRedis "github.com/danicc097/todo-ddd-example/internal/modules/auth/infrastructure/redis"
 	userPg "github.com/danicc097/todo-ddd-example/internal/modules/user/infrastructure/postgres"
@@ -39,6 +39,8 @@ func TestTOTPFlow_Integration(t *testing.T) {
 	totpGuard := authRedis.NewTOTPGuard(redisClient)
 	masterKey := []byte("0123456789abcdef0123456789abcdef")
 	hasher := infraCrypto.NewArgon2PasswordHasher()
+	encryptor := authAdapters.NewAESGCMEncryptor()
+	appConfig := authAdapters.NewMessagingAppConfig()
 
 	privKeyBytes, _ := os.ReadFile("../../../../private.pem")
 	privKey, _ := jwt.ParseRSAPrivateKeyFromPEM(privKeyBytes)
@@ -57,12 +59,12 @@ func TestTOTPFlow_Integration(t *testing.T) {
 
 	ctx = causation.WithMetadata(ctx, causation.Metadata{UserID: registerResp.ID.UUID()})
 
-	initiateHandler := application.NewInitiateTOTPHandler(authRepo, masterKey)
-	_ = application.NewVerifyTOTPHandler(authRepo, totpGuard, tokenIssuer, masterKey)
+	initiateHandler := application.NewInitiateTOTPHandler(authRepo, encryptor, appConfig, masterKey)
+	_ = application.NewVerifyTOTPHandler(authRepo, totpGuard, tokenIssuer, encryptor, masterKey)
 
 	uri, err := initiateHandler.Handle(ctx, struct{}{})
 	require.NoError(t, err)
-	assert.Contains(t, uri, "otpauth://totp/"+messaging.Keys.AppDisplayName())
+	assert.Contains(t, uri, "otpauth://totp/"+appConfig.DisplayName())
 
 	auth, err := authRepo.FindByUserID(ctx, registerResp.ID)
 	require.NoError(t, err)

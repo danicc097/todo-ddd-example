@@ -14,5 +14,7 @@ func main() {
 		archlint.DTOBleedAnalyzer,
 		archlint.DomainImmutabilityAnalyzer,
 		archlint.EventRegistrationAnalyzer,
+		archlint.InfrastructureLeakAnalyzer,
+		archlint.EventMapperAnalyzer,
 	)
 }

@@ -36,4 +36,12 @@ func TestArchLinters(t *testing.T) {
 	t.Run("EventRegistrationAnalyzer", func(t *testing.T) {
 		analysistest.Run(t, testdata, archlint.EventRegistrationAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/eventregistration/...")
 	})
+
+	t.Run("InfrastructureLeakAnalyzer", func(t *testing.T) {
+		analysistest.Run(t, testdata, archlint.InfrastructureLeakAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/infraleak/...")
+	})
+
+	t.Run("EventMapperAnalyzer", func(t *testing.T) {
+		analysistest.Run(t, testdata, archlint.EventMapperAnalyzer, "github.com/danicc097/todo-ddd-example/internal/modules/eventmapper/...")
+	})
 }

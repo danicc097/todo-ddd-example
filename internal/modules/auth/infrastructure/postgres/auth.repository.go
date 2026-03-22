@@ -73,7 +73,7 @@ func (r *AuthRepo) Save(ctx context.Context, auth *domain.UserAuth) error {
 		return fmt.Errorf("failed to save auth for user %s: %w", auth.UserID(), sharedPg.ParseDBError(err))
 	}
 
-	r.uow.Collect(ctx, nil, auth)
+	r.uow.Collect(ctx, &AuthMapper{}, auth)
 
 	return nil
 }

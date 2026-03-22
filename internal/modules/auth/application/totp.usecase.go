@@ -8,8 +8,6 @@ import (
 
 	"github.com/pquerna/otp/totp"
 
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/crypto"
-	"github.com/danicc097/todo-ddd-example/internal/infrastructure/messaging"
 	"github.com/danicc097/todo-ddd-example/internal/modules/auth/domain"
 	userDomain "github.com/danicc097/todo-ddd-example/internal/modules/user/domain"
 	"github.com/danicc097/todo-ddd-example/internal/shared/application"
@@ -22,11 +20,13 @@ type TOTPGuard interface {
 
 type InitiateTOTPHandler struct {
 	repo      domain.AuthRepository
+	encryptor domain.Encryptor
+	appConfig domain.AppConfig
 	masterKey []byte
 }
 
-func NewInitiateTOTPHandler(repo domain.AuthRepository, masterKey []byte) *InitiateTOTPHandler {
-	return &InitiateTOTPHandler{repo: repo, masterKey: masterKey}
+func NewInitiateTOTPHandler(repo domain.AuthRepository, encryptor domain.Encryptor, appConfig domain.AppConfig, masterKey []byte) *InitiateTOTPHandler {
+	return &InitiateTOTPHandler{repo: repo, encryptor: encryptor, appConfig: appConfig, masterKey: masterKey}
 }
 
 func (h *InitiateTOTPHandler) Handle(ctx context.Context, _ application.Void) (string, error) {
@@ -38,12 +38,12 @@ func (h *InitiateTOTPHandler) Handle(ctx context.Context, _ application.Void) (s
 		return "", err
 	}
 
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: messaging.Keys.AppDisplayName(), AccountName: userID.String()})
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: h.appConfig.DisplayName(), AccountName: userID.String()})
 	if err != nil {
 		return "", fmt.Errorf("generate totp: %w", err)
 	}
 
-	cipher, nonce, err := crypto.Encrypt([]byte(key.Secret()), h.masterKey)
+	cipher, nonce, err := h.encryptor.Encrypt([]byte(key.Secret()), h.masterKey)
 	if err != nil {
 		return "", err
 	}
@@ -67,11 +67,12 @@ type VerifyTOTPHandler struct {
 	repo      domain.AuthRepository
 	guard     TOTPGuard
 	issuer    domain.TokenIssuer
+	encryptor domain.Encryptor
 	masterKey []byte
 }
 
-func NewVerifyTOTPHandler(repo domain.AuthRepository, guard TOTPGuard, issuer domain.TokenIssuer, masterKey []byte) *VerifyTOTPHandler {
-	return &VerifyTOTPHandler{repo: repo, guard: guard, issuer: issuer, masterKey: masterKey}
+func NewVerifyTOTPHandler(repo domain.AuthRepository, guard TOTPGuard, issuer domain.TokenIssuer, encryptor domain.Encryptor, masterKey []byte) *VerifyTOTPHandler {
+	return &VerifyTOTPHandler{repo: repo, guard: guard, issuer: issuer, encryptor: encryptor, masterKey: masterKey}
 }
 
 func (h *VerifyTOTPHandler) Handle(ctx context.Context, cmd VerifyTOTPCommand) (VerifyTOTPResponse, error) {
@@ -89,7 +90,7 @@ func (h *VerifyTOTPHandler) Handle(ctx context.Context, cmd VerifyTOTPCommand) (
 
 	cipher, nonce := auth.TOTPCredentials()
 
-	secret, err := crypto.Decrypt(cipher, nonce, h.masterKey)
+	secret, err := h.encryptor.Decrypt(cipher, nonce, h.masterKey)
 	if err != nil {
 		return VerifyTOTPResponse{}, err
 	}
